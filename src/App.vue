@@ -6,7 +6,9 @@ onLaunch(() => {
 });
 </script>
 
-<style>
+<style lang="scss">
+@import "./styles/app.scss";
+
 page {
   min-height: 100%;
   background: #f5f6f8;
@@ -30,4 +32,3 @@ button {
   line-height: 1;
 }
 </style>
-
