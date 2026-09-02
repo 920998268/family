@@ -2,29 +2,13 @@ import type { WorkoutEntry } from '@/types/models';
 import { WORKOUT_KEY_PREFIX, workoutKey } from '@/utils/storageKeys';
 import { validateWorkoutEntry } from '@/utils/validation';
 import type { StorageAdapter } from '@/storage/StorageAdapter';
-
-function parseWorkoutEntries(raw: string | null): WorkoutEntry[] {
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter((entry) => validateWorkoutEntry(entry).valid);
-  } catch {
-    return [];
-  }
-}
+import { parseStoredArray } from './parse';
 
 export class WorkoutRepository {
   constructor(private readonly storage: StorageAdapter) {}
 
   getByDate(date: string): WorkoutEntry[] {
-    return parseWorkoutEntries(this.storage.getItem(workoutKey(date)));
+    return this.readByDate(date);
   }
 
   saveByDate(date: string, entries: WorkoutEntry[]): void {
@@ -44,7 +28,18 @@ export class WorkoutRepository {
     return this.storage
       .keys()
       .filter((key) => key.startsWith(WORKOUT_KEY_PREFIX))
-      .flatMap((key) => parseWorkoutEntries(this.storage.getItem(key)));
+      .flatMap((key) => this.readByKey(key));
+  }
+
+  private readByDate(date: string): WorkoutEntry[] {
+    return this.readByKey(workoutKey(date));
+  }
+
+  private readByKey(key: string): WorkoutEntry[] {
+    return parseStoredArray(
+      this.storage.getItem(key),
+      (entry) => validateWorkoutEntry(entry).valid,
+    );
   }
 }
 

@@ -5,6 +5,8 @@ import { useDietStore } from '@/stores/diet';
 import { MEAL_LABELS, type DietEntry } from '@/types/models';
 import type { DietDraft } from '@/services/DietService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
+import { nutritionText } from '@/utils/format';
+import { errorMessage } from '@/utils/error';
 import DietForm from '@/components/DietForm.vue';
 
 const dietStore = useDietStore();
@@ -51,7 +53,7 @@ function save(draft: DietDraft): void {
   } catch (error) {
     uni.showModal({
       title: '保存失败',
-      content: error instanceof Error ? error.message : '请检查填写内容',
+      content: errorMessage(error, '请检查填写内容'),
       showCancel: false,
     });
   }
@@ -72,21 +74,12 @@ function remove(entry: DietEntry): void {
       } catch (error) {
         uni.showModal({
           title: '删除失败',
-          content: error instanceof Error ? error.message : '请稍后重试',
+          content: errorMessage(error),
           showCancel: false,
         });
       }
     },
   });
-}
-
-function nutritionText(entry: DietEntry): string {
-  const parts: string[] = [];
-  if (entry.calories !== undefined) parts.push(`热量 ${entry.calories} 千卡`);
-  if (entry.protein !== undefined) parts.push(`蛋白质 ${entry.protein}g`);
-  if (entry.carbs !== undefined) parts.push(`碳水 ${entry.carbs}g`);
-  if (entry.fat !== undefined) parts.push(`脂肪 ${entry.fat}g`);
-  return parts.join(' · ');
 }
 </script>
 

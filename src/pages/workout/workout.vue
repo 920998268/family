@@ -5,6 +5,8 @@ import { useWorkoutStore } from '@/stores/workout';
 import type { WorkoutEntry } from '@/types/models';
 import type { WorkoutDraft } from '@/services/WorkoutService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
+import { workoutText } from '@/utils/format';
+import { errorMessage } from '@/utils/error';
 import WorkoutForm from '@/components/WorkoutForm.vue';
 
 const workoutStore = useWorkoutStore();
@@ -51,7 +53,7 @@ function save(draft: WorkoutDraft): void {
   } catch (error) {
     uni.showModal({
       title: '保存失败',
-      content: error instanceof Error ? error.message : '请检查填写内容',
+      content: errorMessage(error, '请检查填写内容'),
       showCancel: false,
     });
   }
@@ -72,18 +74,12 @@ function remove(entry: WorkoutEntry): void {
       } catch (error) {
         uni.showModal({
           title: '删除失败',
-          content: error instanceof Error ? error.message : '请稍后重试',
+          content: errorMessage(error),
           showCancel: false,
         });
       }
     },
   });
-}
-
-function workoutText(entry: WorkoutEntry): string {
-  return entry.sets
-    .map((set) => `${set.weightKg}kg × ${set.reps}`)
-    .join(' / ');
 }
 </script>
 

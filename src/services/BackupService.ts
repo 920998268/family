@@ -5,6 +5,7 @@ import { DietRepository } from '@/repositories/DietRepository';
 import { WorkoutRepository } from '@/repositories/WorkoutRepository';
 import { ProfileRepository } from '@/repositories/ProfileRepository';
 import type { StorageAdapter } from '@/storage/StorageAdapter';
+import { groupByDate } from '@/utils/collections';
 
 export class BackupService {
   private readonly profileRepository: ProfileRepository;
@@ -39,20 +40,8 @@ export class BackupService {
       this.profileRepository.save(payload.profile);
     }
 
-    const dietByDate = new Map<string, typeof payload.diet>();
-    const workoutByDate = new Map<string, typeof payload.workout>();
-
-    for (const entry of payload.diet) {
-      const list = dietByDate.get(entry.date) ?? [];
-      list.push(entry);
-      dietByDate.set(entry.date, list);
-    }
-
-    for (const entry of payload.workout) {
-      const list = workoutByDate.get(entry.date) ?? [];
-      list.push(entry);
-      workoutByDate.set(entry.date, list);
-    }
+    const dietByDate = groupByDate(payload.diet);
+    const workoutByDate = groupByDate(payload.workout);
 
     for (const [date, entries] of dietByDate) {
       this.dietRepository.saveByDate(date, entries);

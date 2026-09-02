@@ -5,9 +5,8 @@ import { useAppStore } from '@/stores/app';
 import { useDietStore } from '@/stores/diet';
 import { useWorkoutStore } from '@/stores/workout';
 import { useProfileStore } from '@/stores/profile';
-import { MEAL_LABELS } from '@/types/models';
 import { formatDateKey } from '@/utils/date';
-import type { DietEntry, WorkoutEntry } from '@/types/models';
+import { mealLabel, nutritionText, workoutText } from '@/utils/format';
 
 const appStore = useAppStore();
 const profileStore = useProfileStore();
@@ -23,25 +22,6 @@ onShow(() => {
   dietStore.load(date.value);
   workoutStore.load(date.value);
 });
-
-function mealLabel(entry: DietEntry): string {
-  return MEAL_LABELS[entry.mealType];
-}
-
-function nutritionText(entry: DietEntry): string {
-  const parts: string[] = [];
-  if (entry.calories !== undefined) parts.push(`热量 ${entry.calories} 千卡`);
-  if (entry.protein !== undefined) parts.push(`蛋白质 ${entry.protein}g`);
-  if (entry.carbs !== undefined) parts.push(`碳水 ${entry.carbs}g`);
-  if (entry.fat !== undefined) parts.push(`脂肪 ${entry.fat}g`);
-  return parts.join(' · ');
-}
-
-function workoutText(entry: WorkoutEntry): string {
-  return entry.sets
-    .map((set) => `${set.weightKg}kg × ${set.reps}`)
-    .join(' / ');
-}
 
 function goDiet(): void {
   uni.navigateTo({ url: `/pages/diet/diet?date=${date.value}` });

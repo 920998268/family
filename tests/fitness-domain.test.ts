@@ -10,6 +10,9 @@ import { WorkoutService } from '@/services/WorkoutService';
 import { BackupService } from '@/services/BackupService';
 import { isValidDateKey, todayKey } from '@/utils/date';
 import { validateBackupPayload, validateDietEntry, validateProfile } from '@/utils/validation';
+import { mealLabel, nutritionText, workoutText } from '@/utils/format';
+import { errorMessage } from '@/utils/error';
+import { groupByDate } from '@/utils/collections';
 import type { BackupPayload, DietEntry, Profile, WorkoutEntry } from '@/types/models';
 
 const profile: Profile = {
@@ -26,6 +29,56 @@ describe('date utilities', () => {
     expect(isValidDateKey('2026-02-30')).toBe(false);
     expect(isValidDateKey('02/09/2026')).toBe(false);
     expect(todayKey()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('shared formatting utilities', () => {
+  it('builds compact nutrition and workout summaries', () => {
+    const diet: DietEntry = {
+      id: 'diet-1',
+      date: '2026-09-02',
+      mealType: 'lunch',
+      foodName: '鸡胸肉',
+      quantity: '200g',
+      calories: 300,
+      protein: 45,
+    };
+    const workout: WorkoutEntry = {
+      id: 'workout-1',
+      date: '2026-09-02',
+      exerciseName: '卧推',
+      sets: [
+        { id: 'set-1', order: 1, reps: 8, weightKg: 60 },
+        { id: 'set-2', order: 2, reps: 6, weightKg: 65 },
+      ],
+    };
+
+    expect(mealLabel(diet)).toBe('午餐');
+    expect(nutritionText(diet)).toBe('热量 300 千卡 · 蛋白质 45g');
+    expect(workoutText(workout)).toBe('60kg × 8 / 65kg × 6');
+  });
+
+  it('returns the underlying error message', () => {
+    expect(errorMessage(new Error('保存失败'))).toBe('保存失败');
+    expect(errorMessage('unknown')).toBe('请稍后重试');
+    expect(errorMessage('unknown', '请检查填写内容')).toBe('请检查填写内容');
+  });
+});
+
+describe('collection helpers', () => {
+  it('groups dated entries by their date', () => {
+    const entries = [
+      { date: '2026-09-02', id: 'a' },
+      { date: '2026-09-03', id: 'b' },
+      { date: '2026-09-02', id: 'c' },
+    ];
+
+    expect(groupByDate(entries)).toEqual(
+      new Map([
+        ['2026-09-02', [entries[0], entries[2]]],
+        ['2026-09-03', [entries[1]]],
+      ]),
+    );
   });
 });
 

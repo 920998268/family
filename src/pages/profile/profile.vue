@@ -3,6 +3,7 @@ import { computed, reactive, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { GENDERS, type Gender, type Profile } from '@/types/models';
+import { errorMessage } from '@/utils/error';
 
 const profileStore = useProfileStore();
 
@@ -68,7 +69,7 @@ function save(): void {
   } catch (error) {
     uni.showModal({
       title: '保存失败',
-      content: error instanceof Error ? error.message : '请检查填写内容',
+      content: errorMessage(error, '请检查填写内容'),
       showCancel: false,
     });
   }

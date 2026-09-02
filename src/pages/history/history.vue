@@ -4,8 +4,8 @@ import { onShow } from '@dcloudio/uni-app';
 import { useAppStore } from '@/stores/app';
 import { useDietStore } from '@/stores/diet';
 import { useWorkoutStore } from '@/stores/workout';
-import { MEAL_LABELS, type DietEntry, type WorkoutEntry } from '@/types/models';
 import { formatDateKey, parseDateKey, toDateKey } from '@/utils/date';
+import { mealLabel, nutritionText, workoutText } from '@/utils/format';
 
 const appStore = useAppStore();
 const dietStore = useDietStore();
@@ -38,25 +38,6 @@ function shiftDate(days: number): void {
   current.setDate(current.getDate() + days);
   date.value = toDateKey(current);
   loadDate();
-}
-
-function mealLabel(entry: DietEntry): string {
-  return MEAL_LABELS[entry.mealType];
-}
-
-function nutritionText(entry: DietEntry): string {
-  const parts: string[] = [];
-  if (entry.calories !== undefined) parts.push(`热量 ${entry.calories} 千卡`);
-  if (entry.protein !== undefined) parts.push(`蛋白质 ${entry.protein}g`);
-  if (entry.carbs !== undefined) parts.push(`碳水 ${entry.carbs}g`);
-  if (entry.fat !== undefined) parts.push(`脂肪 ${entry.fat}g`);
-  return parts.join(' · ');
-}
-
-function workoutText(entry: WorkoutEntry): string {
-  return entry.sets
-    .map((set) => `${set.weightKg}kg × ${set.reps}`)
-    .join(' / ');
 }
 
 function goDiet(): void {

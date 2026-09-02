@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useBackupStore } from '@/stores/backup';
 import type { BackupPayload } from '@/types/models';
+import { errorMessage } from '@/utils/error';
 
 const backupStore = useBackupStore();
 
@@ -49,7 +50,7 @@ function importData(): void {
       } catch (error) {
         uni.showModal({
           title: '导入失败',
-          content: error instanceof Error ? error.message : '请检查备份内容',
+          content: errorMessage(error, '请检查备份内容'),
           showCancel: false,
         });
       }
