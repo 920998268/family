@@ -2,7 +2,7 @@
 import { onLaunch } from '@dcloudio/uni-app';
 
 onLaunch(() => {
-  // MVP 阶段无需初始化云端或登录状态，应用数据统一由本地仓储负责。
+  // 家庭打卡 MVP：数据统一由本地仓储负责，暂不涉及云端登录与同步。
 });
 </script>
 
@@ -11,8 +11,8 @@ onLaunch(() => {
 
 page {
   min-height: 100%;
-  background: #f5f6f8;
-  color: #1f2328;
+  background: #faf6f1;
+  color: #2d2a26;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;

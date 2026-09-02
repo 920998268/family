@@ -1,33 +1,87 @@
 {
   "pages": [
     {
-      "path": "pages/today/today",
+      "path": "pages/home/home",
       "style": {
-        "navigationBarTitleText": "今日记录"
+        "navigationBarTitleText": "家庭打卡"
       }
     },
     {
-      "path": "pages/diet/diet",
+      "path": "pages/checkin/checkin",
       "style": {
-        "navigationBarTitleText": "饮食记录"
+        "navigationBarTitleText": "打卡"
       }
     },
     {
-      "path": "pages/workout/workout",
+      "path": "pages/plan/plan",
       "style": {
-        "navigationBarTitleText": "训练记录"
+        "navigationBarTitleText": "计划"
       }
     },
     {
-      "path": "pages/history/history",
+      "path": "pages/ledger/ledger",
       "style": {
-        "navigationBarTitleText": "历史记录"
+        "navigationBarTitleText": "家庭账本"
       }
     },
     {
-      "path": "pages/profile/profile",
+      "path": "pages/me/me",
       "style": {
-        "navigationBarTitleText": "健康档案"
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/checkin/diet",
+      "style": {
+        "navigationBarTitleText": "饮食打卡"
+      }
+    },
+    {
+      "path": "pages/checkin/workout",
+      "style": {
+        "navigationBarTitleText": "运动打卡"
+      }
+    },
+    {
+      "path": "pages/checkin/study",
+      "style": {
+        "navigationBarTitleText": "学习打卡"
+      }
+    },
+    {
+      "path": "pages/plan/meal",
+      "style": {
+        "navigationBarTitleText": "家庭食谱"
+      }
+    },
+    {
+      "path": "pages/plan/travel",
+      "style": {
+        "navigationBarTitleText": "出行计划"
+      }
+    },
+    {
+      "path": "pages/plan/travel-form",
+      "style": {
+        "navigationBarTitleText": "出行计划"
+      }
+    },
+    {
+      "path": "pages/ledger/record",
+      "style": {
+        "navigationBarTitleText": "记账"
+      }
+    },
+    {
+      "path": "pages/me/profile",
+      "style": {
+        "navigationBarTitleText": "个人信息档案"
+      }
+    },
+    {
+      "path": "pages/me/family",
+      "style": {
+        "navigationBarTitleText": "家庭成员"
       }
     },
     {
@@ -38,30 +92,47 @@
     }
   ],
   "tabBar": {
-    "color": "#6b7280",
-    "selectedColor": "#0f766e",
+    "color": "#9aa0a6",
+    "selectedColor": "#f97316",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
-        "pagePath": "pages/today/today",
-        "text": "今日"
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "static/tabbar/home-gray.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
       },
       {
-        "pagePath": "pages/history/history",
-        "text": "历史"
+        "pagePath": "pages/checkin/checkin",
+        "text": "打卡",
+        "iconPath": "static/tabbar/checkin-gray.png",
+        "selectedIconPath": "static/tabbar/checkin-active.png"
       },
       {
-        "pagePath": "pages/profile/profile",
-        "text": "我的"
+        "pagePath": "pages/plan/plan",
+        "text": "计划",
+        "iconPath": "static/tabbar/plan-gray.png",
+        "selectedIconPath": "static/tabbar/plan-active.png"
+      },
+      {
+        "pagePath": "pages/ledger/ledger",
+        "text": "账本",
+        "iconPath": "static/tabbar/ledger-gray.png",
+        "selectedIconPath": "static/tabbar/ledger-active.png"
+      },
+      {
+        "pagePath": "pages/me/me",
+        "text": "我的",
+        "iconPath": "static/tabbar/me-gray.png",
+        "selectedIconPath": "static/tabbar/me-active.png"
       }
     ]
   },
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "健身饮食记录",
-    "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f5f6f8"
+    "navigationBarTitleText": "家庭打卡",
+    "navigationBarBackgroundColor": "#faf6f1",
+    "backgroundColor": "#faf6f1"
   }
 }
-

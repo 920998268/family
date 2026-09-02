@@ -7,6 +7,7 @@ export type WorkoutSetDraft = Omit<WorkoutSet, 'id' | 'order'>;
 export type WorkoutDraft = {
   exerciseName: string;
   sets: WorkoutSetDraft[];
+  memberId?: string;
 };
 export type WorkoutPatch = Partial<WorkoutDraft>;
 
@@ -27,6 +28,7 @@ export class WorkoutService {
       date,
       exerciseName: draft.exerciseName,
       sets: normalizeSets(draft.sets),
+      memberId: draft.memberId,
     };
     const result = validateWorkoutEntry(entry);
     if (!result.valid) {
@@ -83,4 +85,3 @@ function normalizeSets(sets: WorkoutSetDraft[]): WorkoutSet[] {
     weightKg: set.weightKg,
   }));
 }
-

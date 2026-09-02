@@ -2,29 +2,40 @@
 import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { useDietStore } from '@/stores/diet';
+import { useFamilyStore } from '@/stores/family';
 import type { DietEntry } from '@/types/models';
 import type { DietDraft } from '@/services/DietService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
 import { mealLabel, nutritionText } from '@/utils/format';
 import { errorMessage } from '@/utils/error';
 import DietForm from '@/components/DietForm.vue';
+import MemberSelect from '@/components/MemberSelect.vue';
 
 const dietStore = useDietStore();
+const familyStore = useFamilyStore();
 
 const date = ref(todayKey());
+const memberId = ref<string | undefined>(undefined);
 const formVisible = ref(false);
 const editingEntry = ref<DietEntry | null>(null);
 
 onLoad((options) => {
   const queryDate = options?.date;
-  date.value = typeof queryDate === 'string' && isValidDateKey(queryDate)
-    ? queryDate
-    : todayKey();
+  date.value =
+    typeof queryDate === 'string' && isValidDateKey(queryDate)
+      ? queryDate
+      : todayKey();
 });
 
 onShow(() => {
   dietStore.load(date.value);
+  familyStore.load();
 });
+
+function onDateChange(event: { detail: { value: string } }): void {
+  date.value = event.detail.value;
+  dietStore.load(date.value);
+}
 
 function startAdd(): void {
   editingEntry.value = null;
@@ -33,6 +44,7 @@ function startAdd(): void {
 
 function startEdit(entry: DietEntry): void {
   editingEntry.value = entry;
+  memberId.value = entry.memberId;
   formVisible.value = true;
 }
 
@@ -44,9 +56,12 @@ function closeForm(): void {
 function save(draft: DietDraft): void {
   try {
     if (editingEntry.value) {
-      dietStore.update(date.value, editingEntry.value.id, draft);
+      dietStore.update(date.value, editingEntry.value.id, {
+        ...draft,
+        memberId: memberId.value,
+      });
     } else {
-      dietStore.add(date.value, draft);
+      dietStore.add(date.value, { ...draft, memberId: memberId.value });
     }
     uni.showToast({ title: '已保存', icon: 'success' });
     closeForm();
@@ -67,7 +82,6 @@ function remove(entry: DietEntry): void {
       if (!result.confirm) {
         return;
       }
-
       try {
         dietStore.remove(date.value, entry.id);
         uni.showToast({ title: '已删除', icon: 'success' });
@@ -86,8 +100,18 @@ function remove(entry: DietEntry): void {
 <template>
   <view class="page-shell">
     <view>
-      <text class="page-title">饮食记录</text>
-      <text class="page-subtitle">{{ formatDateKey(date) }}</text>
+      <text class="page-title">饮食打卡</text>
+      <picker mode="date" :value="date" @change="onDateChange">
+        <view class="picker-value picker-value-plain page-subtitle page-subtitle-spaced">
+          <text>{{ formatDateKey(date) }}</text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="section">
+      <text class="field-label">打卡成员</text>
+      <MemberSelect v-model="memberId" />
     </view>
 
     <view class="section">
@@ -95,12 +119,7 @@ function remove(entry: DietEntry): void {
     </view>
 
     <view v-if="formVisible" class="section">
-      <DietForm
-        :date="date"
-        :entry="editingEntry"
-        @save="save"
-        @cancel="closeForm"
-      />
+      <DietForm :date="date" :entry="editingEntry" @save="save" @cancel="closeForm" />
     </view>
 
     <view class="section">
@@ -110,12 +129,11 @@ function remove(entry: DietEntry): void {
       </view>
 
       <view v-if="dietStore.entries.length" class="record-list">
-        <view
-          v-for="entry in dietStore.entries"
-          :key="entry.id"
-          class="record-card"
-        >
+        <view v-for="entry in dietStore.entries" :key="entry.id" class="record-card">
           <text class="record-title">{{ mealLabel(entry) }} · {{ entry.foodName }}</text>
+          <text v-if="familyStore.nameOf(entry.memberId)" class="record-meta">
+            成员：{{ familyStore.nameOf(entry.memberId) }}
+          </text>
           <text class="record-meta">数量：{{ entry.quantity }}</text>
           <text v-if="nutritionText(entry)" class="record-meta">{{ nutritionText(entry) }}</text>
 
@@ -125,8 +143,7 @@ function remove(entry: DietEntry): void {
           </view>
         </view>
       </view>
-      <view v-else class="empty">还没有饮食记录</view>
+      <view v-else class="empty">这一天还没有饮食记录</view>
     </view>
   </view>
 </template>
-

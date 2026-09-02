@@ -16,6 +16,7 @@ import { groupByDate } from '@/utils/collections';
 import type { BackupPayload, DietEntry, Profile, WorkoutEntry } from '@/types/models';
 
 const profile: Profile = {
+  name: '张三',
   gender: 'male',
   birthDate: '1990-01-01',
   heightCm: 178,
@@ -87,6 +88,12 @@ describe('validation', () => {
     expect(validateProfile(profile)).toEqual({ valid: true, errors: [] });
   });
 
+  it('rejects a profile without a name', () => {
+    const result = validateProfile({ ...profile, name: '' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('')).toContain('姓名');
+  });
+
   it('rejects invalid profile fields', () => {
     const result = validateProfile({ ...profile, heightCm: 10 });
     expect(result.valid).toBe(false);
@@ -109,9 +116,10 @@ describe('validation', () => {
 
   it('rejects a backup with invalid entries', () => {
     const payload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       profile,
+      familyMembers: [],
       diet: [
         {
           id: 'diet-1',
@@ -122,6 +130,11 @@ describe('validation', () => {
         },
       ],
       workout: [],
+      studyPlans: [],
+      studyCheckins: [],
+      mealPlans: [],
+      travelPlans: [],
+      transactions: [],
     };
 
     expect(validateBackupPayload(payload).valid).toBe(false);
@@ -171,7 +184,7 @@ describe('repositories', () => {
       quantity: '',
     };
     storage.setItem(
-      'fitness.diet.v1.2026-09-04',
+      'family.diet.v1.2026-09-04',
       JSON.stringify([malformedEntry]),
     );
     expect(dietRepository.getByDate('2026-09-04')).toEqual([]);
@@ -257,6 +270,7 @@ describe('services', () => {
 
     const backupService = new BackupService(storage);
     const exported = backupService.export();
+    expect(exported.version).toBe(2);
     expect(exported.diet).toHaveLength(1);
     expect(exported.workout).toHaveLength(1);
 
@@ -269,4 +283,3 @@ describe('services', () => {
     expect(new WorkoutRepository(freshStorage).getAll()).toHaveLength(1);
   });
 });
-

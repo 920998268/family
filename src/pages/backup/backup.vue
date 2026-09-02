@@ -72,7 +72,7 @@ function pasteFromClipboard(): void {
   <view class="page-shell">
     <view>
       <text class="page-title">数据备份</text>
-      <text class="page-subtitle">MVP 使用本地存储，请定期导出 JSON 文件并妥善保存。</text>
+      <text class="page-subtitle">家庭打卡使用本地存储，请定期导出 JSON 文件并妥善保存。</text>
     </view>
 
     <view class="section">
@@ -115,8 +115,7 @@ function pasteFromClipboard(): void {
 
     <view class="danger-zone">
       <text class="danger-zone-title">覆盖提醒</text>
-      <text class="danger-zone-text">导入前会清除当前设备中的健康档案、饮食记录和训练记录，再写入备份内容。</text>
+      <text class="danger-zone-text">导入前会清除当前设备中的个人信息档案、家庭成员、运动饮食、学习、食谱、出行与收支记录，再写入备份内容。</text>
     </view>
   </view>
 </template>
-

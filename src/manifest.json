@@ -1,12 +1,12 @@
 {
-  "name": "健身饮食记录",
+  "name": "家庭打卡",
   "appid": "",
-  "description": "面向个人使用的健身与饮食记录工具",
-  "versionName": "0.1.0",
-  "versionCode": "100",
+  "description": "家庭成员共享的日常打卡与计划管理小程序",
+  "versionName": "0.2.0",
+  "versionCode": "200",
   "transformPx": false,
   "h5": {
-    "title": "健身饮食记录",
+    "title": "家庭打卡",
     "router": {
       "mode": "hash"
     }
@@ -22,4 +22,3 @@
     "usingComponents": true
   }
 }
-

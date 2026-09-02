@@ -1,10 +1,10 @@
-# 健身与饮食记录软件 MVP 技术方案
+# 家庭打卡微信小程序 技术方案
 
 ## 1. 背景与目标
 
-本方案面向个人使用的健身与饮食记录工具。产品当前以手机记录为主，优先支持微信小程序，同时保留输出 H5 和移动端 App 的能力。
+本方案面向「家庭打卡」微信小程序，覆盖运动饮食打卡、学习计划打卡、家庭食谱、出行计划、家庭收支与个人信息档案六大模块。本期仅实现前端页面与本地数据层，不引入后端服务、云数据库和登录系统。
 
-MVP 阶段暂不引入云数据库、登录系统、后端服务和复杂分析，重点验证记录流程是否顺畅。
+技术目标：以 uni-app 输出微信小程序（同时保留 H5），用本地 JSON 存储支撑完整的前端功能闭环，并通过单元测试保障领域逻辑正确性。
 
 ## 2. 技术选型
 
@@ -15,30 +15,30 @@ MVP 阶段暂不引入云数据库、登录系统、后端服务和复杂分析�
 | 跨端框架 | uni-app 3.x | 一套代码输出微信小程序、H5、Android 和 iOS |
 | 前端框架 | Vue 3 | 使用 Composition API 组织页面和组件 |
 | 开发语言 | TypeScript | 为数据模型、存储接口和业务逻辑提供类型约束 |
-| 状态管理 | Pinia | 管理当前日期、饮食记录、训练记录和档案状态 |
+| 状态管理 | Pinia | 管理各模块状态与当前日期 |
 | 构建工具 | Vite + @dcloudio/vite-plugin-uni | uni-app 的 Vite 构建链路 |
-| UI 组件 | uni-ui + 自定义组件 | 优先使用基础组件，避免引入过重的 UI 框架 |
-| 本地存储 | uni.setStorageSync / uni.getStorageSync | MVP 使用本地 JSON 存储 |
-| 测试 | Vitest | 对领域逻辑、仓储和存储适配器做单元测试 |
+| UI 组件 | 基础组件 + 自定义组件 | 避免引入过重 UI 框架 |
+| 本地存储 | uni.setStorageSync / uni.getStorageSync | 前端阶段使用本地 JSON 存储 |
+| 测试 | Vitest | 对领域逻辑、仓储、服务和状态做单元测试 |
 | 版本管理 | Git | 每次功能改动独立提交，便于回滚 |
 
 ### 2.2 选型理由
 
-- 产品需要支持微信小程序和手机端，uni-app 是当前国内生态中实现成本较低的跨端方案。
-- 产品以个人记录为主，数据量小，本地 JSON 存储足以覆盖 MVP。
-- 用户量少，不需要后端服务、云数据库、用户体系和消息推送。
-- Vue 3 与 TypeScript 的组合适合中小型应用，开发效率高，后续维护成本可控。
+- 需要支持微信小程序并保留 H5 预览能力，uni-app 是国内生态中成本较低的跨端方案。
+- 家庭记录数据量小，本地 JSON 存储足以覆盖本期需求。
+- 本期明确不做后端，避免引入服务端、云数据库和用户体系。
+- Vue 3 + TypeScript 适合中小型应用，后续维护成本可控。
 
 ### 2.3 不采用的方案
 
-- Electron：面向桌面端，不适合手机记录和小程序场景。
-- 原生微信小程序：开发简单，但后续输出独立 App 或 H5 时需要额外重写。
-- Flutter：移动端体验好，但对微信小程序的直接支持不成熟。
-- 云数据库方案：当前没有跨设备同步和多人协作需求，MVP 阶段会显著增加复杂度。
+- Electron：面向桌面端，不适合移动小程序场景。
+- 原生微信小程序：后续输出 H5 或独立 App 需重写。
+- Flutter：对微信小程序的直接支持不成熟。
+- 云数据库：无跨设备同步需求，本期显著增加复杂度。
 
 ## 3. 总体架构
 
-产品采用本地优先的单机架构，不依赖服务端。页面通过 Pinia 访问业务服务，业务服务再通过仓储层访问本地存储。
+产品采用本地优先的单机架构，页面通过 Pinia 访问业务服务，业务服务通过仓储层访问本地存储，仓储层依赖存储适配器隔离多端差异。
 
 ```text
 页面与组件
@@ -51,34 +51,42 @@ MVP 阶段暂不引入云数据库、登录系统、后端服务和复杂分析�
 
 核心原则：
 
-- 页面不直接读写本地存储，统一通过仓储层访问数据。
+- 页面不直接读写本地存储，统一通过仓储层访问。
 - 仓储层屏蔽微信小程序、H5 和 App 的存储差异。
-- 数据模型和业务规则集中在服务层，便于未来迁移到 SQLite 或云同步。
+- 数据模型与业务规则集中在服务层，便于未来迁移到 SQLite 或云同步。
 
 ## 4. 数据存储
 
 ### 4.1 存储策略
 
-MVP 使用本地 JSON 存储，数据按记录类型和日期拆分，避免单个对象过大。
-
-建议使用以下存储键：
+本地 JSON 存储，按集合或日期拆分 key：
 
 ```text
-fitness.profile.v1
-fitness.diet.v1.<yyyy-MM-dd>
-fitness.workout.v1.<yyyy-MM-dd>
+family.profile.v1
+family.family.members.v1
+family.diet.v1.<yyyy-MM-dd>
+family.workout.v1.<yyyy-MM-dd>
+family.study.plans.v1
+family.study.checkin.v1.<yyyy-MM-dd>
+family.meal.v1.<yyyy-MM-dd>
+family.travel.plans.v1
+family.ledger.v1.<yyyy-MM-dd>
 ```
 
-每个饮食或训练存储键保存该日期下的完整记录数组。
+按日期拆分的数据（饮食、训练、学习打卡、食谱、收支）保存该日期下的完整记录数组；集合型数据（家庭成员、学习计划、出行计划）保存完整数组。
 
 ### 4.2 数据模型
 
 ```ts
 type Gender = 'male' | 'female' | 'other';
-
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+type MemberRole = 'parent' | 'child' | 'elder' | 'other';
+type StudyFrequency = 'daily' | 'weekly';
+type TravelStatus = 'planned' | 'ongoing' | 'done' | 'cancelled';
+type TransactionType = 'income' | 'expense';
 
 interface Profile {
+  name: string;
   gender: Gender;
   birthDate: string;
   heightCm: number;
@@ -86,63 +94,103 @@ interface Profile {
   targetWeightKg: number;
 }
 
-interface DietEntry {
+interface FamilyMember {
   id: string;
-  date: string;
-  mealType: MealType;
-  foodName: string;
-  quantity: string;
-  calories?: number;
-  protein?: number;
-  carbs?: number;
-  fat?: number;
+  name: string;
+  role: MemberRole;
+  avatarColor: string;
 }
 
-interface WorkoutSet {
+interface StudyPlan {
   id: string;
-  order: number;
-  reps: number;
-  weightKg: number;
+  title: string;
+  subject: string;
+  frequency: StudyFrequency;
+  targetTimes: number;
+  memberId?: string;
+  createdAt: string;
 }
 
-interface WorkoutEntry {
+interface StudyCheckin {
+  id: string;
+  planId: string;
+  date: string;
+  note: string;
+  memberId?: string;
+}
+
+interface MealPlan {
   id: string;
   date: string;
-  exerciseName: string;
-  sets: WorkoutSet[];
+  slot: MealType;
+  dishName: string;
+  ingredients: string;
+  cook: string;
+  done: boolean;
+  note: string;
+}
+
+interface TravelPlan {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  destination: string;
+  members: string[];
+  budget: number;
+  status: TravelStatus;
+  note: string;
+  items: TravelItem[];
+}
+
+interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  date: string;
+  memberId?: string;
+  note: string;
 }
 ```
 
 ### 4.3 数据备份
 
-本地存储不会跨设备同步，用户清理缓存、卸载应用或更换设备时可能丢失数据。因此 MVP 必须提供：
+本地存储不跨设备同步，因此提供：
 
-- 全量 JSON 导出。
-- 全量 JSON 导入。
-- 导入前的数据覆盖确认。
-
-备份内容应包含用户档案、全部饮食记录和全部训练记录。
+- 全量 JSON 导出（包含档案、家庭成员、饮食、训练、学习、食谱、出行、收支）。
+- 全量 JSON 导入，导入前覆盖确认。
+- 备份版本号 v2，导入时校验全部集合。
 
 ## 5. 功能模块
 
 ### 5.1 页面划分
 
-| 页面 | 主要功能 |
+| Tab / 页面 | 主要功能 |
 | --- | --- |
-| 健康档案 | 首次进入填写档案，后续可编辑 |
-| 今日记录 | 展示当天日期、饮食和训练记录，提供快速入口 |
-| 饮食记录 | 新增、编辑、删除当天饮食记录 |
-| 训练记录 | 新增、编辑、删除当天训练动作和组明细 |
-| 历史记录 | 选择日期并查看该日期的饮食和训练记录 |
-| 数据备份 | 导出和导入本地 JSON 数据 |
+| 首页 | 今日打卡概览、食谱进度、出行计划、本月收支、六大模块入口 |
+| 打卡 | 运动/饮食/学习打卡入口与今日进度 |
+| 计划 | 家庭食谱与出行计划入口与进度 |
+| 账本 | 收支汇总与流水 |
+| 我的 | 个人信息档案、家庭成员、数据备份 |
+| 饮食打卡 / 运动打卡 | 按日期与成员记录、编辑、删除 |
+| 学习打卡 | 计划管理 + 每日打卡 |
+| 家庭食谱 | 按日期与餐次制定、执行、编辑、删除 |
+| 出行计划 / 出行计划编辑 | 计划列表、状态管理、行程明细编辑 |
+| 记账表单 | 收入/支出新增与编辑 |
+| 个人信息档案 | 姓名、性别、出生年月、身高体重、目标体重 |
+| 家庭成员 | 成员新增、编辑、删除 |
+| 数据备份 | 导出与导入 JSON |
 
 ### 5.2 业务规则
 
-- 饮食记录以日期和餐次组织，同一天可以有多个餐次。
-- 营养字段为可选字段，未填写时不影响保存。
-- 训练记录以日期和动作组织，一个动作可以包含多个组。
-- 组明细按顺序保存，编辑训练时应保留顺序。
-- 今日记录是应用默认入口，进入应用后默认显示当天数据。
+- 饮食按日期和餐次组织，营养字段可选，记录可关联成员。
+- 训练按日期和动作组织，组明细按顺序保存，记录可关联成员。
+- 学习计划每个计划每天最多打卡一次；删除计划时同步清理其打卡记录。
+- 食谱按日期和餐次组织，标记执行状态并统计进度。
+- 出行计划状态机：计划中 → 进行中 → 已完成；可取消；行程项可逐项标记完成。
+- 收支按日期记录，支出与收入分类联动，本月汇总收入/支出/结余。
+- 家庭成员是各记录可选关联对象，删除成员不影响历史记录。
 
 ## 6. 项目结构
 
@@ -151,19 +199,28 @@ interface WorkoutEntry {
 ├── docs
 │   ├── product-design.md
 │   └── technical-solution.md
+├── scripts
+│   └── generate_tab_icons.py
 ├── src
 │   ├── components
+│   │   ├── DietForm.vue
+│   │   ├── WorkoutForm.vue
+│   │   ├── MemberAvatar.vue
+│   │   ├── MemberSelect.vue
+│   │   └── MemberMultiSelect.vue
 │   ├── pages
-│   │   ├── profile
-│   │   ├── today
-│   │   ├── diet
-│   │   ├── workout
-│   │   ├── history
+│   │   ├── home
+│   │   ├── checkin
+│   │   ├── plan
+│   │   ├── ledger
+│   │   ├── me
 │   │   └── backup
 │   ├── stores
 │   ├── services
 │   ├── repositories
 │   ├── storage
+│   ├── static/tabbar
+│   ├── styles
 │   ├── types
 │   ├── utils
 │   └── App.vue
@@ -175,67 +232,64 @@ interface WorkoutEntry {
 
 ### 7.1 单元测试
 
-使用 Vitest 覆盖以下内容：
+使用 Vitest 覆盖：
 
-- 数据模型校验。
-- 按日期读取和写入饮食记录的仓储逻辑。
-- 按日期读取和写入训练记录的仓储逻辑。
-- 新增、编辑、删除记录的业务规则。
-- JSON 导出和导入逻辑。
+- 各数据模型校验（含边界与非法数据）。
+- 各领域仓储的按日期/按集合读写逻辑。
+- 各业务服务的增删改查、状态流转与去重规则。
+- 备份导出导入的完整闭环。
+- Pinia 状态与仓储的一致性。
 
-测试时使用内存存储适配器替代真实 uni-app 存储，避免依赖运行环境。
+测试使用内存存储适配器，不依赖运行环境。
 
 ### 7.2 手工验证
 
-每次发布前，在微信开发者工具中验证以下流程：
+发布前在微信开发者工具 / H5 验证：
 
-- 首次进入填写健康档案。
-- 新增当天饮食记录。
-- 编辑和删除饮食记录。
-- 新增训练动作和组明细。
-- 编辑和删除训练记录。
-- 切换日期查看历史记录。
-- 导出数据后重新导入。
+- 首次填写个人信息档案、添加家庭成员。
+- 六大模块的新增、编辑、删除与查看。
+- 学习计划每日打卡与取消。
+- 食谱标记执行与进度统计。
+- 出行计划状态流转与行程项完成。
+- 账本收入/支出汇总与筛选。
+- 数据导出后重新导入。
 
 ## 8. 发布策略
 
-MVP 优先发布微信小程序体验版。
-
-- 使用微信开发者工具进行本地调试和真机预览。
-- 将少量用户添加为小程序体验成员。
-- 不引入云开发、云数据库和服务器域名。
-- H5 版本作为补充验证入口，移动 App 打包可后续再进行。
+- 优先在微信开发者工具调试，输出 H5 作为预览验证。
+- 本期不引入云开发、云数据库和服务器域名。
+- 小程序体验版供家庭成员试用，稳定后正式发布。
 
 ## 9. 里程碑
 
-1. 初始化 uni-app、TypeScript、Pinia 和测试环境。
-2. 建立数据模型、存储适配器和仓储层。
-3. 完成健康档案功能。
-4. 完成今日记录页面。
-5. 完成饮食记录新增、编辑、删除。
-6. 完成训练记录新增、编辑、删除。
-7. 完成历史记录日期选择与查看。
-8. 完成 JSON 导出和导入。
-9. 在微信开发者工具中完成手工验证。
+1. 初始化 uni-app、Vue 3、TypeScript、Pinia 与测试环境。
+2. 扩展数据模型、存储键、校验与仓储层。
+3. 完成家庭成员与个人信息档案。
+4. 完成首页看板与 5 个 Tab 导航。
+5. 完成运动、饮食、学习打卡。
+6. 完成家庭食谱与出行计划。
+7. 完成家庭账本与记账表单。
+8. 完成数据备份并升级到全领域。
+9. 通过 type-check 与全部测试，H5 构建验证。
 
 ## 10. 风险与应对
 
 | 风险 | 影响 | 应对方式 |
 | --- | --- | --- |
-| 本地数据丢失 | 用户长期记录不可恢复 | MVP 阶段提供 JSON 导出导入 |
-| 微信小程序存储容量限制 | 数据增长后无法继续保存 | 按日期拆分 key，后续迁移到本地数据库或轻量云备份 |
-| 多端存储行为不一致 | 小程序、H5 和 App 行为不同 | 通过存储适配器隔离差异 |
-| 后续统计需求增加 | 当前 JSON 查询能力有限 | 保留仓储层边界，未来在 App 端引入 SQLite |
-| 小程序发布和审核限制 | 影响外部用户使用 | 先使用体验版，正式发布时再处理资质和审核 |
+| 本地数据丢失 | 家庭长期记录不可恢复 | 提供全领域 JSON 导出导入 |
+| 小程序存储容量限制 | 数据增长后无法继续保存 | 按日期拆分 key，后续迁移本地数据库或轻量云备份 |
+| 多端存储行为不一致 | 小程序、H5、App 行为不同 | 通过存储适配器隔离差异 |
+| 家庭成员对象引用失效 | 成员删除后历史记录展示受影响 | 记录保存成员名缓存兜底，显示时回退 |
+| 后续统计需求增加 | 当前 JSON 查询能力有限 | 保留仓储层边界，未来引入 SQLite 或云同步 |
 
-## 11. MVP 技术边界
+## 11. 前端阶段技术边界
 
 当前版本明确不实现：
 
-- 云数据库、云同步、用户登录和权限体系。
-- 食物库、训练动作库和模板系统。
-- 热量、宏量营养素和训练容量分析。
-- 趋势图、统计报表和 AI 建议。
-- 社交、排行榜、挑战赛和可穿戴设备同步。
+- 云数据库、云同步、登录与权限体系。
+- 食物库、动作库和模板系统。
+- 营养分析、趋势图、统计报表与 AI 建议。
+- 消息提醒、社交与排行榜。
+- 可穿戴设备同步。
 
-这些能力通过仓储层和数据模型预留扩展空间，但不在 MVP 中实现。
+这些能力通过仓储层与数据模型预留扩展空间。

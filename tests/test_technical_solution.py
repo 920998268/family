@@ -26,7 +26,7 @@ class TechnicalSolutionDocumentTests(unittest.TestCase):
             "发布策略",
             "里程碑",
             "风险与应对",
-            "MVP 技术边界",
+            "前端阶段技术边界",
         ]
 
         for section in required_sections:
