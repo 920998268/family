@@ -105,7 +105,7 @@ function remove(entry: WorkoutEntry): void {
     <view class="section">
       <view class="section-header">
         <text class="section-title">当天记录</text>
-        <text class="page-subtitle" style="margin-top: 0">{{ workoutStore.entries.length }} 条</text>
+        <text class="page-subtitle page-subtitle-tight">{{ workoutStore.entries.length }} 条</text>
       </view>
 
       <view v-if="workoutStore.entries.length" class="record-list">

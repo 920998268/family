@@ -16,14 +16,41 @@ export interface ValidationResult {
   errors: string[];
 }
 
-function numberError(value: unknown, label: string, min: number, max: number): string | null {
+type NutritionField = {
+  key: 'calories' | 'protein' | 'carbs' | 'fat';
+  label: string;
+  min: number;
+  max: number;
+};
+
+const NUTRITION_FIELDS: NutritionField[] = [
+  { key: 'calories', label: '热量', min: 0, max: 100000 },
+  { key: 'protein', label: '蛋白质', min: 0, max: 100000 },
+  { key: 'carbs', label: '碳水化合物', min: 0, max: 100000 },
+  { key: 'fat', label: '脂肪', min: 0, max: 100000 },
+];
+
+function numberError(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return `${label}必须是数字`;
   }
+
   if (value < min || value > max) {
     return `${label}需要在 ${min} 到 ${max} 之间`;
   }
+
   return null;
+}
+
+function pushError(errors: string[], error: string | null): void {
+  if (error) {
+    errors.push(error);
+  }
 }
 
 export function validateProfile(value: unknown): ValidationResult {
@@ -42,13 +69,9 @@ export function validateProfile(value: unknown): ValidationResult {
     errors.push('出生日期不合法');
   }
 
-  const heightError = numberError(profile.heightCm, '身高', 50, 260);
-  const currentWeightError = numberError(profile.currentWeightKg, '当前体重', 10, 500);
-  const targetWeightError = numberError(profile.targetWeightKg, '目标体重', 10, 500);
-
-  if (heightError) errors.push(heightError);
-  if (currentWeightError) errors.push(currentWeightError);
-  if (targetWeightError) errors.push(targetWeightError);
+  pushError(errors, numberError(profile.heightCm, '身高', 50, 260));
+  pushError(errors, numberError(profile.currentWeightKg, '当前体重', 10, 500));
+  pushError(errors, numberError(profile.targetWeightKg, '目标体重', 10, 500));
 
   return { valid: errors.length === 0, errors };
 }
@@ -62,21 +85,29 @@ export function validateDietEntry(value: unknown): ValidationResult {
 
   const entry = value as Partial<DietEntry>;
 
-  if (typeof entry.id !== 'string' || !entry.id) errors.push('记录 ID 缺失');
-  if (typeof entry.date !== 'string' || !isValidDateKey(entry.date)) errors.push('日期不合法');
-  if (!isMealType(entry.mealType)) errors.push('餐次不合法');
-  if (typeof entry.foodName !== 'string' || !entry.foodName.trim()) errors.push('食物名称不能为空');
-  if (typeof entry.quantity !== 'string' || !entry.quantity.trim()) errors.push('数量不能为空');
+  if (typeof entry.id !== 'string' || !entry.id) {
+    errors.push('记录 ID 缺失');
+  }
+  if (typeof entry.date !== 'string' || !isValidDateKey(entry.date)) {
+    errors.push('日期不合法');
+  }
+  if (!isMealType(entry.mealType)) {
+    errors.push('餐次不合法');
+  }
+  if (typeof entry.foodName !== 'string' || !entry.foodName.trim()) {
+    errors.push('食物名称不能为空');
+  }
+  if (typeof entry.quantity !== 'string' || !entry.quantity.trim()) {
+    errors.push('数量不能为空');
+  }
 
-  for (const [key, label] of [
-    ['calories', '热量'],
-    ['protein', '蛋白质'],
-    ['carbs', '碳水化合物'],
-    ['fat', '脂肪'],
-  ] as const) {
-    if (entry[key] !== undefined) {
-      const error = numberError(entry[key], label, 0, 100000);
-      if (error) errors.push(error);
+  for (const field of NUTRITION_FIELDS) {
+    const fieldValue = entry[field.key];
+    if (fieldValue !== undefined) {
+      pushError(
+        errors,
+        numberError(fieldValue, field.label, field.min, field.max),
+      );
     }
   }
 
@@ -92,18 +123,22 @@ export function validateWorkoutEntry(value: unknown): ValidationResult {
 
   const entry = value as Partial<WorkoutEntry>;
 
-  if (typeof entry.id !== 'string' || !entry.id) errors.push('记录 ID 缺失');
-  if (typeof entry.date !== 'string' || !isValidDateKey(entry.date)) errors.push('日期不合法');
+  if (typeof entry.id !== 'string' || !entry.id) {
+    errors.push('记录 ID 缺失');
+  }
+  if (typeof entry.date !== 'string' || !isValidDateKey(entry.date)) {
+    errors.push('日期不合法');
+  }
   if (typeof entry.exerciseName !== 'string' || !entry.exerciseName.trim()) {
     errors.push('动作名称不能为空');
   }
   if (!Array.isArray(entry.sets) || entry.sets.length === 0) {
     errors.push('至少需要一组训练明细');
   } else {
-    entry.sets.forEach((set, index) => {
+    for (const [index, set] of entry.sets.entries()) {
       if (!isWorkoutSet(set)) {
         errors.push(`第 ${index + 1} 组明细不合法`);
-        return;
+        continue;
       }
 
       if (set.order !== index + 1) {
@@ -112,9 +147,9 @@ export function validateWorkoutEntry(value: unknown): ValidationResult {
 
       const repsError = numberError(set.reps, '次数', 1, 10000);
       const weightError = numberError(set.weightKg, '重量', 0, 2000);
-      if (repsError) errors.push(`第 ${index + 1} 组${repsError}`);
-      if (weightError) errors.push(`第 ${index + 1} 组${weightError}`);
-    });
+      pushError(errors, repsError && `第 ${index + 1} 组${repsError}`);
+      pushError(errors, weightError && `第 ${index + 1} 组${weightError}`);
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -140,16 +175,16 @@ export function validateBackupPayload(value: unknown): ValidationResult {
   }
 
   const errors: string[] = [];
-  payload.diet.forEach((entry, index) => {
+  for (const [index, entry] of payload.diet.entries()) {
     if (!validateDietEntry(entry).valid) {
       errors.push(`第 ${index + 1} 条饮食记录不合法`);
     }
-  });
-  payload.workout.forEach((entry, index) => {
+  }
+  for (const [index, entry] of payload.workout.entries()) {
     if (!validateWorkoutEntry(entry).valid) {
       errors.push(`第 ${index + 1} 条训练记录不合法`);
     }
-  });
+  }
 
   return { valid: errors.length === 0, errors };
 }

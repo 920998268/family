@@ -44,13 +44,13 @@ export interface BackupPayload {
   workout: WorkoutEntry[];
 }
 
-export const GENDERS: Array<{ value: Gender; label: string }> = [
+export const GENDERS: ReadonlyArray<{ value: Gender; label: string }> = [
   { value: 'male', label: '男' },
   { value: 'female', label: '女' },
   { value: 'other', label: '其他' },
 ];
 
-export const MEAL_TYPES: Array<{ value: MealType; label: string }> = [
+export const MEAL_TYPES: ReadonlyArray<{ value: MealType; label: string }> = [
   { value: 'breakfast', label: '早餐' },
   { value: 'lunch', label: '午餐' },
   { value: 'dinner', label: '晚餐' },

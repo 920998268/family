@@ -106,7 +106,7 @@ function remove(entry: DietEntry): void {
     <view class="section">
       <view class="section-header">
         <text class="section-title">当天记录</text>
-        <text class="page-subtitle" style="margin-top: 0">{{ dietStore.entries.length }} 条</text>
+        <text class="page-subtitle page-subtitle-tight">{{ dietStore.entries.length }} 条</text>
       </view>
 
       <view v-if="dietStore.entries.length" class="record-list">

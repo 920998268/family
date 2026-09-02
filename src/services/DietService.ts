@@ -7,12 +7,14 @@ import { DietRepository } from '@/repositories/DietRepository';
 export type DietDraft = Omit<DietEntry, 'id' | 'date'>;
 export type DietPatch = Partial<Omit<DietEntry, 'id' | 'date'>>;
 
-const mealOrder = new Map(MEAL_TYPES.map((item, index) => [item.value, index]));
+const MEAL_ORDER: ReadonlyMap<MealType, number> = new Map(
+  MEAL_TYPES.map((item, index) => [item.value, index] as const),
+);
 
 function sortByMeal(entries: DietEntry[]): DietEntry[] {
   return [...entries].sort((a, b) => {
-    const aOrder = mealOrder.get(a.mealType as MealType) ?? 0;
-    const bOrder = mealOrder.get(b.mealType as MealType) ?? 0;
+    const aOrder = MEAL_ORDER.get(a.mealType) ?? 0;
+    const bOrder = MEAL_ORDER.get(b.mealType) ?? 0;
     return aOrder - bOrder;
   });
 }

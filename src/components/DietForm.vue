@@ -84,7 +84,7 @@ function toOptionalNumber(value: number | undefined): number | undefined {
       {{ entry ? '编辑饮食记录' : '新增饮食记录' }}
     </view>
 
-    <view class="field" style="margin-top: 24rpx">
+    <view class="field field-first">
       <text class="field-label">日期</text>
       <text class="field-control">{{ date }}</text>
     </view>

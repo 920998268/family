@@ -5,7 +5,11 @@ export function pad2(value: number): string {
 }
 
 export function toDateKey(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+
+  return `${year}-${month}-${day}`;
 }
 
 export function todayKey(): string {
@@ -42,6 +46,10 @@ export function formatDateKey(value: string): string {
   }
 
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  return `${date.getMonth() + 1}月${date.getDate()}日 周${weekdays[date.getDay()]}`;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekday = weekdays[date.getDay()];
+
+  return `${month}月${day}日 周${weekday}`;
 }
 

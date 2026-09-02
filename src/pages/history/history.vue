@@ -60,7 +60,7 @@ function goWorkout(): void {
       <view class="section-header">
         <button class="link-button" @tap="shiftDate(-1)">‹ 前一天</button>
         <picker mode="date" :value="date" @change="onDateChange">
-          <view class="picker-value" style="border: 0; padding: 0">
+          <view class="picker-value picker-value-plain">
             <text>{{ dateLabel }}</text>
             <text class="picker-arrow">›</text>
           </view>

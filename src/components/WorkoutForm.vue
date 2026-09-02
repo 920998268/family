@@ -70,7 +70,7 @@ function submit(): void {
       {{ entry ? '编辑训练记录' : '新增训练记录' }}
     </view>
 
-    <view class="field" style="margin-top: 24rpx">
+    <view class="field field-first">
       <text class="field-label">训练动作</text>
       <input
         v-model="exerciseName"
@@ -81,19 +81,18 @@ function submit(): void {
 
     <view class="field">
       <view class="section-header">
-        <text class="field-label" style="margin-bottom: 0">组明细</text>
+        <text class="field-label field-label-inline">组明细</text>
         <button class="link-button" @tap="addSet">添加一组</button>
       </view>
 
       <view
         v-for="(set, index) in sets"
         :key="index"
-        class="record-card"
-        style="margin-bottom: 16rpx; box-shadow: none"
+        class="record-card set-card"
       >
         <view class="section-header">
           <text class="section-title">第 {{ index + 1 }} 组</text>
-          <button class="btn btn-danger" style="min-height: 56rpx; padding: 0 18rpx" @tap="removeSet(index)">
+          <button class="btn btn-danger btn-sm" @tap="removeSet(index)">
             删除
           </button>
         </view>

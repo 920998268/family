@@ -77,7 +77,7 @@ function pasteFromClipboard(): void {
 
     <view class="section">
       <button class="btn btn-primary btn-block" @tap="exportData">导出全部 JSON</button>
-      <text class="page-subtitle" style="margin-top: 12rpx">
+      <text class="page-subtitle page-subtitle-spaced">
         导出的数据会复制到剪贴板，你也可以在下方文本框中查看。
       </text>
     </view>
