@@ -5,7 +5,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["@dcloudio/types", "vitest/globals"],
+    "types": ["@dcloudio/types", "vitest/globals", "node"],
     "strict": true,
     "skipLibCheck": true,
     "noUnusedLocals": true,
@@ -21,4 +21,3 @@
     "vitest.config.ts"
   ]
 }
-

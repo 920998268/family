@@ -23,6 +23,7 @@
   "devDependencies": {
     "@dcloudio/types": "3.4.31",
     "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5020520260829001",
+    "@types/node": "20.12.12",
     "@vitejs/plugin-vue": "5.2.4",
     "@vue/tsconfig": "0.5.1",
     "typescript": "5.4.5",
