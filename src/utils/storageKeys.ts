@@ -15,11 +15,20 @@ export function workoutKey(date: string): string {
 }
 
 export function isGender(value: unknown): value is Gender {
-  return value === 'male' || value === 'female' || value === 'other';
+  return (
+    value === 'male' ||
+    value === 'female' ||
+    value === 'other'
+  );
 }
 
 export function isMealType(value: unknown): value is MealType {
-  return value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack';
+  return (
+    value === 'breakfast' ||
+    value === 'lunch' ||
+    value === 'dinner' ||
+    value === 'snack'
+  );
 }
 
 export function isWorkoutSet(value: unknown): value is WorkoutSet {

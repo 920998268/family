@@ -2,10 +2,10 @@
 import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { useDietStore } from '@/stores/diet';
-import { MEAL_LABELS, type DietEntry } from '@/types/models';
+import type { DietEntry } from '@/types/models';
 import type { DietDraft } from '@/services/DietService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
-import { nutritionText } from '@/utils/format';
+import { mealLabel, nutritionText } from '@/utils/format';
 import { errorMessage } from '@/utils/error';
 import DietForm from '@/components/DietForm.vue';
 
@@ -115,7 +115,7 @@ function remove(entry: DietEntry): void {
           :key="entry.id"
           class="record-card"
         >
-          <text class="record-title">{{ MEAL_LABELS[entry.mealType] }} · {{ entry.foodName }}</text>
+          <text class="record-title">{{ mealLabel(entry) }} · {{ entry.foodName }}</text>
           <text class="record-meta">数量：{{ entry.quantity }}</text>
           <text v-if="nutritionText(entry)" class="record-meta">{{ nutritionText(entry) }}</text>
 

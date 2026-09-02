@@ -9,25 +9,29 @@ export const useWorkoutStore = defineStore('workout', () => {
   const loadedDate = ref<string | null>(null);
 
   function load(date: string): void {
-    entries.value = createWorkoutService().listByDate(date);
+    const service = createWorkoutService();
+    entries.value = service.listByDate(date);
     loadedDate.value = date;
   }
 
   function add(date: string, draft: WorkoutDraft): WorkoutEntry {
-    const entry = createWorkoutService().add(date, draft);
-    entries.value = createWorkoutService().listByDate(date);
+    const service = createWorkoutService();
+    const entry = service.add(date, draft);
+    entries.value = service.listByDate(date);
     return entry;
   }
 
   function update(date: string, id: string, patch: WorkoutPatch): WorkoutEntry {
-    const entry = createWorkoutService().update(date, id, patch);
-    entries.value = createWorkoutService().listByDate(date);
+    const service = createWorkoutService();
+    const entry = service.update(date, id, patch);
+    entries.value = service.listByDate(date);
     return entry;
   }
 
   function remove(date: string, id: string): void {
-    createWorkoutService().remove(date, id);
-    entries.value = createWorkoutService().listByDate(date);
+    const service = createWorkoutService();
+    service.remove(date, id);
+    entries.value = service.listByDate(date);
   }
 
   return {

@@ -9,25 +9,29 @@ export const useDietStore = defineStore('diet', () => {
   const loadedDate = ref<string | null>(null);
 
   function load(date: string): void {
-    entries.value = createDietService().listByDate(date);
+    const service = createDietService();
+    entries.value = service.listByDate(date);
     loadedDate.value = date;
   }
 
   function add(date: string, draft: DietDraft): DietEntry {
-    const entry = createDietService().add(date, draft);
-    entries.value = createDietService().listByDate(date);
+    const service = createDietService();
+    const entry = service.add(date, draft);
+    entries.value = service.listByDate(date);
     return entry;
   }
 
   function update(date: string, id: string, patch: DietPatch): DietEntry {
-    const entry = createDietService().update(date, id, patch);
-    entries.value = createDietService().listByDate(date);
+    const service = createDietService();
+    const entry = service.update(date, id, patch);
+    entries.value = service.listByDate(date);
     return entry;
   }
 
   function remove(date: string, id: string): void {
-    createDietService().remove(date, id);
-    entries.value = createDietService().listByDate(date);
+    const service = createDietService();
+    service.remove(date, id);
+    entries.value = service.listByDate(date);
   }
 
   return {

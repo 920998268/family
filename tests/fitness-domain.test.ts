@@ -163,9 +163,16 @@ describe('repositories', () => {
     expect(dietRepository.getByDate('2026-09-02')).toEqual(diet);
     expect(dietRepository.getByDate('2026-09-03')).toEqual([]);
 
+    const malformedEntry = {
+      id: 'bad',
+      date: '2026-09-04',
+      mealType: 'lunch',
+      foodName: '',
+      quantity: '',
+    };
     storage.setItem(
       'fitness.diet.v1.2026-09-04',
-      JSON.stringify([{ id: 'bad', date: '2026-09-04', mealType: 'lunch', foodName: '', quantity: '' }]),
+      JSON.stringify([malformedEntry]),
     );
     expect(dietRepository.getByDate('2026-09-04')).toEqual([]);
   });

@@ -14,10 +14,7 @@ export class ProfileRepository {
 
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (!validateProfile(parsed).valid) {
-        return null;
-      }
-      return parsed as Profile;
+      return validateProfile(parsed).valid ? (parsed as Profile) : null;
     } catch {
       return null;
     }

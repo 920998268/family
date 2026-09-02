@@ -12,12 +12,13 @@ export class WorkoutRepository {
   }
 
   saveByDate(date: string, entries: WorkoutEntry[]): void {
+    const key = workoutKey(date);
     if (entries.length === 0) {
-      this.storage.removeItem(workoutKey(date));
+      this.storage.removeItem(key);
       return;
     }
 
-    this.storage.setItem(workoutKey(date), JSON.stringify(entries));
+    this.storage.setItem(key, JSON.stringify(entries));
   }
 
   deleteByDate(date: string): void {

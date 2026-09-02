@@ -12,12 +12,13 @@ export class DietRepository {
   }
 
   saveByDate(date: string, entries: DietEntry[]): void {
+    const key = dietKey(date);
     if (entries.length === 0) {
-      this.storage.removeItem(dietKey(date));
+      this.storage.removeItem(key);
       return;
     }
 
-    this.storage.setItem(dietKey(date), JSON.stringify(entries));
+    this.storage.setItem(key, JSON.stringify(entries));
   }
 
   deleteByDate(date: string): void {
