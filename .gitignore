@@ -8,4 +8,5 @@ coverage/
 .DS_Store
 *.local
 *.log
-
+__pycache__/
+*.pyc
