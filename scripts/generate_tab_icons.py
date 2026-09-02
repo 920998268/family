@@ -3,8 +3,9 @@
 import os
 from PIL import Image, ImageDraw
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(
-    os.path.dirname(__file__),
+    PROJECT_ROOT,
     "src", "static", "tabbar",
 )
 os.makedirs(OUT_DIR, exist_ok=True)
