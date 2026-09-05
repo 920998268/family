@@ -5,7 +5,7 @@
 | 文档版本 | v0.1 |
 | 编写日期 | 2026-09-05 |
 | 适用项目 | 家庭打卡微信小程序（uni-app / Vue3 / TS / Pinia / Vitest） |
-| 前置条件 | DCloud 账号已注册 ✅ |
+| 前置条件 | DCloud 账号已注册 ✅；uniCloud 服务空间已创建 ✅（支付宝云免费版 `familycheckinprogram`） |
 | 小程序 AppID | wx0cae373d8c5573b8（src/manifest.json 已配置） |
 | 当前版本 | 0.2.0（versionCode 200，本地存储，纯前端） |
 
@@ -37,7 +37,7 @@
 
 ## 2. 技术选型确认
 
-**结论：采用 uniCloud（阿里云免费版），配合 uni-id / uni-id-pages 用户体系。**
+**结论：采用 uniCloud（支付宝云免费版，服务空间 `familycheckinprogram`，SpaceId `env-00jy6t350lew`），配合 uni-id / uni-id-pages 用户体系。**
 
 理由：
 - 与现有 uni-app 技术栈完全贴合，无需引入新框架；
@@ -98,28 +98,24 @@
 
 ## 5. 前置准备：开通 uniCloud（下一步立即执行）
 
-### 5.1 创建服务空间
-1. 浏览器打开 **https://unicloud.dcloud.net.cn/** ，用已注册的 DCloud 账号登录；
-2. 点击右上角「**新建服务空间**」；
-3. **服务商选择「阿里云」**（有免费版）；
-4. 输入服务空间名称（如 `family-checkin`）；
-5. 套餐选择「**免费版**」（如需按量付费可后续升级）；
-6. 点击「立即购买 / 确认开通」，等待创建完成（约 1~2 分钟）。
+### 5.1 创建服务空间 ✅（已完成）
+- 服务空间：**支付宝云免费版**，名称 `familycheckinprogram`，SpaceId `env-00jy6t350lew`
+- 状态：正常；免费额度：云函数 1000GBs/月、调用 1.5 万次/月；数据库 62 万读 / 31 万写 / 月
+- 到期：2026-10-04（免费周期，到期前需续期或升级）
 
-> 注意：阿里云免费服务空间**每个账号一个**；生产阶段可再创建付费空间或用同一空间按量计费。
+### 5.2 关联服务空间到项目（需 HBuilderX）
+1. 下载并安装 **HBuilderX**（Windows 绿色版，解压即用）：https://www.dcloud.io/hbuilderx.html
+2. 用 HBuilderX 打开本项目；
+3. 项目根目录右键 →「**创建 uniCloud 云开发环境**」（生成 `uniCloud` 目录）；
+4. 对 `uniCloud` 目录右键 →「**关联云服务空间或项目…**」→ 选择 `familycheckinprogram`；
+5. 关联成功后，项目出现 `uniCloud/cloudfunctions` 目录。
 
-### 5.2 关联服务空间到项目
-1. 用 **HBuilderX** 打开本项目（家庭打卡）；
-2. 在项目根目录右键 →「**创建 uniCloud 云服务空间**」→ 选择刚创建的空间；
-3. 或：项目内新增 `uniCloud` 目录后，右键该目录 →「**关联服务空间或项目…**」→ 选择目标空间；
-4. 关联成功后，项目出现 `uniCloud/cloudfunctions` 目录。
-
-> 若当前使用 CLI/Vite 模式而非 HBuilderX，可在项目根新建 `uniCloud` 目录，并在 uniCloud 控制台确认服务空间已存在即可；云函数上传需借助 HBuilderX 或 uniCloud 控制台上传部署。
+> ⚠️ **支付宝云不支持 CLI 发行**（uniCloud 官方限制）：云函数 / 公共模块 / DB Schema 只能通过 HBuilderX 上传，无法用命令行发行。因此本项目云端部署依赖 HBuilderX。
 
 ### 5.3 初始化数据库与部署
 1. 在 `uniCloud/cloudfunctions` 下准备业务云对象（见第 7、8 章）；
-2. 在 uniCloud 控制台为各集合创建 **DB Schema**（含权限规则）并上传；
-3. 右键云函数/云对象目录 →「上传部署」。
+2. 为各集合创建 **DB Schema**（含权限规则）；
+3. `uniCloud/cloudfunctions` 右键 →「上传所有云函数、公共模块及 actions」。
 
 ---
 
@@ -292,9 +288,9 @@ src/utils/network.ts          网络状态检测
 
 ### 12.1 request 合法域名（微信小程序）
 正式版/体验版必须在小程序后台「设置 → 开发设置 → 服务器域名」配置合法域名：
-- **阿里云（本次选用）**：`https://api.next.bspapp.com`
+- **支付宝云（本次选用，本空间实际域名）**：`https://env-00jy6t350lew.api-hz.cloudbasefunction.cn`
+- 阿里云（备选）：`https://api.next.bspapp.com`
 - 腾讯云（备选）：`https://tcb-api.tencentcloudapi.com` 及 `https://{spaceId}.ap-shanghai.tcb-api.tencentcloudapi.com`
-- 支付宝云：`https://{spaceId}.api-hz.cloudbasefunction.cn`
 - 如用到云存储上传/下载，需同时配置 `uploadFile` / `downloadFile` 合法域名。
 
 > 开发期可保持 `urlCheck:false`（本地联调）；上线前务必关闭并配置合法域名。
@@ -351,6 +347,7 @@ src/utils/network.ts          网络状态检测
 
 ## 附录：参考链接
 
+- HBuilderX 下载（Windows 绿色版）：https://www.dcloud.io/hbuilderx.html
 - uniCloud 快速上手（创建/关联服务空间）：https://doc.dcloud.net.cn/uniCloud/quickstart.html
 - uniCloud 控制台：https://unicloud.dcloud.net.cn/
 - uni-id / uni-id-pages 文档：https://doc.dcloud.net.cn/uniCloud/uni-id/app.html
@@ -362,7 +359,8 @@ src/utils/network.ts          网络状态检测
 
 ## 下一步（待办）
 
-- [ ] M0-1：uniCloud 控制台创建「阿里云免费版」服务空间并关联本项目
+- [x] M0-1a：创建服务空间（支付宝云免费版 `familycheckinprogram`，✅ 2026-09-05 确认）
+- [ ] M0-1b：安装 HBuilderX，创建 uniCloud 目录并关联服务空间
 - [ ] M0-2：导入 uni-id-pages / uni-id-co，配置微信登录（appid + appsecret）
 - [ ] M0-3：设计并创建 `families` / `family_members` 集合（DB Schema）
 - [ ] M0-4：实现 createFamily / joinFamily / getFamilyInfo 云对象
