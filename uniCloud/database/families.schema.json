@@ -1,0 +1,37 @@
+{
+  "bsonType": "object",
+  "required": ["name", "ownerUid", "inviteCode"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "家庭名称",
+      "maxLength": 20
+    },
+    "ownerUid": {
+      "bsonType": "string",
+      "title": "家庭管理员 uid"
+    },
+    "inviteCode": {
+      "bsonType": "string",
+      "title": "邀请码（6 位）",
+      "maxLength": 6
+    },
+    "memberCount": {
+      "bsonType": "int",
+      "title": "成员数量"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间"
+    }
+  }
+}

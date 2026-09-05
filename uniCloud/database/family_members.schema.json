@@ -1,0 +1,60 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "name"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID"
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "姓名",
+      "maxLength": 20
+    },
+    "gender": {
+      "bsonType": "string",
+      "title": "性别：male / female / other"
+    },
+    "birthday": {
+      "bsonType": "string",
+      "title": "出生日期 YYYY-MM-DD"
+    },
+    "height": {
+      "bsonType": ["double", "null"],
+      "title": "身高（cm）"
+    },
+    "weight": {
+      "bsonType": ["double", "null"],
+      "title": "体重（kg）"
+    },
+    "targetWeight": {
+      "bsonType": ["double", "null"],
+      "title": "目标体重（kg）"
+    },
+    "avatarColor": {
+      "bsonType": "string",
+      "title": "头像颜色"
+    },
+    "isSelf": {
+      "bsonType": "bool",
+      "title": "是否本人档案"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}
