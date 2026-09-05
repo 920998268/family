@@ -20,5 +20,9 @@
             "minified" : true
         },
         "usingComponents" : true
+    },
+    "uniCloud" : {
+        "spaceId" : "env-00jy6t350lew",
+        "provider" : "alipay"
     }
 }
