@@ -1,0 +1,14 @@
+{
+  "name": "uni-id-co",
+  "version": "1.0.0",
+  "description": "uni-id 用户体系云对象（包装 x-uni-id-co 公共模块）",
+  "main": "index.obj.js",
+  "dependencies": {
+    "x-uni-id-co": "file:../common/x-uni-id-co",
+    "uni-id-common": "file:../common/uni-id-common",
+    "uni-captcha": "file:../common/uni-captcha",
+    "uni-config-center": "file:../common/uni-config-center",
+    "uni-open-bridge-common": "file:../common/uni-open-bridge-common",
+    "uni-cloud-s2s": "file:../common/uni-cloud-s2s"
+  }
+}

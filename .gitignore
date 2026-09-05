@@ -13,3 +13,9 @@ __pycache__/
 project.private.config.json
 uniCloud/**/node_modules/
 uniCloud-alipay/**/node_modules/
+src/uni_modules/uni-config-center/uniCloud/cloudfunctions/common/uni-config-center/uni-id/config.json
+
+# HBuilderX上传用的公共模块副本（来源为src/uni_modules，不重复提交）
+uniCloud-alipay/cloudfunctions/common/
+uniCloud-alipay/cloudfunctions/uni-captcha-co/
+uniCloud-alipay/cloudfunctions/common/uni-config-center/uni-id/config.json
