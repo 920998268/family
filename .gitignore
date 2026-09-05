@@ -12,3 +12,4 @@ __pycache__/
 *.pyc
 project.private.config.json
 uniCloud/**/node_modules/
+uniCloud-alipay/**/node_modules/

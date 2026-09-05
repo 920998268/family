@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 
 // 云函数 lib.js 为 CommonJS 纯逻辑模块，用 createRequire 加载（避免无类型声明的 TS 报错）
 const require = createRequire(import.meta.url);
-const familyLib = require('../uniCloud/cloudfunctions/family/lib');
-const memberLib = require('../uniCloud/cloudfunctions/member/lib');
+const familyLib = require('../uniCloud-alipay/cloudfunctions/family/lib');
+const memberLib = require('../uniCloud-alipay/cloudfunctions/member/lib');
 
 describe('family 云函数纯逻辑', () => {
   it('generateInviteCode 生成 6 位邀请码且不含易混淆字符', () => {

@@ -1,24 +1,24 @@
 {
-  "name": "家庭打卡",
-  "appid": "",
-  "description": "家庭成员共享的日常打卡与计划管理小程序",
-  "versionName": "0.2.0",
-  "versionCode": "200",
-  "transformPx": false,
-  "h5": {
-    "title": "家庭打卡",
-    "router": {
-      "mode": "hash"
-    }
-  },
-  "mp-weixin": {
-    "appid": "wx0cae373d8c5573b8",
-    "setting": {
-      "urlCheck": false,
-      "es6": true,
-      "postcss": true,
-      "minified": true
+    "name" : "家庭打卡",
+    "appid" : "__UNI__D440BC0",
+    "description" : "家庭成员共享的日常打卡与计划管理小程序",
+    "versionName" : "0.2.0",
+    "versionCode" : "200",
+    "transformPx" : false,
+    "h5" : {
+        "title" : "家庭打卡",
+        "router" : {
+            "mode" : "hash"
+        }
     },
-    "usingComponents": true
-  }
+    "mp-weixin" : {
+        "appid" : "wx0cae373d8c5573b8",
+        "setting" : {
+            "urlCheck" : false,
+            "es6" : true,
+            "postcss" : true,
+            "minified" : true
+        },
+        "usingComponents" : true
+    }
 }
