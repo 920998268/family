@@ -1,4 +1,4 @@
-{
+﻿{
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
     "baseUrl": ".",
@@ -19,5 +19,8 @@
     "tests/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts"
+  ],
+  "exclude": [
+    "src/uni_modules/**"
   ]
 }
