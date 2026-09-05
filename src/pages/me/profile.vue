@@ -7,6 +7,7 @@ import { GENDERS } from '@/types/models';
 import type { Profile } from '@/types/models';
 import { todayKey } from '@/utils/date';
 import { errorMessage } from '@/utils/error';
+import { openMeTab } from '@/utils/navigation';
 
 const profileStore = useProfileStore();
 
@@ -69,6 +70,9 @@ function save(): void {
   try {
     profileStore.save(profile);
     uni.showToast({ title: '已保存', icon: 'success' });
+    setTimeout(() => {
+      openMeTab();
+    }, 400);
   } catch (error) {
     uni.showModal({
       title: '保存失败',
