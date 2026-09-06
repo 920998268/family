@@ -53,6 +53,7 @@ export type MemberRole =
 export interface FamilyMember {
   id: string;
   userId?: string; // 绑定的登录账号 UID，空=未绑定的虚拟成员
+  mobile?: string; // 预设手机号，用户用该手机号登录后自动关联
   name: string;
   role: MemberRole;
   avatarColor: string;

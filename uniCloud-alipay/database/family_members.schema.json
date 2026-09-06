@@ -19,6 +19,10 @@
       "bsonType": ["string", "null"],
       "title": "绑定的登录账号 UID（空=未绑定的虚拟成员）"
     },
+    "mobile": {
+      "bsonType": ["string", "null"],
+      "title": "绑定的手机号（管理员预设，用户用该手机号登录后自动关联）"
+    },
     "name": {
       "bsonType": "string",
       "title": "姓名",

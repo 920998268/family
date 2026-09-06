@@ -28,6 +28,7 @@ const form = reactive({
   role: 'father' as MemberRole,
   avatarColor: AVATAR_COLORS[0],
   avatarUrl: '',
+  mobile: '',
 });
 
 const roleNames = MEMBER_ROLES.map((item) => item.label);
@@ -39,6 +40,8 @@ const roleLabel: Record<string, string> = {
   owner: '家庭管理员',
   member: '家庭成员',
 };
+
+const isOwner = computed(() => authStore.familyRole === 'owner');
 
 onShow(() => {
   loadStatus();
@@ -144,6 +147,7 @@ function resetForm(): void {
   form.role = editingMember.value?.role ?? 'father';
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
   form.avatarUrl = editingMember.value?.avatarUrl ?? '';
+  form.mobile = editingMember.value?.mobile ?? '';
 }
 
 function onChooseAvatar(event: any): void {
@@ -185,6 +189,7 @@ function saveMember(): void {
     role: form.role,
     avatarColor: form.avatarColor,
     avatarUrl: form.avatarUrl,
+    mobile: form.mobile.trim() || undefined,
   };
   if (editingMember.value) {
     familyStore.update(editingMember.value.id, draft);
@@ -325,7 +330,7 @@ function removeMember(member: FamilyMember): void {
           <text class="section-count">共 {{ familyStore.members.length }} 位</text>
         </view>
 
-        <button class="add-member-btn" @tap="openAdd">+ 添加成员</button>
+        <button v-if="isOwner" class="add-member-btn" @tap="openAdd">+ 添加成员</button>
 
         <view v-if="formVisible" class="form-card member-form">
           <view class="form-title">{{ editingMember ? '编辑成员' : '添加成员' }}</view>
@@ -352,6 +357,17 @@ function removeMember(member: FamilyMember): void {
                 <text class="picker-arrow">›</text>
               </view>
             </picker>
+          </view>
+          <view class="form-group">
+            <text class="form-label">手机号（选填）</text>
+            <input
+              v-model="form.mobile"
+              class="form-input"
+              type="number"
+              maxlength="11"
+              placeholder="填写后，对方用此手机号登录自动关联"
+              placeholder-class="input-placeholder"
+            />
           </view>
           <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>
@@ -383,7 +399,7 @@ function removeMember(member: FamilyMember): void {
               </view>
               <text class="member-role">{{ MEMBER_ROLES.find((r) => r.value === member.role)?.label }}</text>
             </view>
-            <view class="member-actions">
+            <view v-if="isOwner" class="member-actions">
               <button class="btn-sm btn-secondary" @tap.stop="openEdit(member)">编辑</button>
               <button class="btn-sm btn-danger" @tap.stop="removeMember(member)">删除</button>
             </view>

@@ -2,10 +2,12 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useFamilyStore } from '@/stores/family';
+import { useAuthStore } from '@/stores/auth';
 import { MEMBER_ROLE_LABELS } from '@/types/models';
 import { generateMemberBindCode } from '@/unicloud';
 
 const familyStore = useFamilyStore();
+const authStore = useAuthStore();
 const memberId = ref('');
 const bindCode = ref('');
 const generating = ref(false);
@@ -13,6 +15,8 @@ const generating = ref(false);
 const member = computed(() =>
   familyStore.members.find((m) => m.id === memberId.value) || null,
 );
+
+const isOwner = computed(() => authStore.familyRole === 'owner');
 
 onLoad((options) => {
   memberId.value = options?.memberId || '';
@@ -112,8 +116,8 @@ function copyBindCode(): void {
       <text class="info-hint">个人信息档案功能开发中，后续支持每位成员独立维护身体数据</text>
     </view>
 
-    <!-- 未绑定成员：生成绑定码 -->
-    <view v-if="member && !member.userId" class="section">
+    <!-- 未绑定成员：生成绑定码（仅管理员可见） -->
+    <view v-if="member && !member.userId && isOwner" class="section">
       <view class="section-title">账号绑定</view>
       <view class="bind-card">
         <text class="bind-desc">生成绑定码后，对方用自己的账号登录，在家庭设置页选择「绑定成员」输入此码即可完成关联。绑定码24小时内有效。</text>

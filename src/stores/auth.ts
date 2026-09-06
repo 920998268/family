@@ -11,6 +11,7 @@ import {
   createFamily,
   joinFamily,
   bindMemberByCode as cloudBindMember,
+  autoBindByMobile as cloudAutoBindByMobile,
   type UniIdLoginResult,
   type MyFamilyStatus,
   type FamilyInfo,
@@ -145,6 +146,17 @@ export const useAuthStore = defineStore('auth', () => {
     return result;
   }
 
+  /** 登录后自动通过手机号匹配并绑定到预设成员 */
+  async function autoBindByMobile(): Promise<{ bound: boolean; reason?: string; familyId?: string; familyName?: string; memberName?: string; role?: string }> {
+    const result = await cloudAutoBindByMobile();
+    if (result.bound && result.familyId) {
+      familyId.value = result.familyId;
+      familyName.value = result.familyName || '';
+      familyRole.value = result.role || 'member';
+    }
+    return result;
+  }
+
   /** 退出登录 */
   async function logout(): Promise<void> {
     await cloudLogout();
@@ -178,6 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
     createNewFamily,
     joinExistingFamily,
     bindToMember,
+    autoBindByMobile,
     logout,
   };
 });

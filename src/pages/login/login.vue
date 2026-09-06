@@ -60,6 +60,15 @@ async function handlePasswordLogin(): Promise<void> {
 }
 
 async function afterLogin(): Promise<void> {
+  // 登录后先尝试通过手机号自动绑定到预设成员
+  try {
+    const bindResult = await authStore.autoBindByMobile();
+    if (bindResult.bound && bindResult.memberName) {
+      uni.showToast({ title: `已关联为「${bindResult.memberName}」`, icon: 'none' });
+    }
+  } catch (e) {
+    // 自动绑定失败不影响登录流程
+  }
   const status = await authStore.fetchFamilyStatus();
   if (status.hasFamily) {
     uni.switchTab({ url: '/pages/home/home' });

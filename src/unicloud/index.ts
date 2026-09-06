@@ -203,6 +203,11 @@ export async function bindMemberByCode(bindCode: string): Promise<{ familyId: st
   return callFamily('bindMember', { bindCode });
 }
 
+/** 登录后自动通过手机号匹配并绑定到预设成员 */
+export async function autoBindByMobile(): Promise<{ bound: boolean; reason?: string; familyId?: string; familyName?: string; memberName?: string; role?: string }> {
+  return callFamily('autoBindByMobile');
+}
+
 /**
  * 调用 member 云函数
  */

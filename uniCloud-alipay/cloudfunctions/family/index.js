@@ -49,6 +49,7 @@ exports.main = async (event, context) => {
     case 'removeMember': return removeMember(uid, event)
     case 'generateBindCode': return generateBindCode(uid, event)
     case 'bindMember': return bindMember(uid, event)
+    case 'autoBindByMobile': return autoBindByMobile(uid)
     default: return { code: 400, msg: `未知操作: ${event.action}` }
   }
 }
@@ -286,6 +287,43 @@ async function bindMember(uid, event) {
   return {
     code: 0,
     data: {
+      familyId: member.familyId,
+      familyName: family ? family.name : '',
+      memberName: member.name,
+      role: 'member'
+    }
+  }
+}
+
+// 登录后自动通过手机号匹配并绑定到预设成员
+async function autoBindByMobile(uid) {
+  const user = (await db.collection(USERS).doc(uid).get()).data[0]
+  if (!user) return { code: 401, msg: '用户不存在' }
+  if (user.familyId) return { code: 0, data: { bound: false, reason: 'already_has_family' } }
+  const mobile = user.mobile || ''
+  if (!mobile) return { code: 0, data: { bound: false, reason: 'no_mobile' } }
+  // 查找匹配手机号且未绑定的成员
+  const member = (await db.collection(MEMBERS).where({
+    mobile,
+    userId: null
+  }).limit(1).get()).data[0]
+  if (!member) return { code: 0, data: { bound: false, reason: 'no_match' } }
+  const now = Date.now()
+  await db.collection(MEMBERS).doc(member._id).update({
+    userId: uid,
+    isSelf: true,
+    updatedAt: now
+  })
+  await db.collection(USERS).doc(uid).update({
+    familyId: member.familyId,
+    familyRole: 'member'
+  })
+  await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
+  return {
+    code: 0,
+    data: {
+      bound: true,
       familyId: member.familyId,
       familyName: family ? family.name : '',
       memberName: member.name,
