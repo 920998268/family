@@ -16,8 +16,14 @@ onLoad((options) => {
   familyStore.load();
 });
 
-function goEdit(): void {
-  uni.navigateBack();
+function goBack(): void {
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack();
+  } else {
+    // 兜底：页面栈异常时返回到「我的」页面
+    uni.switchTab({ url: '/pages/me/me' });
+  }
 }
 </script>
 
@@ -71,7 +77,7 @@ function goEdit(): void {
     </view>
 
     <view v-if="member" class="section">
-      <button class="edit-btn" @tap="goEdit">返回</button>
+      <button class="edit-btn" @tap="goBack">返回</button>
     </view>
   </view>
 </template>
