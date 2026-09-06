@@ -33,7 +33,12 @@ async function handleGenerateBindCode(): Promise<void> {
   if (!member.value || generating.value) return;
   generating.value = true;
   try {
-    const result = await generateMemberBindCode(member.value.id);
+    const result = await generateMemberBindCode(member.value.id, {
+      name: member.value.name,
+      role: member.value.role,
+      avatarColor: member.value.avatarColor,
+      avatarUrl: member.value.avatarUrl,
+    });
     bindCode.value = result.bindCode;
     uni.showToast({ title: '绑定码已生成', icon: 'success' });
   } catch (err: any) {

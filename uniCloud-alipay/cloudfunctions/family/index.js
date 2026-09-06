@@ -27,7 +27,7 @@ function getDisplayName(user) {
 }
 
 // 生成6位绑定码（大写字母+数字，排除易混淆字符）
-function generateBindCode() {
+function generateBindCodeStr() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
   for (let i = 0; i < 6; i++) {
@@ -198,27 +198,60 @@ async function removeMember(uid, event) {
 // 家庭管理员为虚拟成员生成绑定码
 async function generateBindCode(uid, event) {
   const memberId = event.memberId
+  const memberData = event.memberData || {}
   if (!memberId) return { code: 400, msg: '缺少 memberId' }
   const user = (await db.collection(USERS).doc(uid).get()).data[0]
   if (!user || !user.familyId) return { code: 400, msg: '尚未加入家庭' }
   if (user.familyRole !== 'owner') return { code: 403, msg: '仅家庭管理员可操作' }
-  const member = (await db.collection(MEMBERS).doc(memberId).get()).data[0]
+
+  // 查找云端成员记录
+  let member = (await db.collection(MEMBERS).doc(memberId).get()).data[0]
+
+  // 如果云端不存在，且传入了成员数据，则自动创建
+  if ((!member || member.familyId !== user.familyId) && memberData.name) {
+    // 先按姓名查找是否已存在
+    const existing = (await db.collection(MEMBERS).where({
+      familyId: user.familyId,
+      name: memberData.name
+    }).limit(1).get()).data[0]
+    if (existing) {
+      member = existing
+    } else {
+      const now = Date.now()
+      const addRes = await db.collection(MEMBERS).add({
+        familyId: user.familyId,
+        userId: null,
+        name: memberData.name,
+        role: memberData.role || 'other',
+        gender: memberData.gender || '',
+        birthday: memberData.birthday || '',
+        avatarColor: memberData.avatarColor || '#f97316',
+        avatarUrl: memberData.avatarUrl || '',
+        isSelf: false,
+        createdAt: now,
+        updatedAt: now
+      })
+      member = (await db.collection(MEMBERS).doc(addRes.id).get()).data[0]
+    }
+  }
+
   if (!member || member.familyId !== user.familyId) return { code: 403, msg: '无权操作该成员' }
   if (member.userId) return { code: 400, msg: '该成员已绑定登录账号' }
+
   // 生成唯一绑定码
-  let bindCode = generateBindCode()
+  let bindCode = generateBindCodeStr()
   for (let i = 0; i < 5; i++) {
     const exist = await db.collection(MEMBERS).where({ bindCode }).count()
     if (exist.total === 0) break
-    bindCode = generateBindCode()
+    bindCode = generateBindCodeStr()
   }
   const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24小时有效
-  await db.collection(MEMBERS).doc(memberId).update({
+  await db.collection(MEMBERS).doc(member._id).update({
     bindCode,
     bindCodeExpiresAt: expiresAt,
     updatedAt: Date.now()
   })
-  return { code: 0, data: { bindCode, expiresAt, memberName: member.name } }
+  return { code: 0, data: { bindCode, expiresAt, memberName: member.name, memberId: member._id } }
 }
 
 // 用户通过绑定码绑定到已有虚拟成员

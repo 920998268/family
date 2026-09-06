@@ -190,9 +190,12 @@ export async function regenerateInviteCode(familyId: string): Promise<{ inviteCo
   return callFamily('regenerateInviteCode', { familyId });
 }
 
-/** 为虚拟成员生成绑定码（仅家庭管理员） */
-export async function generateMemberBindCode(memberId: string): Promise<{ bindCode: string; expiresAt: number; memberName: string }> {
-  return callFamily('generateBindCode', { memberId });
+/** 为虚拟成员生成绑定码（仅家庭管理员），如果云端不存在该成员则自动创建 */
+export async function generateMemberBindCode(
+  memberId: string,
+  memberData?: { name: string; role?: string; gender?: string; birthday?: string; avatarColor?: string; avatarUrl?: string },
+): Promise<{ bindCode: string; expiresAt: number; memberName: string; memberId: string }> {
+  return callFamily('generateBindCode', { memberId, memberData });
 }
 
 /** 通过绑定码绑定到已有虚拟成员 */
