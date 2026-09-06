@@ -5,7 +5,7 @@ import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
 import { useFamilyStore } from '@/stores/family';
 import type { Gender, MemberRole } from '@/types/models';
-import { GENDERS, MEMBER_ROLES } from '@/types/models';
+import { GENDERS, MEMBER_ROLES, AVATAR_COLORS } from '@/types/models';
 import type { Profile } from '@/types/models';
 import { errorMessage } from '@/utils/error';
 import { openMeTab } from '@/utils/navigation';
@@ -190,6 +190,7 @@ function save(): void {
           name: profile.name,
           role: form.role,
           gender: form.gender,
+          avatarColor: AVATAR_COLORS[0],
           mobile: profile.mobile || authStore.mobile || undefined,
           avatarUrl: form.avatarUrl || undefined,
           heightCm: profile.heightCm || undefined,

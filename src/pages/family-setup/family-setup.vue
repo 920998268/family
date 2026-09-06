@@ -19,6 +19,8 @@ const errorMsg = ref('');
 const submitting = ref(false);
 const loading = ref(true);
 const familyInfo = ref<{ familyName: string; role: string; inviteCode: string } | null>(null);
+const editingFamilyName = ref(false);
+const familyNameInput = ref('');
 
 // 家庭成员管理
 const formVisible = ref(false);
@@ -153,6 +155,25 @@ function copyInviteCode(): void {
     data: familyInfo.value.inviteCode,
     success: () => uni.showToast({ title: '邀请码已复制', icon: 'success' }),
   });
+}
+
+function startEditFamilyName(): void {
+  familyNameInput.value = familyInfo.value?.familyName || '';
+  editingFamilyName.value = true;
+}
+
+function saveFamilyName(): void {
+  const name = familyNameInput.value.trim();
+  if (!name) {
+    uni.showToast({ title: '家庭名称不能为空', icon: 'none' });
+    return;
+  }
+  if (familyInfo.value) {
+    familyInfo.value.familyName = name;
+  }
+  authStore.familyName = name;
+  editingFamilyName.value = false;
+  uni.showToast({ title: '已保存', icon: 'success' });
 }
 
 function goMemberDetail(memberId: string): void {
@@ -403,7 +424,14 @@ function removeMember(member: FamilyMember): void {
       <view class="form-card">
         <view class="family-info">
           <view class="family-name-row">
-            <text class="family-name">{{ familyInfo.familyName }}</text>
+            <view v-if="!editingFamilyName" class="family-name-display">
+              <text class="family-name">{{ familyInfo.familyName }}</text>
+              <text v-if="isOwner" class="edit-icon" @tap="startEditFamilyName">✏️</text>
+            </view>
+            <view v-else class="family-name-edit">
+              <input v-model="familyNameInput" class="family-name-input" placeholder="输入家庭名称" placeholder-class="input-placeholder" />
+              <button class="save-name-btn" @tap="saveFamilyName">保存</button>
+            </view>
             <text class="family-role">{{ roleLabel[familyInfo.role] || '家庭成员' }}</text>
           </view>
           <view class="invite-section">
@@ -703,6 +731,51 @@ function removeMember(member: FamilyMember): void {
     border-bottom: 2rpx solid #f5f0e8;
   }
 
+  .family-name-display {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
+  .edit-icon {
+    font-size: 28rpx;
+  }
+
+  .family-name-edit {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    flex: 1;
+    margin-right: 16rpx;
+  }
+
+  .family-name-input {
+    flex: 1;
+    height: 64rpx;
+    background: #faf6f1;
+    border-radius: 10rpx;
+    padding: 0 16rpx;
+    font-size: 30rpx;
+    color: #2d2a26;
+  }
+
+  .save-name-btn {
+    height: 64rpx;
+    padding: 0 24rpx !important;
+    margin: 0;
+    border: none;
+    border-radius: 10rpx;
+    background: #f97316;
+    color: #fff;
+    font-size: 26rpx;
+    font-weight: 600;
+    line-height: 1;
+
+    &::after {
+      border: none;
+    }
+  }
+
   .family-name {
     font-size: 34rpx;
     font-weight: 700;
@@ -794,9 +867,9 @@ function removeMember(member: FamilyMember): void {
   height: 80rpx;
   padding: 0 !important;
   margin: 0 0 20rpx;
-  border: 2rpx dashed #f97316;
+  border: 2rpx solid #f97316;
   border-radius: 16rpx;
-  background: #fff7ed;
+  background: #fff;
   color: #f97316;
   font-size: 28rpx;
   font-weight: 600;

@@ -57,10 +57,22 @@ function showMobilePicker(): void {
       const selected = selectableMobiles.value[res.tapIndex];
       if (selected) {
         presetMobile.value = selected.mobile;
-        savePresetMobile();
       }
     },
   });
+}
+
+// 点击选择绑定按钮，绑定当前手机号
+function handleBindMobile(): void {
+  if (!presetMobile.value) {
+    uni.showToast({ title: '请先选择或输入手机号', icon: 'none' });
+    return;
+  }
+  if (!/^\d{4,12}$/.test(presetMobile.value)) {
+    uni.showToast({ title: '手机号需为4-12位数字', icon: 'none' });
+    return;
+  }
+  savePresetMobile();
 }
 
 // 手机号输入校验
@@ -70,9 +82,7 @@ function onPresetMobileBlur(): void {
   if (!/^\d{4,12}$/.test(m)) {
     uni.showToast({ title: '手机号需为4-12位数字', icon: 'none' });
     presetMobile.value = '';
-    return;
   }
-  savePresetMobile();
 }
 
 // 保存预设手机号到成员
@@ -134,7 +144,10 @@ function copyBindCode(): void {
           <text>{{ member.name.slice(0, 1) }}</text>
         </view>
       </view>
-      <text class="member-name">{{ member.name }}</text>
+      <text class="member-name">
+        {{ member.name }}
+        <text v-if="!member.userId" class="unbound-tag">未绑定</text>
+      </text>
       <text class="member-role">{{ MEMBER_ROLE_LABELS[member.role] || '其他' }}</text>
     </view>
 
@@ -147,17 +160,11 @@ function copyBindCode(): void {
       <view class="info-card">
         <view class="info-row">
           <text class="info-label">姓名</text>
-          <text class="info-value">{{ member.name }}</text>
+          <text class="info-value">{{ member.name }}<text v-if="!member.userId" class="virtual-tag">（虚拟成员）</text></text>
         </view>
         <view class="info-row">
           <text class="info-label">家庭关系</text>
           <text class="info-value">{{ MEMBER_ROLE_LABELS[member.role] || '其他' }}</text>
-        </view>
-        <view class="info-row">
-          <text class="info-label">账号绑定</text>
-          <text class="info-value" :class="{ 'bound': member.userId, 'unbound': !member.userId }">
-            {{ member.userId ? '已绑定登录账号' : '未绑定（虚拟成员）' }}
-          </text>
         </view>
         <view class="info-row">
           <text class="info-label">手机号</text>
@@ -189,18 +196,19 @@ function copyBindCode(): void {
       <view class="bind-card">
         <text class="bind-desc">预设手机号后，对方用此手机号登录将自动关联到该成员。也可生成绑定码让对方手动绑定。</text>
 
-        <!-- 手机号预设：可输入 + 下拉选择 -->
+        <!-- 手机号预设：点击输入框下拉选择，选择绑定按钮确认 -->
         <view class="preset-mobile-row">
           <input
             v-model="presetMobile"
             class="preset-mobile-input"
             type="number"
             maxlength="12"
-            placeholder="输入或选择手机号"
+            placeholder="点击选择或输入手机号"
             placeholder-class="preset-placeholder"
             @blur="onPresetMobileBlur"
+            @tap="showMobilePicker"
           />
-          <button class="preset-mobile-btn" @tap="showMobilePicker">选择</button>
+          <button class="preset-mobile-btn" @tap="handleBindMobile">选择绑定</button>
         </view>
 
         <view v-if="bindCode" class="bind-code-row">
@@ -267,6 +275,18 @@ function copyBindCode(): void {
   font-weight: 700;
   color: #2d2a26;
   margin-bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.unbound-tag {
+  font-size: 22rpx;
+  font-weight: 500;
+  color: #a8a29e;
+  background: #f5f5f4;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
 }
 
 .member-role {
@@ -275,6 +295,12 @@ function copyBindCode(): void {
   background: #fff7ed;
   padding: 6rpx 20rpx;
   border-radius: 16rpx;
+}
+
+.virtual-tag {
+  font-size: 24rpx;
+  color: #a8a29e;
+  font-weight: 400;
 }
 
 .section {
