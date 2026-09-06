@@ -4,6 +4,8 @@ import {
   hasToken,
   clearToken,
   loginByWeixin,
+  loginByPassword,
+  register as cloudRegister,
   logout as cloudLogout,
   getMyFamilyStatus,
   createFamily,
@@ -54,6 +56,34 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await loginByWeixin(code);
       uid.value = result.uid || '';
       nickname.value = result.nickname || '';
+      avatar.value = result.avatar || '';
+      return result;
+    } finally {
+      loggingIn.value = false;
+    }
+  }
+
+  /** 手机号/用户名 + 密码登录 */
+  async function loginWithPassword(username: string, password: string): Promise<UniIdLoginResult> {
+    loggingIn.value = true;
+    try {
+      const result = await loginByPassword(username.trim(), password);
+      uid.value = result.uid || '';
+      nickname.value = result.nickname || result.username || '';
+      avatar.value = result.avatar || '';
+      return result;
+    } finally {
+      loggingIn.value = false;
+    }
+  }
+
+  /** 注册账号 */
+  async function registerAccount(username: string, password: string): Promise<UniIdLoginResult> {
+    loggingIn.value = true;
+    try {
+      const result = await cloudRegister(username.trim(), password);
+      uid.value = result.uid || '';
+      nickname.value = result.nickname || result.username || '';
       avatar.value = result.avatar || '';
       return result;
     } finally {
@@ -130,6 +160,8 @@ export const useAuthStore = defineStore('auth', () => {
     hasFamily,
     restoreFromStorage,
     loginWithWeixin,
+    loginWithPassword,
+    registerAccount,
     fetchFamilyStatus,
     createNewFamily,
     joinExistingFamily,

@@ -84,7 +84,7 @@ describe('Pinia stores', () => {
     store.load();
     expect(store.members).toHaveLength(0);
 
-    const added = store.add({ name: '爸爸', role: 'parent', avatarColor: '#f97316' });
+    const added = store.add({ name: '爸爸', role: 'father', avatarColor: '#f97316' });
     expect(store.members).toHaveLength(1);
     expect(store.nameOf(added.id)).toBe('爸爸');
 
@@ -188,7 +188,7 @@ describe('Pinia stores', () => {
       foodName: '三文鱼',
       quantity: '180g',
     });
-    familyStore.add({ name: '妈妈', role: 'parent', avatarColor: '#0ea5e9' });
+    familyStore.add({ name: '妈妈', role: 'mother', avatarColor: '#0ea5e9' });
 
     const exported = backupStore.exportData();
     expect(exported.diet).toHaveLength(1);

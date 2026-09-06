@@ -55,9 +55,14 @@ export function isMealType(value: unknown): value is MealType {
 
 export function isMemberRole(value: unknown): value is MemberRole {
   return (
-    value === 'parent' ||
-    value === 'child' ||
-    value === 'elder' ||
+    value === 'father' ||
+    value === 'mother' ||
+    value === 'grandfather' ||
+    value === 'grandmother' ||
+    value === 'maternalGrandfather' ||
+    value === 'maternalGrandmother' ||
+    value === 'son' ||
+    value === 'daughter' ||
     value === 'other'
   );
 }

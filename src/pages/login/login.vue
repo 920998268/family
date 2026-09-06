@@ -3,21 +3,70 @@ import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
+const activeTab = ref<'weixin' | 'password'>('weixin');
+const authMode = ref<'login' | 'register'>('login');
 const errorMsg = ref('');
 
-async function handleLogin(): Promise<void> {
+// 手机号密码登录表单
+const form = ref({
+  username: '',
+  password: '',
+  confirmPassword: '',
+});
+
+async function handleWeixinLogin(): Promise<void> {
   errorMsg.value = '';
   try {
     await authStore.loginWithWeixin();
-    const status = await authStore.fetchFamilyStatus();
-    if (status.hasFamily) {
-      uni.switchTab({ url: '/pages/home/home' });
-    } else {
-      uni.redirectTo({ url: '/pages/family-setup/family-setup' });
-    }
+    await afterLogin();
   } catch (err: any) {
-    errorMsg.value = err?.message || '登录失败，请重试';
+    errorMsg.value = err?.message || '微信登录失败，请重试';
   }
+}
+
+async function handlePasswordLogin(): Promise<void> {
+  errorMsg.value = '';
+  if (!form.value.username.trim()) {
+    errorMsg.value = '请输入手机号或用户名';
+    return;
+  }
+  if (!form.value.password) {
+    errorMsg.value = '请输入密码';
+    return;
+  }
+  if (form.value.password.length < 6) {
+    errorMsg.value = '密码长度至少6位';
+    return;
+  }
+  try {
+    if (authMode.value === 'login') {
+      await authStore.loginWithPassword(form.value.username, form.value.password);
+    } else {
+      if (form.value.password !== form.value.confirmPassword) {
+        errorMsg.value = '两次输入的密码不一致';
+        return;
+      }
+      await authStore.registerAccount(form.value.username, form.value.password);
+    }
+    await afterLogin();
+  } catch (err: any) {
+    errorMsg.value = err?.message || (authMode.value === 'login' ? '登录失败' : '注册失败');
+  }
+}
+
+async function afterLogin(): Promise<void> {
+  const status = await authStore.fetchFamilyStatus();
+  if (status.hasFamily) {
+    uni.switchTab({ url: '/pages/home/home' });
+  } else {
+    uni.redirectTo({ url: '/pages/family-setup/family-setup' });
+  }
+}
+
+function switchMode(mode: 'login' | 'register'): void {
+  authMode.value = mode;
+  errorMsg.value = '';
+  form.value.confirmPassword = '';
 }
 </script>
 
@@ -33,16 +82,89 @@ async function handleLogin(): Promise<void> {
     </view>
 
     <view class="login-actions">
-      <button
-        class="wechat-btn"
-        :disabled="authStore.loggingIn"
-        @tap="handleLogin"
-      >
-        <text v-if="!authStore.loggingIn" class="wechat-icon">✓</text>
-        <text class="wechat-text">
-          {{ authStore.loggingIn ? '登录中...' : '微信一键登录' }}
-        </text>
-      </button>
+      <!-- 登录方式 Tab -->
+      <view class="login-tabs">
+        <view
+          class="login-tab"
+          :class="{ active: activeTab === 'weixin' }"
+          @tap="activeTab = 'weixin'"
+        >
+          <text>微信登录</text>
+        </view>
+        <view
+          class="login-tab"
+          :class="{ active: activeTab === 'password' }"
+          @tap="activeTab = 'password'"
+        >
+          <text>账号登录</text>
+        </view>
+      </view>
+
+      <!-- 微信一键登录 -->
+      <view v-if="activeTab === 'weixin'" class="weixin-section">
+        <button
+          class="wechat-btn"
+          :disabled="authStore.loggingIn"
+          @tap="handleWeixinLogin"
+        >
+          <text v-if="!authStore.loggingIn" class="wechat-icon">✓</text>
+          <text class="wechat-text">
+            {{ authStore.loggingIn ? '登录中...' : '微信一键登录' }}
+          </text>
+        </button>
+      </view>
+
+      <!-- 手机号/用户名 + 密码登录 -->
+      <view v-else class="password-section">
+        <view class="mode-switch">
+          <text
+            class="mode-text"
+            :class="{ active: authMode === 'login' }"
+            @tap="switchMode('login')"
+          >登录</text>
+          <text class="mode-divider">|</text>
+          <text
+            class="mode-text"
+            :class="{ active: authMode === 'register' }"
+            @tap="switchMode('register')"
+          >注册</text>
+        </view>
+
+        <view class="form-group">
+          <input
+            v-model="form.username"
+            class="form-input"
+            placeholder="手机号 / 用户名"
+            placeholder-class="input-placeholder"
+          />
+        </view>
+        <view class="form-group">
+          <input
+            v-model="form.password"
+            class="form-input"
+            type="password"
+            placeholder="密码（至少6位）"
+            placeholder-class="input-placeholder"
+          />
+        </view>
+        <view v-if="authMode === 'register'" class="form-group">
+          <input
+            v-model="form.confirmPassword"
+            class="form-input"
+            type="password"
+            placeholder="确认密码"
+            placeholder-class="input-placeholder"
+          />
+        </view>
+
+        <button
+          class="submit-btn"
+          :disabled="authStore.loggingIn"
+          @tap="handlePasswordLogin"
+        >
+          {{ authStore.loggingIn ? '处理中...' : (authMode === 'login' ? '登 录' : '注 册') }}
+        </button>
+      </view>
 
       <text v-if="errorMsg" class="login-error">{{ errorMsg }}</text>
 
@@ -67,7 +189,7 @@ async function handleLogin(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 80rpx;
+  margin-top: 60rpx;
 }
 
 .login-logo {
@@ -110,7 +232,37 @@ async function handleLogin(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24rpx;
+  gap: 20rpx;
+}
+
+.login-tabs {
+  display: flex;
+  width: 100%;
+  background: #f5f0e8;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 8rpx;
+}
+
+.login-tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #78716c;
+  transition: all 0.2s;
+
+  &.active {
+    background: #fff;
+    color: #f97316;
+    font-weight: 600;
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  }
+}
+
+.weixin-section {
+  width: 100%;
 }
 
 .wechat-btn {
@@ -148,14 +300,88 @@ async function handleLogin(): Promise<void> {
   font-weight: 600;
 }
 
+.password-section {
+  width: 100%;
+}
+
+.mode-switch {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.mode-text {
+  font-size: 28rpx;
+  color: #a8a29e;
+
+  &.active {
+    color: #f97316;
+    font-weight: 600;
+  }
+}
+
+.mode-divider {
+  color: #e7e5e4;
+  font-size: 24rpx;
+}
+
+.form-group {
+  margin-bottom: 20rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  border: 2rpx solid #e7e5e4;
+  border-radius: 16rpx;
+  padding: 0 28rpx;
+  font-size: 30rpx;
+  color: #2d2a26;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.input-placeholder {
+  color: #d6d3d1;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 92rpx;
+  padding: 0 !important;
+  margin: 8rpx 0 0;
+  border: none;
+  border-radius: 46rpx;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  &::after {
+    border: none;
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+  }
+}
+
 .login-error {
   font-size: 26rpx;
   color: #ef4444;
+  text-align: center;
 }
 
 .login-agreement {
   font-size: 22rpx;
   color: #a8a29e;
-  margin-top: 16rpx;
+  margin-top: 8rpx;
+  text-align: center;
 }
 </style>

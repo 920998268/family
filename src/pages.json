@@ -98,6 +98,12 @@
       }
     },
     {
+      "path": "pages/me/member-detail",
+      "style": {
+        "navigationBarTitleText": "成员详情"
+      }
+    },
+    {
       "path": "pages/backup/backup",
       "style": {
         "navigationBarTitleText": "数据备份"

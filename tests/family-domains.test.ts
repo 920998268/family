@@ -32,7 +32,7 @@ import type {
 } from '@/types/models';
 
 function makeMember(): FamilyMember {
-  return { id: 'member-1', name: '爸爸', role: 'parent', avatarColor: '#f97316' };
+  return { id: 'member-1', name: '爸爸', role: 'father', avatarColor: '#f97316' };
 }
 
 function makeStudyPlan(): StudyPlan {
@@ -191,7 +191,7 @@ describe('family domain services', () => {
   });
 
   it('adds, updates, and removes family members', () => {
-    const added = familyService.add({ name: '妈妈', role: 'parent', avatarColor: '#0ea5e9' });
+    const added = familyService.add({ name: '妈妈', role: 'mother', avatarColor: '#0ea5e9' });
     expect(familyService.list()).toHaveLength(1);
 
     familyService.update(added.id, { name: '老妈' });
@@ -338,7 +338,7 @@ describe('family backup round trip', () => {
     const travelService = new TravelService(new TravelRepository(storage));
     const ledgerService = new LedgerService(new LedgerRepository(storage));
 
-    familyService.add({ name: '爸爸', role: 'parent', avatarColor: '#f97316' });
+    familyService.add({ name: '爸爸', role: 'father', avatarColor: '#f97316' });
     const plan = studyService.addPlan({
       title: '每天背单词',
       subject: '英语',

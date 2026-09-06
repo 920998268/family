@@ -24,8 +24,9 @@ const formVisible = ref(false);
 const editingMember = ref<FamilyMember | null>(null);
 const form = reactive({
   name: '',
-  role: 'parent' as MemberRole,
+  role: 'father' as MemberRole,
   avatarColor: AVATAR_COLORS[0],
+  avatarUrl: '',
 });
 
 const roleNames = MEMBER_ROLES.map((item) => item.label);
@@ -108,11 +109,23 @@ function copyInviteCode(): void {
   });
 }
 
+function goMemberDetail(memberId: string): void {
+  uni.navigateTo({ url: `/pages/me/member-detail?memberId=${memberId}` });
+}
+
 // 家庭成员管理
 function resetForm(): void {
   form.name = editingMember.value?.name ?? '';
-  form.role = editingMember.value?.role ?? 'parent';
+  form.role = editingMember.value?.role ?? 'father';
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
+  form.avatarUrl = editingMember.value?.avatarUrl ?? '';
+}
+
+function onChooseAvatar(event: any): void {
+  const avatarUrl = event?.detail?.avatarUrl;
+  if (avatarUrl) {
+    form.avatarUrl = avatarUrl;
+  }
 }
 
 function openAdd(): void {
@@ -146,6 +159,7 @@ function saveMember(): void {
     name: form.name.trim(),
     role: form.role,
     avatarColor: form.avatarColor,
+    avatarUrl: form.avatarUrl,
   };
   if (editingMember.value) {
     familyStore.update(editingMember.value.id, draft);
@@ -265,12 +279,23 @@ function removeMember(member: FamilyMember): void {
 
         <view v-if="formVisible" class="form-card member-form">
           <view class="form-title">{{ editingMember ? '编辑成员' : '添加成员' }}</view>
+          <view class="avatar-section">
+            <view class="avatar-preview">
+              <image v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar-preview-img" mode="aspectFill" />
+              <view v-else class="avatar-preview-dot" :style="{ background: form.avatarColor }">
+                <text>{{ (form.name || '?').slice(0, 1) }}</text>
+              </view>
+            </view>
+            <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+              使用微信头像
+            </button>
+          </view>
           <view class="form-group">
             <text class="form-label">姓名</text>
             <input v-model="form.name" class="form-input" placeholder="例如：爸爸 / 小明" />
           </view>
           <view class="form-group">
-            <text class="form-label">角色</text>
+            <text class="form-label">家庭关系</text>
             <picker :range="roleNames" :value="roleIndex" @change="onRoleChange">
               <view class="picker-value">
                 <text>{{ roleNames[roleIndex] }}</text>
@@ -278,7 +303,7 @@ function removeMember(member: FamilyMember): void {
               </view>
             </picker>
           </view>
-          <view class="form-group">
+          <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>
             <view class="color-row">
               <view
@@ -298,15 +323,15 @@ function removeMember(member: FamilyMember): void {
         </view>
 
         <view class="member-list">
-          <view v-for="member in familyStore.members" :key="member.id" class="member-card">
-            <MemberAvatar :name="member.name" :color="member.avatarColor" />
+          <view v-for="member in familyStore.members" :key="member.id" class="member-card" @tap="goMemberDetail(member.id)">
+            <MemberAvatar :name="member.name" :color="member.avatarColor" :avatarUrl="member.avatarUrl" />
             <view class="member-info">
               <text class="member-name">{{ member.name }}</text>
               <text class="member-role">{{ MEMBER_ROLES.find((r) => r.value === member.role)?.label }}</text>
             </view>
             <view class="member-actions">
-              <button class="btn-sm btn-secondary" @tap="openEdit(member)">编辑</button>
-              <button class="btn-sm btn-danger" @tap="removeMember(member)">删除</button>
+              <button class="btn-sm btn-secondary" @tap.stop="openEdit(member)">编辑</button>
+              <button class="btn-sm btn-danger" @tap.stop="removeMember(member)">删除</button>
             </view>
           </view>
           <view v-if="familyStore.members.length === 0" class="empty-tip">
@@ -583,6 +608,63 @@ function removeMember(member: FamilyMember): void {
     font-weight: 700;
     color: #2d2a26;
     margin-bottom: 20rpx;
+  }
+}
+
+.avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 24rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 2rpx solid #f5f0e8;
+}
+
+.avatar-preview {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-preview-img {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-preview-dot {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text {
+    font-size: 40rpx;
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.avatar-btn {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 !important;
+  margin: 0;
+  border: 2rpx solid #f97316;
+  border-radius: 36rpx;
+  background: #fff7ed;
+  color: #f97316;
+  font-size: 26rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  &::after {
+    border: none;
   }
 }
 

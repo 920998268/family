@@ -39,13 +39,23 @@ export interface WorkoutEntry {
   memberId?: string;
 }
 
-export type MemberRole = 'parent' | 'child' | 'elder' | 'other';
+export type MemberRole =
+  | 'father'
+  | 'mother'
+  | 'grandfather'
+  | 'grandmother'
+  | 'maternalGrandfather'
+  | 'maternalGrandmother'
+  | 'son'
+  | 'daughter'
+  | 'other';
 
 export interface FamilyMember {
   id: string;
   name: string;
   role: MemberRole;
   avatarColor: string;
+  avatarUrl?: string;
 }
 
 export type StudyFrequency = 'daily' | 'weekly';
@@ -149,16 +159,26 @@ export const MEAL_LABELS: Record<MealType, string> = {
 };
 
 export const MEMBER_ROLES: ReadonlyArray<{ value: MemberRole; label: string }> = [
-  { value: 'parent', label: '父母' },
-  { value: 'child', label: '子女' },
-  { value: 'elder', label: '长辈' },
+  { value: 'father', label: '爸爸' },
+  { value: 'mother', label: '妈妈' },
+  { value: 'grandfather', label: '爷爷' },
+  { value: 'grandmother', label: '奶奶' },
+  { value: 'maternalGrandfather', label: '外公' },
+  { value: 'maternalGrandmother', label: '外婆' },
+  { value: 'son', label: '儿子' },
+  { value: 'daughter', label: '女儿' },
   { value: 'other', label: '其他' },
 ];
 
 export const MEMBER_ROLE_LABELS: Record<MemberRole, string> = {
-  parent: '父母',
-  child: '子女',
-  elder: '长辈',
+  father: '爸爸',
+  mother: '妈妈',
+  grandfather: '爷爷',
+  grandmother: '奶奶',
+  maternalGrandfather: '外公',
+  maternalGrandmother: '外婆',
+  son: '儿子',
+  daughter: '女儿',
   other: '其他',
 };
 

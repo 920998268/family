@@ -15,7 +15,7 @@ const editingMember = ref<FamilyMember | null>(null);
 
 const form = reactive({
   name: '',
-  role: 'parent' as MemberRole,
+  role: 'father' as MemberRole,
   avatarColor: AVATAR_COLORS[0],
 });
 
@@ -30,7 +30,7 @@ onShow(() => {
 
 function resetForm(): void {
   form.name = editingMember.value?.name ?? '';
-  form.role = editingMember.value?.role ?? 'parent';
+  form.role = editingMember.value?.role ?? 'father';
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
 }
 
@@ -53,7 +53,7 @@ function closeForm(): void {
 
 function onRoleChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
-  form.role = (MEMBER_ROLES[index]?.value ?? 'parent') as MemberRole;
+  form.role = (MEMBER_ROLES[index]?.value ?? 'father') as MemberRole;
 }
 
 function save(): void {
