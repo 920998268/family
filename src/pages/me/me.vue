@@ -32,6 +32,18 @@ const genderText = computed(() => {
 const roleLabel = computed(() => (authStore.isOwner ? '家庭管理员' : '家庭成员'));
 const roleClass = computed(() => (authStore.isOwner ? 'role-owner' : 'role-member'));
 
+// 家庭关系文本
+const familyRoleText = computed(() => {
+  const r = profile.value?.role;
+  if (!r) return '';
+  const roleMap: Record<string, string> = {
+    father: '爸爸', mother: '妈妈', grandfather: '爷爷', grandmother: '奶奶',
+    maternalGrandfather: '外公', maternalGrandmother: '外婆',
+    son: '儿子', daughter: '女儿', other: '其他',
+  };
+  return roleMap[r] || '';
+});
+
 onShow(() => {
   profileStore.load();
 });
@@ -113,9 +125,9 @@ async function handleLogout(): Promise<void> {
             <text>{{ displayName.slice(0, 1) }}</text>
           </view>
         </button>
-        <!-- 相册选择 badge -->
-        <view class="avatar-edit-badge" @tap.stop="onAlbumTap">
-          <text>相册</text>
+        <!-- 相册选择小图标 -->
+        <view class="avatar-camera-icon" @tap.stop="onAlbumTap">
+          <text>📷</text>
         </view>
         <!-- 右侧信息：点击进入编辑 -->
         <view class="profile-info" @tap="goProfile">
@@ -125,6 +137,8 @@ async function handleLogout(): Promise<void> {
           </view>
           <view class="meta-row">
             <text class="meta-item">{{ genderText }}</text>
+            <text v-if="familyRoleText" class="meta-divider">·</text>
+            <text v-if="familyRoleText" class="meta-item">{{ familyRoleText }}</text>
             <text class="meta-divider">·</text>
             <text class="meta-item">{{ displayMobile }}</text>
           </view>
@@ -241,20 +255,24 @@ async function handleLogout(): Promise<void> {
   border-radius: 50%;
 }
 
-.avatar-edit-badge {
+.avatar-camera-icon {
   position: absolute;
-  left: 80rpx;
-  top: 80rpx;
+  left: 88rpx;
+  top: 88rpx;
   z-index: 10;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
   background: #fff;
   border: 2rpx solid #f97316;
-  border-radius: 16rpx;
-  padding: 4rpx 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 
   text {
-    font-size: 18rpx;
-    color: #f97316;
-    font-weight: 600;
+    font-size: 20rpx;
+    line-height: 1;
   }
 }
 

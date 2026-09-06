@@ -14,7 +14,10 @@ const authStore = useAuthStore();
 
 const genderNames = GENDERS.map((item) => item.label);
 const roleNames = MEMBER_ROLES.map((item) => item.label);
-const currentYear = new Date().getFullYear();
+const now = new Date();
+const currentYear = now.getFullYear();
+const currentMonth = String(now.getMonth() + 1);
+const currentDay = String(now.getDate());
 const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
 const monthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const dayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -24,9 +27,9 @@ const form = reactive({
   gender: 'male' as Gender,
   role: 'other' as MemberRole,
   mobile: '',
-  birthYear: '',
-  birthMonth: '',
-  birthDay: '',
+  birthYear: String(currentYear),
+  birthMonth: currentMonth,
+  birthDay: currentDay,
   heightCm: 170,
   currentWeightKg: 60,
   targetWeightKg: 58,
@@ -41,17 +44,20 @@ const roleIndex = computed(() =>
   Math.max(MEMBER_ROLES.findIndex((item) => item.value === form.role), 0),
 );
 
-const yearIndex = computed(() =>
-  Math.max(yearOptions.indexOf(form.birthYear), 0),
-);
+const yearIndex = computed(() => {
+  const idx = yearOptions.indexOf(form.birthYear);
+  return idx >= 0 ? idx : yearOptions.length - 1;
+});
 
-const monthIndex = computed(() =>
-  Math.max(monthOptions.indexOf(form.birthMonth), 0),
-);
+const monthIndex = computed(() => {
+  const idx = monthOptions.indexOf(form.birthMonth);
+  return idx >= 0 ? idx : Number(currentMonth) - 1;
+});
 
-const dayIndex = computed(() =>
-  Math.max(dayOptions.indexOf(form.birthDay), 0),
-);
+const dayIndex = computed(() => {
+  const idx = dayOptions.indexOf(form.birthDay);
+  return idx >= 0 ? idx : Number(currentDay) - 1;
+});
 
 onShow(() => {
   profileStore.load();
@@ -215,9 +221,9 @@ function save(): void {
         />
       </view>
 
-      <!-- 出生年月日：三列选择器同一行 -->
+      <!-- 出生日期：三列选择器同一行 -->
       <view class="field">
-        <text class="field-label">出生年月日</text>
+        <text class="field-label">出生日期</text>
         <view class="date-row">
           <picker :range="yearOptions" :value="yearIndex" @change="onYearChange">
             <view class="date-picker">
@@ -394,7 +400,7 @@ function save(): void {
 
 .date-row {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .date-picker {
@@ -404,9 +410,10 @@ function save(): void {
   align-items: center;
   background: #faf6f1;
   border-radius: 12rpx;
-  padding: 16rpx 20rpx;
+  padding: 18rpx 16rpx;
   font-size: 28rpx;
   color: #2d2a26;
+  min-width: 0;
 }
 
 .form-actions {

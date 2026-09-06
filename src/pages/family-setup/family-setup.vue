@@ -32,7 +32,15 @@ const form = reactive({
   heightCm: '',
   currentWeightKg: '',
   targetWeightKg: '',
+  birthYear: '',
+  birthMonth: '',
+  birthDay: '',
 });
+
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
+const monthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const dayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 const roleNames = MEMBER_ROLES.map((item) => item.label);
 const roleIndex = computed(() =>
@@ -154,6 +162,18 @@ function resetForm(): void {
   form.heightCm = (editingMember.value as any)?.heightCm ?? '';
   form.currentWeightKg = (editingMember.value as any)?.currentWeightKg ?? '';
   form.targetWeightKg = (editingMember.value as any)?.targetWeightKg ?? '';
+  // 解析出生日期
+  const birthDate = (editingMember.value as any)?.birthDate || '';
+  if (birthDate) {
+    const parts = birthDate.split('-');
+    form.birthYear = parts[0] || '';
+    form.birthMonth = parts[1] ? String(Number(parts[1])) : '';
+    form.birthDay = parts[2] ? String(Number(parts[2])) : '';
+  } else {
+    form.birthYear = '';
+    form.birthMonth = '';
+    form.birthDay = '';
+  }
 }
 
 function onChooseAvatar(event: any): void {
@@ -174,6 +194,18 @@ function onChooseAlbum(): void {
       }
     },
   });
+}
+
+function onMemberYearChange(event: { detail: { value: string | number } }): void {
+  form.birthYear = yearOptions[Number(event.detail.value)] || '';
+}
+
+function onMemberMonthChange(event: { detail: { value: string | number } }): void {
+  form.birthMonth = monthOptions[Number(event.detail.value)] || '';
+}
+
+function onMemberDayChange(event: { detail: { value: string | number } }): void {
+  form.birthDay = dayOptions[Number(event.detail.value)] || '';
 }
 
 function openAdd(): void {
@@ -203,6 +235,9 @@ function saveMember(): void {
     uni.showToast({ title: '请填写成员姓名', icon: 'none' });
     return;
   }
+  const birthDate = form.birthYear && form.birthMonth && form.birthDay
+    ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
+    : undefined;
   const draft = {
     name: form.name.trim(),
     role: form.role,
@@ -212,6 +247,7 @@ function saveMember(): void {
     heightCm: form.heightCm ? Number(form.heightCm) : undefined,
     currentWeightKg: form.currentWeightKg ? Number(form.currentWeightKg) : undefined,
     targetWeightKg: form.targetWeightKg ? Number(form.targetWeightKg) : undefined,
+    birthDate,
   };
   if (editingMember.value) {
     familyStore.update(editingMember.value.id, draft);
@@ -405,6 +441,29 @@ function removeMember(member: FamilyMember): void {
           <view class="form-group">
             <text class="form-label">目标体重（kg，选填）</text>
             <input v-model="form.targetWeightKg" class="form-input" type="digit" placeholder="例如：58" placeholder-class="input-placeholder" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">出生日期（选填）</text>
+            <view class="date-row">
+              <picker :range="yearOptions" :value="yearOptions.indexOf(form.birthYear)" @change="onMemberYearChange">
+                <view class="date-picker">
+                  <text>{{ form.birthYear || '年' }}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </picker>
+              <picker :range="monthOptions" :value="monthOptions.indexOf(form.birthMonth)" @change="onMemberMonthChange">
+                <view class="date-picker">
+                  <text>{{ form.birthMonth || '月' }}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </picker>
+              <picker :range="dayOptions" :value="dayOptions.indexOf(form.birthDay)" @change="onMemberDayChange">
+                <view class="date-picker">
+                  <text>{{ form.birthDay || '日' }}</text>
+                  <text class="picker-arrow">›</text>
+                </view>
+              </picker>
+            </view>
           </view>
           <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>
@@ -821,6 +880,24 @@ function removeMember(member: FamilyMember): void {
 
 .color-dot-active {
   border-color: #2d2a26;
+}
+
+.date-row {
+  display: flex;
+  gap: 12rpx;
+}
+
+.date-picker {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 18rpx 16rpx;
+  font-size: 28rpx;
+  color: #2d2a26;
+  min-width: 0;
 }
 
 .form-actions {

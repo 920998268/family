@@ -101,16 +101,24 @@ function copyBindCode(): void {
           </text>
         </view>
         <view class="info-row">
+          <text class="info-label">手机号</text>
+          <text class="info-value">{{ (member as any)?.mobile || '-' }}</text>
+        </view>
+        <view class="info-row">
           <text class="info-label">身高</text>
-          <text class="info-value">--</text>
+          <text class="info-value">{{ (member as any)?.heightCm ? (member as any).heightCm + ' cm' : '--' }}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">体重</text>
-          <text class="info-value">--</text>
+          <text class="info-label">当前体重</text>
+          <text class="info-value">{{ (member as any)?.currentWeightKg ? (member as any).currentWeightKg + ' kg' : '--' }}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">出生年月</text>
-          <text class="info-value">--</text>
+          <text class="info-label">目标体重</text>
+          <text class="info-value">{{ (member as any)?.targetWeightKg ? (member as any).targetWeightKg + ' kg' : '--' }}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">出生日期</text>
+          <text class="info-value">{{ (member as any)?.birthDate || '--' }}</text>
         </view>
       </view>
       <text class="info-hint">个人信息档案功能开发中，后续支持每位成员独立维护身体数据</text>
