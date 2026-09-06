@@ -55,6 +55,37 @@ export interface MemberProfile {
 
 const UNI_ID_TOKEN_KEY = 'uni_id_token';
 
+let uniCloudInited = false;
+
+/**
+ * 手动初始化 uniCloud（CLI 项目需要，框架不会自动注入服务空间配置）
+ * 在 App.vue onLaunch 中调用一次即可
+ */
+export function initUniCloud(): void {
+  if (uniCloudInited) return;
+  const spaceId = import.meta.env.VITE_UNI_CLOUD_SPACE_ID as string | undefined;
+  const accessKey = import.meta.env.VITE_UNI_CLOUD_ACCESS_KEY as string | undefined;
+  if (!spaceId || !accessKey) {
+    console.warn('[uniCloud] 缺少 VITE_UNI_CLOUD_SPACE_ID 或 VITE_UNI_CLOUD_ACCESS_KEY，云函数调用将不可用');
+    return;
+  }
+  try {
+    const inited = uniCloud.init({
+      spaceId,
+      spaceAppId: (import.meta.env.VITE_UNI_CLOUD_SPACE_APP_ID as string) || '',
+      provider: 'alipay' as 'aliyun',
+      accessKey,
+      secretKey: import.meta.env.VITE_UNI_CLOUD_SECRET_KEY as string,
+    } as any);
+    // init() 返回新实例，需要替换全局 uniCloud 才能让后续调用生效
+    (globalThis as any).uniCloud = inited;
+    uniCloudInited = true;
+    console.log('[uniCloud] 初始化成功，spaceId:', spaceId);
+  } catch (e) {
+    console.error('[uniCloud] 初始化失败:', e);
+  }
+}
+
 /** 检查是否已登录（token 存在） */
 export function hasToken(): boolean {
   return !!uni.getStorageSync(UNI_ID_TOKEN_KEY);

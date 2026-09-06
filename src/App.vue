@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onLaunch } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
-import { hasToken, clearToken } from '@/unicloud';
+import { hasToken, clearToken, initUniCloud } from '@/unicloud';
 
 onLaunch(() => {
+  initUniCloud();
   // #ifdef MP-WEIXIN
   bootstrap();
   // #endif
