@@ -116,15 +116,20 @@ async function handleLogin(): Promise<void> {
 .wechat-btn {
   width: 100%;
   height: 96rpx;
-  line-height: 96rpx;
-  padding: 0;
+  padding: 0 !important;
   margin: 0;
+  border: none;
   border-radius: 48rpx;
   background: #07c160;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
+  line-height: 1;
+
+  &::after {
+    border: none;
+  }
 
   &[disabled] {
     opacity: 0.6;
