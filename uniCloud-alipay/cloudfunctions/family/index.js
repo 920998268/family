@@ -52,7 +52,17 @@ async function createFamily(uid, event) {
     createdAt: now
   })
   await db.collection(USERS).doc(uid).update({ familyId: familyRes.id, familyRole: 'owner' })
-  return { code: 0, data: { familyId: familyRes.id, inviteCode, role: 'owner' } }
+  return {
+    code: 0,
+    data: {
+      _id: familyRes.id,
+      name: v.value.name,
+      inviteCode,
+      ownerId: uid,
+      memberCount: 1,
+      createdAt: now
+    }
+  }
 }
 
 async function joinFamily(uid, event) {
@@ -64,13 +74,36 @@ async function joinFamily(uid, event) {
   if (!family) return { code: 404, msg: '邀请码无效' }
   await db.collection(USERS).doc(uid).update({ familyId: family._id, familyRole: 'member' })
   await db.collection(FAMILIES).doc(family._id).update({ memberCount: dbCmd.inc(1) })
-  return { code: 0, data: { familyId: family._id, role: 'member' } }
+  return {
+    code: 0,
+    data: {
+      _id: family._id,
+      name: family.name,
+      inviteCode: family.inviteCode,
+      ownerId: family.ownerUid,
+      memberCount: family.memberCount + 1,
+      createdAt: family.createdAt
+    }
+  }
 }
 
 async function getMyStatus(uid) {
   const user = (await db.collection(USERS).doc(uid).get()).data[0]
   if (!user) return { code: 401, msg: '用户不存在' }
-  return { code: 0, data: { familyId: user.familyId || '', familyRole: user.familyRole || '' } }
+  if (!user.familyId) {
+    return { code: 0, data: { hasFamily: false, familyId: '', familyName: '', role: '', inviteCode: '' } }
+  }
+  const family = (await db.collection(FAMILIES).doc(user.familyId).get()).data[0]
+  return {
+    code: 0,
+    data: {
+      hasFamily: true,
+      familyId: user.familyId,
+      familyName: family ? family.name : '',
+      role: user.familyRole || '',
+      inviteCode: family ? family.inviteCode : ''
+    }
+  }
 }
 
 async function getFamilyInfo(uid) {
