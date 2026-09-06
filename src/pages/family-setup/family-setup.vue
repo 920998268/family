@@ -38,6 +38,13 @@ const form = reactive({
   birthDay: '',
 });
 
+const memberYearOptions = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => String(1900 + i));
+const memberMonthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const memberDayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
+const memberYearPickerIndex = computed(() => Math.max(memberYearOptions.indexOf(form.birthYear), memberYearOptions.length - 1));
+const memberMonthPickerIndex = computed(() => Math.max(memberMonthOptions.indexOf(form.birthMonth), new Date().getMonth()));
+const memberDayPickerIndex = computed(() => Math.max(memberDayOptions.indexOf(form.birthDay), new Date().getDate() - 1));
+
 const roleNames = MEMBER_ROLES.map((item) => item.label);
 const genderNames = GENDERS.map((item) => item.label);
 const roleIndex = computed(() =>
@@ -216,6 +223,18 @@ function onMemberDayBlur(): void {
   if (!form.birthDay) return;
   if (d < 1) form.birthDay = '1';
   if (d > 31) form.birthDay = '31';
+}
+
+function onMemberYearPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthYear = memberYearOptions[Number(event.detail.value)] || '';
+}
+
+function onMemberMonthPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthMonth = memberMonthOptions[Number(event.detail.value)] || '';
+}
+
+function onMemberDayPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthDay = memberDayOptions[Number(event.detail.value)] || '';
 }
 
 function openAdd(): void {
@@ -456,9 +475,24 @@ function removeMember(member: FamilyMember): void {
           <view class="form-group">
             <text class="form-label">出生日期（选填）</text>
             <view class="date-row">
-              <input v-model="form.birthYear" class="date-input" type="number" maxlength="4" placeholder="年" placeholder-class="date-placeholder" @blur="onMemberYearBlur" />
-              <input v-model="form.birthMonth" class="date-input" type="number" maxlength="2" placeholder="月" placeholder-class="date-placeholder" @blur="onMemberMonthBlur" />
-              <input v-model="form.birthDay" class="date-input" type="number" maxlength="2" placeholder="日" placeholder-class="date-placeholder" @blur="onMemberDayBlur" />
+              <view class="date-input-wrapper">
+                <input v-model="form.birthYear" class="date-input" type="number" maxlength="4" placeholder="年" placeholder-class="date-placeholder" @blur="onMemberYearBlur" @tap.stop />
+                <picker :range="memberYearOptions" :value="memberYearPickerIndex" @change="onMemberYearPickerChange">
+                  <text class="date-picker-icon">📅</text>
+                </picker>
+              </view>
+              <view class="date-input-wrapper">
+                <input v-model="form.birthMonth" class="date-input" type="number" maxlength="2" placeholder="月" placeholder-class="date-placeholder" @blur="onMemberMonthBlur" @tap.stop />
+                <picker :range="memberMonthOptions" :value="memberMonthPickerIndex" @change="onMemberMonthPickerChange">
+                  <text class="date-picker-icon">📅</text>
+                </picker>
+              </view>
+              <view class="date-input-wrapper">
+                <input v-model="form.birthDay" class="date-input" type="number" maxlength="2" placeholder="日" placeholder-class="date-placeholder" @blur="onMemberDayBlur" @tap.stop />
+                <picker :range="memberDayOptions" :value="memberDayPickerIndex" @change="onMemberDayPickerChange">
+                  <text class="date-picker-icon">📅</text>
+                </picker>
+              </view>
             </view>
           </view>
           <view class="form-group">
@@ -883,18 +917,32 @@ function removeMember(member: FamilyMember): void {
 
 .date-row {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
+}
+
+.date-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 0 12rpx;
+  height: 72rpx;
 }
 
 .date-input {
   flex: 1;
   height: 72rpx;
-  background: #faf6f1;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
   font-size: 28rpx;
   color: #2d2a26;
   text-align: center;
+  min-width: 0;
+}
+
+.date-picker-icon {
+  font-size: 28rpx;
+  padding: 0 8rpx;
+  flex-shrink: 0;
 }
 
 .date-placeholder {

@@ -11,6 +11,7 @@ const authStore = useAuthStore();
 const memberId = ref('');
 const bindCode = ref('');
 const generating = ref(false);
+const presetMobile = ref('');
 
 const member = computed(() =>
   familyStore.members.find((m) => m.id === memberId.value) || null,
@@ -18,10 +19,68 @@ const member = computed(() =>
 
 const isOwner = computed(() => authStore.familyRole === 'owner');
 
+// 可选择的手机号列表：当前登录手机号 + 家庭下未绑定的手机号
+const selectableMobiles = computed(() => {
+  const options: { mobile: string; label: string }[] = [];
+  if (authStore.mobile) {
+    options.push({ mobile: authStore.mobile, label: `${authStore.mobile}（当前登录）` });
+  }
+  familyStore.members.forEach((m) => {
+    if (m.mobile && !m.userId && m.id !== memberId.value) {
+      if (!options.find((o) => o.mobile === m.mobile)) {
+        options.push({ mobile: m.mobile, label: m.mobile });
+      }
+    }
+  });
+  return options;
+});
+
 onLoad((options) => {
   memberId.value = options?.memberId || '';
   familyStore.load();
+  // 初始化预设手机号
+  setTimeout(() => {
+    const m = familyStore.members.find((item) => item.id === memberId.value);
+    presetMobile.value = m?.mobile || '';
+  }, 100);
 });
+
+// 下拉选择手机号
+function showMobilePicker(): void {
+  if (selectableMobiles.value.length === 0) {
+    uni.showToast({ title: '暂无可选手机号', icon: 'none' });
+    return;
+  }
+  uni.showActionSheet({
+    itemList: selectableMobiles.value.map((o) => o.label),
+    success: (res) => {
+      const selected = selectableMobiles.value[res.tapIndex];
+      if (selected) {
+        presetMobile.value = selected.mobile;
+        savePresetMobile();
+      }
+    },
+  });
+}
+
+// 手机号输入校验
+function onPresetMobileBlur(): void {
+  if (!presetMobile.value) return;
+  const m = presetMobile.value.trim();
+  if (!/^\d{4,12}$/.test(m)) {
+    uni.showToast({ title: '手机号需为4-12位数字', icon: 'none' });
+    presetMobile.value = '';
+    return;
+  }
+  savePresetMobile();
+}
+
+// 保存预设手机号到成员
+function savePresetMobile(): void {
+  if (!member.value) return;
+  familyStore.update(member.value.id, { mobile: presetMobile.value || undefined } as any);
+  uni.showToast({ title: '手机号已保存', icon: 'success' });
+}
 
 function goBack(): void {
   const pages = getCurrentPages();
@@ -124,11 +183,26 @@ function copyBindCode(): void {
       <text class="info-hint">个人信息档案功能开发中，后续支持每位成员独立维护身体数据</text>
     </view>
 
-    <!-- 未绑定成员：生成绑定码（仅管理员可见） -->
+    <!-- 未绑定成员：生成绑定码 + 预设手机号（仅管理员可见） -->
     <view v-if="member && !member.userId && isOwner" class="section">
       <view class="section-title">账号绑定</view>
       <view class="bind-card">
-        <text class="bind-desc">生成绑定码后，对方用自己的账号登录，在家庭设置页选择「绑定成员」输入此码即可完成关联。绑定码24小时内有效。</text>
+        <text class="bind-desc">预设手机号后，对方用此手机号登录将自动关联到该成员。也可生成绑定码让对方手动绑定。</text>
+
+        <!-- 手机号预设：可输入 + 下拉选择 -->
+        <view class="preset-mobile-row">
+          <input
+            v-model="presetMobile"
+            class="preset-mobile-input"
+            type="number"
+            maxlength="12"
+            placeholder="输入或选择手机号"
+            placeholder-class="preset-placeholder"
+            @blur="onPresetMobileBlur"
+          />
+          <button class="preset-mobile-btn" @tap="showMobilePicker">选择</button>
+        </view>
+
         <view v-if="bindCode" class="bind-code-row">
           <text class="bind-code">{{ bindCode }}</text>
           <button class="copy-btn" @tap="copyBindCode">复制</button>
@@ -273,6 +347,44 @@ function copyBindCode(): void {
   color: #78716c;
   line-height: 1.6;
   margin-bottom: 20rpx;
+}
+
+.preset-mobile-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.preset-mobile-input {
+  flex: 1;
+  height: 72rpx;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #2d2a26;
+}
+
+.preset-placeholder {
+  color: #d6d3d1;
+}
+
+.preset-mobile-btn {
+  height: 72rpx;
+  padding: 0 28rpx !important;
+  margin: 0;
+  border: none;
+  border-radius: 12rpx;
+  background: #f97316;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1;
+
+  &::after {
+    border: none;
+  }
 }
 
 .bind-code-row {

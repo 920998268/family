@@ -247,9 +247,14 @@ async function handleLogout(): Promise<void> {
 }
 
 .profile-avatar-empty {
+  background: #e7e5e4;
+
   .camera-icon {
-    font-size: 48rpx;
+    font-size: 44rpx;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

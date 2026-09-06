@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useProfileStore } from '@/stores/profile';
 
 const authStore = useAuthStore();
+const profileStore = useProfileStore();
 const activeTab = ref<'weixin' | 'password'>('weixin');
 const authMode = ref<'login' | 'register'>('login');
 const errorMsg = ref('');
@@ -60,6 +62,20 @@ async function handlePasswordLogin(): Promise<void> {
 }
 
 async function afterLogin(): Promise<void> {
+  // 登录后如果 uid 变化，清空上一个账号的 Profile 数据
+  const lastUid = uni.getStorageSync('last_logged_in_uid') || '';
+  if (lastUid && lastUid !== authStore.uid) {
+    profileStore.save = profileStore.save; // 保持引用
+    // 清空 Profile
+    try {
+      uni.removeStorageSync('family-checkin.profile.v1');
+    } catch (e) {
+      // ignore
+    }
+    profileStore.load();
+  }
+  uni.setStorageSync('last_logged_in_uid', authStore.uid);
+
   // 登录后先尝试通过手机号自动绑定到预设成员
   try {
     const bindResult = await authStore.autoBindByMobile();

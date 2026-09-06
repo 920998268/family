@@ -3,6 +3,7 @@ import { computed, reactive } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
+import { useFamilyStore } from '@/stores/family';
 import type { Gender, MemberRole } from '@/types/models';
 import { GENDERS, MEMBER_ROLES } from '@/types/models';
 import type { Profile } from '@/types/models';
@@ -11,6 +12,7 @@ import { openMeTab } from '@/utils/navigation';
 
 const profileStore = useProfileStore();
 const authStore = useAuthStore();
+const familyStore = useFamilyStore();
 
 const genderNames = GENDERS.map((item) => item.label);
 const roleNames = MEMBER_ROLES.map((item) => item.label);
@@ -18,6 +20,9 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const currentMonth = String(now.getMonth() + 1);
 const currentDay = String(now.getDate());
+const yearPickerOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
+const monthPickerOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const dayPickerOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 const form = reactive({
   name: '',
@@ -39,6 +44,16 @@ const genderIndex = computed(() =>
 
 const roleIndex = computed(() =>
   Math.max(MEMBER_ROLES.findIndex((item) => item.value === form.role), 0),
+);
+
+const yearPickerIndex = computed(() =>
+  Math.max(yearPickerOptions.indexOf(form.birthYear), yearPickerOptions.length - 1),
+);
+const monthPickerIndex = computed(() =>
+  Math.max(monthPickerOptions.indexOf(form.birthMonth), Number(currentMonth) - 1),
+);
+const dayPickerIndex = computed(() =>
+  Math.max(dayPickerOptions.indexOf(form.birthDay), Number(currentDay) - 1),
 );
 
 onShow(() => {
@@ -96,6 +111,27 @@ function onDayBlur(): void {
   if (d > 31) form.birthDay = '31';
 }
 
+function onMobileBlur(): void {
+  if (!form.mobile) return;
+  const m = form.mobile.trim();
+  if (!/^\d{4,12}$/.test(m)) {
+    uni.showToast({ title: '手机号需为4-12位数字', icon: 'none' });
+    form.mobile = '';
+  }
+}
+
+function onYearPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthYear = yearPickerOptions[Number(event.detail.value)] || '';
+}
+
+function onMonthPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthMonth = monthPickerOptions[Number(event.detail.value)] || '';
+}
+
+function onDayPickerChange(event: { detail: { value: string | number } }): void {
+  form.birthDay = dayPickerOptions[Number(event.detail.value)] || '';
+}
+
 function onChooseAvatar(event: any): void {
   const url = event?.detail?.avatarUrl;
   if (url) {
@@ -142,6 +178,29 @@ function save(): void {
 
   try {
     profileStore.save({ ...profile, avatarUrl: form.avatarUrl, role: form.role } as any);
+
+    // 保存个人档案后，如果已登录且有家庭，但家庭成员中没有当前用户记录，自动创建
+    if (authStore.isLoggedIn && authStore.hasFamily) {
+      familyStore.load();
+      const existingMember = familyStore.members.find(
+        (m) => m.userId === authStore.uid || (m.mobile && m.mobile === authStore.mobile),
+      );
+      if (!existingMember) {
+        familyStore.add({
+          name: profile.name,
+          role: form.role,
+          gender: form.gender,
+          mobile: profile.mobile || authStore.mobile || undefined,
+          avatarUrl: form.avatarUrl || undefined,
+          heightCm: profile.heightCm || undefined,
+          currentWeightKg: profile.currentWeightKg || undefined,
+          targetWeightKg: profile.targetWeightKg || undefined,
+          birthDate: profile.birthDate || undefined,
+          userId: authStore.uid || undefined,
+        } as any);
+      }
+    }
+
     uni.showToast({ title: '已保存', icon: 'success' });
     setTimeout(() => {
       openMeTab();
@@ -207,43 +266,62 @@ function save(): void {
           v-model="form.mobile"
           class="field-control"
           type="number"
-          maxlength="11"
+          maxlength="12"
           placeholder="请输入手机号（选填）"
           placeholder-class="field-placeholder"
+          @blur="onMobileBlur"
         />
       </view>
 
-      <!-- 出生日期：可手动输入的三个数字输入框 -->
+      <!-- 出生日期：可手动输入 + 选择器 -->
       <view class="field">
         <text class="field-label">出生日期</text>
         <view class="date-row">
-          <input
-            v-model="form.birthYear"
-            class="date-input"
-            type="number"
-            maxlength="4"
-            placeholder="年"
-            placeholder-class="date-placeholder"
-            @blur="onYearBlur"
-          />
-          <input
-            v-model="form.birthMonth"
-            class="date-input"
-            type="number"
-            maxlength="2"
-            placeholder="月"
-            placeholder-class="date-placeholder"
-            @blur="onMonthBlur"
-          />
-          <input
-            v-model="form.birthDay"
-            class="date-input"
-            type="number"
-            maxlength="2"
-            placeholder="日"
-            placeholder-class="date-placeholder"
-            @blur="onDayBlur"
-          />
+          <view class="date-input-wrapper">
+            <input
+              v-model="form.birthYear"
+              class="date-input"
+              type="number"
+              maxlength="4"
+              placeholder="年"
+              placeholder-class="date-placeholder"
+              @blur="onYearBlur"
+              @tap.stop
+            />
+            <picker :range="yearPickerOptions" :value="yearPickerIndex" @change="onYearPickerChange">
+              <text class="date-picker-icon">📅</text>
+            </picker>
+          </view>
+          <view class="date-input-wrapper">
+            <input
+              v-model="form.birthMonth"
+              class="date-input"
+              type="number"
+              maxlength="2"
+              placeholder="月"
+              placeholder-class="date-placeholder"
+              @blur="onMonthBlur"
+              @tap.stop
+            />
+            <picker :range="monthPickerOptions" :value="monthPickerIndex" @change="onMonthPickerChange">
+              <text class="date-picker-icon">📅</text>
+            </picker>
+          </view>
+          <view class="date-input-wrapper">
+            <input
+              v-model="form.birthDay"
+              class="date-input"
+              type="number"
+              maxlength="2"
+              placeholder="日"
+              placeholder-class="date-placeholder"
+              @blur="onDayBlur"
+              @tap.stop
+            />
+            <picker :range="dayPickerOptions" :value="dayPickerIndex" @change="onDayPickerChange">
+              <text class="date-picker-icon">📅</text>
+            </picker>
+          </view>
         </view>
       </view>
 
@@ -401,18 +479,32 @@ function save(): void {
 
 .date-row {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
+}
+
+.date-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 0 12rpx;
+  height: 72rpx;
 }
 
 .date-input {
   flex: 1;
   height: 72rpx;
-  background: #faf6f1;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
   font-size: 28rpx;
   color: #2d2a26;
   text-align: center;
+  min-width: 0;
+}
+
+.date-picker-icon {
+  font-size: 28rpx;
+  padding: 0 8rpx;
+  flex-shrink: 0;
 }
 
 .date-placeholder {
