@@ -43,13 +43,14 @@ exports.main = async (event, context) => {
   const now = Date.now();
 
   // 创建用户记录
+  // dcloud_appid 必须包含当前应用的 DCloud appid，否则登录时会提示"此账号未在该应用注册"
   const result = await db.collection('uni-id-users').add({
     username: mobile,
     mobile,
     mobile_confirmed: 1,
     password: passwordHash,
     password_secret_version: 0,
-    dcloud_appid: [],
+    dcloud_appid: ['__UNI__D440BC0'],
     role: [],
     status: 0,
     register_date: now,
