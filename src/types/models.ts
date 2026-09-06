@@ -10,6 +10,8 @@ export interface Profile {
   currentWeightKg: number;
   targetWeightKg: number;
   mobile?: string; // 手机号（选填，与登录账号手机号同步）
+  avatarUrl?: string; // 头像URL（微信头像或相册上传）
+  role?: MemberRole; // 家庭关系
 }
 
 export interface DietEntry {

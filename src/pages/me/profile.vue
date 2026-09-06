@@ -3,10 +3,9 @@ import { computed, reactive } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
-import type { Gender } from '@/types/models';
-import { GENDERS } from '@/types/models';
+import type { Gender, MemberRole } from '@/types/models';
+import { GENDERS, MEMBER_ROLES } from '@/types/models';
 import type { Profile } from '@/types/models';
-import { todayKey } from '@/utils/date';
 import { errorMessage } from '@/utils/error';
 import { openMeTab } from '@/utils/navigation';
 
@@ -14,19 +13,44 @@ const profileStore = useProfileStore();
 const authStore = useAuthStore();
 
 const genderNames = GENDERS.map((item) => item.label);
+const roleNames = MEMBER_ROLES.map((item) => item.label);
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
+const monthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const dayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 const form = reactive({
   name: '',
   gender: 'male' as Gender,
-  birthDate: todayKey(),
+  role: 'other' as MemberRole,
+  mobile: '',
+  birthYear: '',
+  birthMonth: '',
+  birthDay: '',
   heightCm: 170,
   currentWeightKg: 60,
   targetWeightKg: 58,
-  mobile: '',
+  avatarUrl: '',
 });
 
 const genderIndex = computed(() =>
   Math.max(GENDERS.findIndex((item) => item.value === form.gender), 0),
+);
+
+const roleIndex = computed(() =>
+  Math.max(MEMBER_ROLES.findIndex((item) => item.value === form.role), 0),
+);
+
+const yearIndex = computed(() =>
+  Math.max(yearOptions.indexOf(form.birthYear), 0),
+);
+
+const monthIndex = computed(() =>
+  Math.max(monthOptions.indexOf(form.birthMonth), 0),
+);
+
+const dayIndex = computed(() =>
+  Math.max(dayOptions.indexOf(form.birthDay), 0),
 );
 
 onShow(() => {
@@ -35,11 +59,18 @@ onShow(() => {
   if (profile) {
     form.name = profile.name;
     form.gender = profile.gender;
-    form.birthDate = profile.birthDate;
+    form.mobile = profile.mobile || authStore.mobile || '';
+    form.avatarUrl = (profile as any).avatarUrl || '';
+    // 解析出生年月日
+    if (profile.birthDate) {
+      const parts = profile.birthDate.split('-');
+      form.birthYear = parts[0] || '';
+      form.birthMonth = parts[1] ? String(Number(parts[1])) : '';
+      form.birthDay = parts[2] ? String(Number(parts[2])) : '';
+    }
     form.heightCm = profile.heightCm;
     form.currentWeightKg = profile.currentWeightKg;
     form.targetWeightKg = profile.targetWeightKg;
-    form.mobile = profile.mobile || authStore.mobile || '';
   } else {
     form.mobile = authStore.mobile || '';
   }
@@ -50,8 +81,41 @@ function onGenderChange(event: { detail: { value: string | number } }): void {
   form.gender = (GENDERS[index]?.value ?? 'male') as Gender;
 }
 
-function onBirthDateChange(event: { detail: { value: string } }): void {
-  form.birthDate = event.detail.value;
+function onRoleChange(event: { detail: { value: string | number } }): void {
+  const index = Number(event.detail.value);
+  form.role = (MEMBER_ROLES[index]?.value ?? 'other') as MemberRole;
+}
+
+function onYearChange(event: { detail: { value: string | number } }): void {
+  form.birthYear = yearOptions[Number(event.detail.value)] || '';
+}
+
+function onMonthChange(event: { detail: { value: string | number } }): void {
+  form.birthMonth = monthOptions[Number(event.detail.value)] || '';
+}
+
+function onDayChange(event: { detail: { value: string | number } }): void {
+  form.birthDay = dayOptions[Number(event.detail.value)] || '';
+}
+
+function onChooseAvatar(event: any): void {
+  const url = event?.detail?.avatarUrl;
+  if (url) {
+    form.avatarUrl = url;
+  }
+}
+
+function onAlbumTap(): void {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album'],
+    success: (imgRes) => {
+      if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
+        form.avatarUrl = imgRes.tempFilePaths[0];
+      }
+    },
+  });
 }
 
 function goBack(): void {
@@ -59,10 +123,14 @@ function goBack(): void {
 }
 
 function save(): void {
+  const birthDate = form.birthYear && form.birthMonth && form.birthDay
+    ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
+    : '';
+
   const profile: Profile = {
     name: form.name.trim(),
     gender: form.gender,
-    birthDate: form.birthDate,
+    birthDate,
     heightCm: Number(form.heightCm),
     currentWeightKg: Number(form.currentWeightKg),
     targetWeightKg: Number(form.targetWeightKg),
@@ -75,7 +143,7 @@ function save(): void {
   }
 
   try {
-    profileStore.save(profile);
+    profileStore.save({ ...profile, avatarUrl: form.avatarUrl, role: form.role } as any);
     uni.showToast({ title: '已保存', icon: 'success' });
     setTimeout(() => {
       openMeTab();
@@ -94,7 +162,21 @@ function save(): void {
   <view class="page-shell">
     <view class="form-card">
       <view class="section-title">个人信息档案</view>
-      <text class="page-subtitle">用于记录全家成员的健康基础信息</text>
+      <text class="page-subtitle">完善个人基础信息与身体数据</text>
+
+      <!-- 头像 -->
+      <view class="avatar-section">
+        <button class="avatar-circle-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+          <image v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar-img" mode="aspectFill" />
+          <view v-else class="avatar-placeholder">
+            <text>{{ (form.name || '?').slice(0, 1) }}</text>
+          </view>
+        </button>
+        <view class="avatar-actions">
+          <text class="avatar-hint">点击头像使用微信头像</text>
+          <text class="avatar-link" @tap="onAlbumTap">从相册选择</text>
+        </view>
+      </view>
 
       <view class="field field-first">
         <text class="field-label">姓名</text>
@@ -112,6 +194,16 @@ function save(): void {
       </view>
 
       <view class="field">
+        <text class="field-label">家庭关系</text>
+        <picker :range="roleNames" :value="roleIndex" @change="onRoleChange">
+          <view class="picker-value">
+            <text>{{ roleNames[roleIndex] }}</text>
+            <text class="picker-arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="field">
         <text class="field-label">手机号</text>
         <input
           v-model="form.mobile"
@@ -123,14 +215,29 @@ function save(): void {
         />
       </view>
 
+      <!-- 出生年月日：三列选择器同一行 -->
       <view class="field">
-        <text class="field-label">出生年月</text>
-        <picker mode="date" :value="form.birthDate" @change="onBirthDateChange">
-          <view class="picker-value">
-            <text>{{ form.birthDate }}</text>
-            <text class="picker-arrow">›</text>
-          </view>
-        </picker>
+        <text class="field-label">出生年月日</text>
+        <view class="date-row">
+          <picker :range="yearOptions" :value="yearIndex" @change="onYearChange">
+            <view class="date-picker">
+              <text>{{ form.birthYear || '年' }}</text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+          <picker :range="monthOptions" :value="monthIndex" @change="onMonthChange">
+            <view class="date-picker">
+              <text>{{ form.birthMonth || '月' }}</text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+          <picker :range="dayOptions" :value="dayIndex" @change="onDayChange">
+            <view class="date-picker">
+              <text>{{ form.birthDay || '日' }}</text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+        </view>
       </view>
 
       <view class="field">
@@ -185,12 +292,75 @@ function save(): void {
   margin-bottom: 32rpx;
 }
 
+.avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding-bottom: 28rpx;
+  margin-bottom: 8rpx;
+  border-bottom: 2rpx solid #f5f0e8;
+}
+
+.avatar-circle-btn {
+  width: 120rpx;
+  height: 120rpx;
+  padding: 0 !important;
+  margin: 0;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+  line-height: 1;
+
+  &::after {
+    border: none;
+  }
+}
+
+.avatar-placeholder {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text {
+    font-size: 48rpx;
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.avatar-img {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.avatar-hint {
+  font-size: 24rpx;
+  color: #78716c;
+}
+
+.avatar-link {
+  font-size: 26rpx;
+  color: #f97316;
+  font-weight: 600;
+}
+
 .field {
   padding: 24rpx 0;
   border-bottom: 2rpx solid #f5f0e8;
 
   &.field-first {
-    padding-top: 0;
+    padding-top: 24rpx;
   }
 }
 
@@ -220,6 +390,23 @@ function save(): void {
 .picker-arrow {
   color: #c9c2ba;
   font-size: 36rpx;
+}
+
+.date-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.date-picker {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  font-size: 28rpx;
+  color: #2d2a26;
 }
 
 .form-actions {

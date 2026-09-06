@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
@@ -8,6 +8,7 @@ const profileStore = useProfileStore();
 const authStore = useAuthStore();
 
 const profile = computed(() => profileStore.profile);
+const avatarUrl = ref('');
 
 // 手机号：优先从登录账号获取，其次从个人信息档案获取
 const displayMobile = computed(() => {
@@ -35,6 +36,53 @@ onShow(() => {
   profileStore.load();
 });
 
+// 微信头像选择回调
+function onChooseAvatar(event: any): void {
+  const url = event?.detail?.avatarUrl;
+  if (url) {
+    avatarUrl.value = url;
+    saveAvatar(url);
+  }
+}
+
+// 从相册选择头像
+function onAlbumTap(): void {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album'],
+    success: (imgRes) => {
+      if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
+        avatarUrl.value = imgRes.tempFilePaths[0];
+        saveAvatar(imgRes.tempFilePaths[0]);
+      }
+    },
+  });
+}
+
+// 保存头像到 profile
+function saveAvatar(url: string): void {
+  const current = profileStore.profile;
+  if (current) {
+    profileStore.save({ ...current, avatarUrl: url } as any);
+  } else {
+    profileStore.save({
+      name: displayName.value,
+      gender: 'other',
+      birthDate: '',
+      heightCm: 0,
+      currentWeightKg: 0,
+      targetWeightKg: 0,
+      avatarUrl: url,
+    } as any);
+  }
+  uni.showToast({ title: '头像已更新', icon: 'success' });
+}
+
+function goProfile(): void {
+  uni.navigateTo({ url: '/pages/me/profile' });
+}
+
 function goPage(url: string): void {
   uni.navigateTo({ url });
 }
@@ -55,18 +103,22 @@ async function handleLogout(): Promise<void> {
 
 <template>
   <view class="page-shell">
-    <view>
-      <text class="page-title">我的</text>
-      <text class="page-subtitle">个人信息与家庭管理</text>
-    </view>
-
     <!-- 顶部个人信息卡片 -->
-    <view class="profile-card" @tap="goPage('/pages/me/profile')">
+    <view class="profile-card">
       <view class="profile-top">
-        <view class="profile-avatar">
-          <text>{{ displayName.slice(0, 1) }}</text>
+        <!-- 头像：button 获取微信头像 -->
+        <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+          <image v-if="avatarUrl || profile?.avatarUrl" :src="avatarUrl || profile?.avatarUrl" class="profile-avatar-img" mode="aspectFill" />
+          <view v-else class="profile-avatar">
+            <text>{{ displayName.slice(0, 1) }}</text>
+          </view>
+        </button>
+        <!-- 相册选择 badge -->
+        <view class="avatar-edit-badge" @tap.stop="onAlbumTap">
+          <text>相册</text>
         </view>
-        <view class="profile-info">
+        <!-- 右侧信息：点击进入编辑 -->
+        <view class="profile-info" @tap="goProfile">
           <view class="name-row">
             <text class="profile-name">{{ displayName }}</text>
             <text class="role-tag" :class="roleClass">{{ roleLabel }}</text>
@@ -77,21 +129,24 @@ async function handleLogout(): Promise<void> {
             <text class="meta-item">{{ displayMobile }}</text>
           </view>
         </view>
-        <text class="card-arrow">›</text>
+        <text class="card-arrow" @tap="goProfile">›</text>
       </view>
-      <view class="profile-stats">
+      <view class="profile-stats" @tap="goProfile">
         <view class="stat-item">
           <text class="stat-value">{{ profile?.heightCm ?? '--' }}</text>
           <text class="stat-label">身高(cm)</text>
         </view>
+        <view class="stat-divider" />
         <view class="stat-item">
           <text class="stat-value">{{ profile?.currentWeightKg ?? '--' }}</text>
           <text class="stat-label">体重(kg)</text>
         </view>
+        <view class="stat-divider" />
         <view class="stat-item">
           <text class="stat-value">{{ profile?.targetWeightKg ?? '--' }}</text>
           <text class="stat-label">目标(kg)</text>
         </view>
+        <view class="stat-divider" />
         <view class="stat-item">
           <text class="stat-value">{{ profile?.birthDate?.slice(0, 7) ?? '--' }}</text>
           <text class="stat-label">出生年月</text>
@@ -148,6 +203,22 @@ async function handleLogout(): Promise<void> {
   margin-bottom: 28rpx;
 }
 
+.avatar-btn {
+  position: relative;
+  width: 112rpx;
+  height: 112rpx;
+  padding: 0 !important;
+  margin: 0;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+  line-height: 1;
+
+  &::after {
+    border: none;
+  }
+}
+
 .profile-avatar {
   width: 112rpx;
   height: 112rpx;
@@ -156,12 +227,34 @@ async function handleLogout(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 
   text {
     font-size: 44rpx;
     color: #fff;
     font-weight: 700;
+  }
+}
+
+.profile-avatar-img {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  left: 80rpx;
+  top: 80rpx;
+  z-index: 10;
+  background: #fff;
+  border: 2rpx solid #f97316;
+  border-radius: 16rpx;
+  padding: 4rpx 10rpx;
+
+  text {
+    font-size: 18rpx;
+    color: #f97316;
+    font-weight: 600;
   }
 }
 
@@ -224,6 +317,7 @@ async function handleLogout(): Promise<void> {
 
 .profile-stats {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   background: #fff;
   border-radius: 16rpx;
@@ -247,6 +341,12 @@ async function handleLogout(): Promise<void> {
 .stat-label {
   font-size: 20rpx;
   color: #a8a29e;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 48rpx;
+  background: #f0ebe3;
 }
 
 .me-head {

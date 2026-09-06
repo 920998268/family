@@ -29,6 +29,9 @@ const form = reactive({
   avatarColor: AVATAR_COLORS[0],
   avatarUrl: '',
   mobile: '',
+  heightCm: '',
+  currentWeightKg: '',
+  targetWeightKg: '',
 });
 
 const roleNames = MEMBER_ROLES.map((item) => item.label);
@@ -148,6 +151,9 @@ function resetForm(): void {
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
   form.avatarUrl = editingMember.value?.avatarUrl ?? '';
   form.mobile = editingMember.value?.mobile ?? '';
+  form.heightCm = (editingMember.value as any)?.heightCm ?? '';
+  form.currentWeightKg = (editingMember.value as any)?.currentWeightKg ?? '';
+  form.targetWeightKg = (editingMember.value as any)?.targetWeightKg ?? '';
 }
 
 function onChooseAvatar(event: any): void {
@@ -155,6 +161,19 @@ function onChooseAvatar(event: any): void {
   if (avatarUrl) {
     form.avatarUrl = avatarUrl;
   }
+}
+
+function onChooseAlbum(): void {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album'],
+    success: (imgRes) => {
+      if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
+        form.avatarUrl = imgRes.tempFilePaths[0];
+      }
+    },
+  });
 }
 
 function openAdd(): void {
@@ -190,6 +209,9 @@ function saveMember(): void {
     avatarColor: form.avatarColor,
     avatarUrl: form.avatarUrl,
     mobile: form.mobile.trim() || undefined,
+    heightCm: form.heightCm ? Number(form.heightCm) : undefined,
+    currentWeightKg: form.currentWeightKg ? Number(form.currentWeightKg) : undefined,
+    targetWeightKg: form.targetWeightKg ? Number(form.targetWeightKg) : undefined,
   };
   if (editingMember.value) {
     familyStore.update(editingMember.value.id, draft);
@@ -341,9 +363,12 @@ function removeMember(member: FamilyMember): void {
                 <text>{{ (form.name || '?').slice(0, 1) }}</text>
               </view>
             </view>
-            <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-              使用微信头像
-            </button>
+            <view class="avatar-btns">
+              <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+                微信头像
+              </button>
+              <text class="avatar-link" @tap="onChooseAlbum">相册选择</text>
+            </view>
           </view>
           <view class="form-group">
             <text class="form-label">姓名</text>
@@ -368,6 +393,18 @@ function removeMember(member: FamilyMember): void {
               placeholder="填写后，对方用此手机号登录自动关联"
               placeholder-class="input-placeholder"
             />
+          </view>
+          <view class="form-group">
+            <text class="form-label">身高（cm，选填）</text>
+            <input v-model="form.heightCm" class="form-input" type="number" placeholder="例如：170" placeholder-class="input-placeholder" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">当前体重（kg，选填）</text>
+            <input v-model="form.currentWeightKg" class="form-input" type="digit" placeholder="例如：60" placeholder-class="input-placeholder" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">目标体重（kg，选填）</text>
+            <input v-model="form.targetWeightKg" class="form-input" type="digit" placeholder="例如：58" placeholder-class="input-placeholder" />
           </view>
           <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>
@@ -736,6 +773,20 @@ function removeMember(member: FamilyMember): void {
   &::after {
     border: none;
   }
+}
+
+.avatar-btns {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.avatar-link {
+  font-size: 24rpx;
+  color: #f97316;
+  font-weight: 600;
 }
 
 .picker-value {
