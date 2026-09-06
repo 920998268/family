@@ -116,6 +116,9 @@ async function handleLogin(): Promise<void> {
 .wechat-btn {
   width: 100%;
   height: 96rpx;
+  line-height: 96rpx;
+  padding: 0;
+  margin: 0;
   border-radius: 48rpx;
   background: #07c160;
   display: flex;

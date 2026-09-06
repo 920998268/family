@@ -218,11 +218,15 @@ async function handleJoin(): Promise<void> {
 .submit-btn {
   width: 100%;
   height: 92rpx;
+  line-height: 92rpx;
+  padding: 0;
+  margin: 0;
   border-radius: 46rpx;
   background: linear-gradient(135deg, #f97316, #fb923c);
   color: #fff;
   font-size: 32rpx;
   font-weight: 600;
+  text-align: center;
 
   &[disabled] {
     opacity: 0.6;
