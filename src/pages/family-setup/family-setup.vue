@@ -75,7 +75,9 @@ async function handleCreate(): Promise<void> {
   try {
     await authStore.createNewFamily(familyName.value.trim());
     uni.showToast({ title: '创建成功', icon: 'success' });
-    await loadStatus();
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/home/home' });
+    }, 800);
   } catch (err: any) {
     errorMsg.value = err?.message || '创建家庭失败，请重试';
   } finally {
@@ -93,7 +95,9 @@ async function handleJoin(): Promise<void> {
   try {
     await authStore.joinExistingFamily(inviteCode.value.trim().toUpperCase());
     uni.showToast({ title: '加入成功', icon: 'success' });
-    await loadStatus();
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/home/home' });
+    }, 800);
   } catch (err: any) {
     errorMsg.value = err?.message || '加入家庭失败，请检查邀请码';
   } finally {

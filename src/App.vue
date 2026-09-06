@@ -26,7 +26,8 @@ async function bootstrap(): Promise<void> {
     if (status.hasFamily) {
       uni.switchTab({ url: '/pages/home/home' });
     } else {
-      uni.redirectTo({ url: '/pages/family-setup/family-setup' });
+      // 用 reLaunch 清空页面栈，避免用户返回到登录页
+      uni.reLaunch({ url: '/pages/family-setup/family-setup' });
     }
   } catch {
     // token 失效或网络异常，清除后留在登录页
