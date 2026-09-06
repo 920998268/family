@@ -2,22 +2,32 @@
 import { computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
-import { useFamilyStore } from '@/stores/family';
-import { MEMBER_ROLE_LABELS } from '@/types/models';
-import MemberAvatar from '@/components/MemberAvatar.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const profileStore = useProfileStore();
-const familyStore = useFamilyStore();
+const authStore = useAuthStore();
 
 const profile = computed(() => profileStore.profile);
 
 onShow(() => {
   profileStore.load();
-  familyStore.load();
 });
 
 function goPage(url: string): void {
   uni.navigateTo({ url });
+}
+
+async function handleLogout(): Promise<void> {
+  uni.showModal({
+    title: '退出登录',
+    content: '确定要退出当前账号吗？',
+    success: async (result) => {
+      if (result.confirm) {
+        await authStore.logout();
+        uni.reLaunch({ url: '/pages/login/login' });
+      }
+    },
+  });
 }
 </script>
 
@@ -25,7 +35,7 @@ function goPage(url: string): void {
   <view class="page-shell">
     <view>
       <text class="page-title">我的</text>
-      <text class="page-subtitle">个人信息档案与家庭成员管理</text>
+      <text class="page-subtitle">个人信息与家庭管理</text>
     </view>
 
     <view class="section">
@@ -60,25 +70,6 @@ function goPage(url: string): void {
           <text class="checkin-arrow">›</text>
         </view>
       </view>
-
-      <view class="record-card me-card" @tap="goPage('/pages/me/family')">
-        <view class="me-head">
-          <view>
-            <text class="record-title">家庭成员</text>
-            <text class="record-meta">共 {{ familyStore.members.length }} 位成员</text>
-          </view>
-          <view class="me-avatars">
-            <MemberAvatar
-              v-for="member in familyStore.members.slice(0, 4)"
-              :key="member.id"
-              :name="member.name"
-              :color="member.avatarColor"
-              size="sm"
-            />
-          </view>
-          <text class="checkin-arrow">›</text>
-        </view>
-      </view>
     </view>
 
     <view class="section">
@@ -104,25 +95,6 @@ function goPage(url: string): void {
     </view>
 
     <view class="section">
-      <view class="section-title">家庭成员</view>
-      <view class="record-list">
-        <view
-          v-for="member in familyStore.members"
-          :key="member.id"
-          class="record-card me-member"
-          @tap="goPage('/pages/me/family')"
-        >
-          <MemberAvatar :name="member.name" :color="member.avatarColor" />
-          <text class="member-row-name">{{ member.name }}</text>
-          <text class="member-row-role">{{ MEMBER_ROLE_LABELS[member.role] }}</text>
-        </view>
-        <view v-if="familyStore.members.length === 0" class="empty" @tap="goPage('/pages/me/family')">
-          还没有家庭成员，点击添加
-        </view>
-      </view>
-    </view>
-
-    <view class="section">
       <view class="record-card me-card" @tap="goPage('/pages/backup/backup')">
         <view class="me-head">
           <view>
@@ -132,6 +104,10 @@ function goPage(url: string): void {
           <text class="checkin-arrow">›</text>
         </view>
       </view>
+    </view>
+
+    <view class="section">
+      <button class="logout-btn" @tap="handleLogout">退出登录</button>
     </view>
   </view>
 </template>
@@ -151,19 +127,30 @@ function goPage(url: string): void {
   margin-top: 20rpx;
 }
 
-.me-avatars {
-  display: flex;
-  gap: 8rpx;
-}
-
-.me-member {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-}
-
 .checkin-arrow {
   color: #c9c2ba;
   font-size: 40rpx;
+}
+
+.logout-btn {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 !important;
+  margin: 0;
+  border: none;
+  border-radius: 44rpx;
+  background: #fff;
+  color: #ef4444;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.04);
+
+  &::after {
+    border: none;
+  }
 }
 </style>
