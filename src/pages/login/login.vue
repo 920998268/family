@@ -9,7 +9,7 @@ const errorMsg = ref('');
 
 // 手机号密码登录表单
 const form = ref({
-  username: '',
+  mobile: '',
   password: '',
   confirmPassword: '',
 });
@@ -26,8 +26,13 @@ async function handleWeixinLogin(): Promise<void> {
 
 async function handlePasswordLogin(): Promise<void> {
   errorMsg.value = '';
-  if (!form.value.username.trim()) {
-    errorMsg.value = '请输入手机号或用户名';
+  const mobile = form.value.mobile.trim();
+  if (!mobile) {
+    errorMsg.value = '请输入手机号';
+    return;
+  }
+  if (!/^1[3-9]\d{9}$/.test(mobile)) {
+    errorMsg.value = '请输入正确的11位手机号';
     return;
   }
   if (!form.value.password) {
@@ -40,13 +45,13 @@ async function handlePasswordLogin(): Promise<void> {
   }
   try {
     if (authMode.value === 'login') {
-      await authStore.loginWithPassword(form.value.username, form.value.password);
+      await authStore.loginWithPassword(mobile, form.value.password);
     } else {
       if (form.value.password !== form.value.confirmPassword) {
         errorMsg.value = '两次输入的密码不一致';
         return;
       }
-      await authStore.registerAccount(form.value.username, form.value.password);
+      await authStore.registerAccount(mobile, form.value.password);
     }
     await afterLogin();
   } catch (err: any) {
@@ -96,7 +101,7 @@ function switchMode(mode: 'login' | 'register'): void {
           :class="{ active: activeTab === 'password' }"
           @tap="activeTab = 'password'"
         >
-          <text>账号登录</text>
+          <text>手机号登录</text>
         </view>
       </view>
 
@@ -114,7 +119,7 @@ function switchMode(mode: 'login' | 'register'): void {
         </button>
       </view>
 
-      <!-- 手机号/用户名 + 密码登录 -->
+      <!-- 手机号 + 密码登录 -->
       <view v-else class="password-section">
         <view class="mode-switch">
           <text
@@ -132,9 +137,11 @@ function switchMode(mode: 'login' | 'register'): void {
 
         <view class="form-group">
           <input
-            v-model="form.username"
+            v-model="form.mobile"
             class="form-input"
-            placeholder="手机号 / 用户名"
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号"
             placeholder-class="input-placeholder"
           />
         </view>

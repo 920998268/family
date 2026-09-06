@@ -116,22 +116,22 @@ export async function loginByWeixin(code: string): Promise<UniIdLoginResult> {
   return res as UniIdLoginResult;
 }
 
-/** 手机号/用户名 + 密码登录 */
-export async function loginByPassword(username: string, password: string): Promise<UniIdLoginResult> {
+/** 手机号 + 密码登录 */
+export async function loginByPassword(mobile: string, password: string): Promise<UniIdLoginResult> {
   const uniIdCo = getCloud().importObject('uni-id-co');
-  const res = await uniIdCo.login({ username, password });
+  const res = await uniIdCo.login({ mobile, password });
   if (res.errCode !== 0) {
-    throw new Error(res.errMsg || '登录失败，请检查账号和密码');
+    throw new Error(res.errMsg || '登录失败，请检查手机号和密码');
   }
   return res as UniIdLoginResult;
 }
 
-/** 注册账号（手机号/用户名 + 密码） */
-export async function register(username: string, password: string): Promise<UniIdLoginResult> {
+/** 注册账号（手机号 + 密码） */
+export async function register(mobile: string, password: string): Promise<UniIdLoginResult> {
   const uniIdCo = getCloud().importObject('uni-id-co');
-  const res = await uniIdCo.register({ username, password });
+  const res = await uniIdCo.register({ mobile, password });
   if (res.errCode !== 0) {
-    throw new Error(res.errMsg || '注册失败，该账号可能已被注册');
+    throw new Error(res.errMsg || '注册失败，该手机号可能已被注册');
   }
   return res as UniIdLoginResult;
 }

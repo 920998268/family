@@ -63,13 +63,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /** 手机号/用户名 + 密码登录 */
-  async function loginWithPassword(username: string, password: string): Promise<UniIdLoginResult> {
+  /** 手机号 + 密码登录 */
+  async function loginWithPassword(mobile: string, password: string): Promise<UniIdLoginResult> {
     loggingIn.value = true;
     try {
-      const result = await loginByPassword(username.trim(), password);
+      const result = await loginByPassword(mobile.trim(), password);
       uid.value = result.uid || '';
-      nickname.value = result.nickname || result.username || '';
+      nickname.value = result.nickname || result.mobile || '';
       avatar.value = result.avatar || '';
       return result;
     } finally {
@@ -78,12 +78,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** 注册账号 */
-  async function registerAccount(username: string, password: string): Promise<UniIdLoginResult> {
+  async function registerAccount(mobile: string, password: string): Promise<UniIdLoginResult> {
     loggingIn.value = true;
     try {
-      const result = await cloudRegister(username.trim(), password);
+      const result = await cloudRegister(mobile.trim(), password);
       uid.value = result.uid || '';
-      nickname.value = result.nickname || result.username || '';
+      nickname.value = result.nickname || result.mobile || '';
       avatar.value = result.avatar || '';
       return result;
     } finally {
