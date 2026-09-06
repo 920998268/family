@@ -11,9 +11,10 @@ const authStore = useAuthStore();
 const familyStore = useFamilyStore();
 
 // 家庭空间状态
-const activeTab = ref<'create' | 'join'>('create');
+const activeTab = ref<'create' | 'join' | 'bind'>('create');
 const familyName = ref('');
 const inviteCode = ref('');
+const bindCode = ref('');
 const errorMsg = ref('');
 const submitting = ref(false);
 const loading = ref(true);
@@ -100,6 +101,26 @@ async function handleJoin(): Promise<void> {
     }, 800);
   } catch (err: any) {
     errorMsg.value = err?.message || '加入家庭失败，请检查邀请码';
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function handleBind(): Promise<void> {
+  errorMsg.value = '';
+  if (!bindCode.value.trim()) {
+    errorMsg.value = '请输入绑定码';
+    return;
+  }
+  submitting.value = true;
+  try {
+    const result = await authStore.bindToMember(bindCode.value.trim().toUpperCase());
+    uni.showToast({ title: `已绑定为「${result.memberName}」`, icon: 'success' });
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/home/home' });
+    }, 1000);
+  } catch (err: any) {
+    errorMsg.value = err?.message || '绑定失败，请检查绑定码';
   } finally {
     submitting.value = false;
   }
@@ -216,6 +237,13 @@ function removeMember(member: FamilyMember): void {
         >
           <text>加入家庭</text>
         </view>
+        <view
+          class="tab-item"
+          :class="{ active: activeTab === 'bind' }"
+          @tap="activeTab = 'bind'"
+        >
+          <text>绑定成员</text>
+        </view>
       </view>
 
       <view v-if="activeTab === 'create'" class="form-card">
@@ -235,7 +263,7 @@ function removeMember(member: FamilyMember): void {
         </button>
       </view>
 
-      <view v-else class="form-card">
+      <view v-else-if="activeTab === 'join'" class="form-card">
         <view class="form-group">
           <text class="form-label">邀请码</text>
           <input
@@ -250,6 +278,24 @@ function removeMember(member: FamilyMember): void {
         <text class="form-hint">向家庭管理员获取邀请码，加入后即可共享家庭数据</text>
         <button class="submit-btn" :disabled="submitting" @tap="handleJoin">
           {{ submitting ? '加入中...' : '加入家庭' }}
+        </button>
+      </view>
+
+      <view v-else class="form-card">
+        <view class="form-group">
+          <text class="form-label">成员绑定码</text>
+          <input
+            class="form-input invite-input"
+            v-model="bindCode"
+            placeholder="请输入6位绑定码"
+            placeholder-class="input-placeholder"
+            maxlength="6"
+            @input="bindCode = bindCode.toUpperCase()"
+          />
+        </view>
+        <text class="form-hint">家庭管理员在成员详情页为你生成绑定码，输入后将关联到该成员档案</text>
+        <button class="submit-btn" :disabled="submitting" @tap="handleBind">
+          {{ submitting ? '绑定中...' : '绑定成员' }}
         </button>
       </view>
     </template>

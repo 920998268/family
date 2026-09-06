@@ -60,6 +60,14 @@
       "bsonType": "bool",
       "title": "是否本人档案"
     },
+    "bindCode": {
+      "bsonType": ["string", "null"],
+      "title": "成员绑定码（6位，用于虚拟成员绑定登录账号）"
+    },
+    "bindCodeExpiresAt": {
+      "bsonType": ["timestamp", "null"],
+      "title": "绑定码过期时间"
+    },
     "createdAt": {
       "bsonType": "timestamp",
       "title": "创建时间"

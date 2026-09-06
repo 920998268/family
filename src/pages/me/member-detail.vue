@@ -3,9 +3,12 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useFamilyStore } from '@/stores/family';
 import { MEMBER_ROLE_LABELS } from '@/types/models';
+import { generateMemberBindCode } from '@/unicloud';
 
 const familyStore = useFamilyStore();
 const memberId = ref('');
+const bindCode = ref('');
+const generating = ref(false);
 
 const member = computed(() =>
   familyStore.members.find((m) => m.id === memberId.value) || null,
@@ -24,6 +27,28 @@ function goBack(): void {
     // 兜底：页面栈异常时返回到「我的」页面
     uni.switchTab({ url: '/pages/me/me' });
   }
+}
+
+async function handleGenerateBindCode(): Promise<void> {
+  if (!member.value || generating.value) return;
+  generating.value = true;
+  try {
+    const result = await generateMemberBindCode(member.value.id);
+    bindCode.value = result.bindCode;
+    uni.showToast({ title: '绑定码已生成', icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '生成失败', icon: 'none' });
+  } finally {
+    generating.value = false;
+  }
+}
+
+function copyBindCode(): void {
+  if (!bindCode.value) return;
+  uni.setClipboardData({
+    data: bindCode.value,
+    success: () => uni.showToast({ title: '已复制', icon: 'success' }),
+  });
 }
 </script>
 
@@ -80,6 +105,21 @@ function goBack(): void {
         </view>
       </view>
       <text class="info-hint">个人信息档案功能开发中，后续支持每位成员独立维护身体数据</text>
+    </view>
+
+    <!-- 未绑定成员：生成绑定码 -->
+    <view v-if="member && !member.userId" class="section">
+      <view class="section-title">账号绑定</view>
+      <view class="bind-card">
+        <text class="bind-desc">生成绑定码后，对方用自己的账号登录，在家庭设置页选择「绑定成员」输入此码即可完成关联。绑定码24小时内有效。</text>
+        <view v-if="bindCode" class="bind-code-row">
+          <text class="bind-code">{{ bindCode }}</text>
+          <button class="copy-btn" @tap="copyBindCode">复制</button>
+        </view>
+        <button class="bind-btn" :disabled="generating" @tap="handleGenerateBindCode">
+          {{ generating ? '生成中...' : bindCode ? '重新生成绑定码' : '生成绑定码' }}
+        </button>
+      </view>
     </view>
 
     <view v-if="member" class="section">
@@ -201,6 +241,76 @@ function goBack(): void {
   color: #a8a29e;
   margin-top: 12rpx;
   text-align: center;
+}
+
+.bind-card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.bind-desc {
+  display: block;
+  font-size: 24rpx;
+  color: #78716c;
+  line-height: 1.6;
+  margin-bottom: 20rpx;
+}
+
+.bind-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #faf6f1;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.bind-code {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #f97316;
+  letter-spacing: 8rpx;
+}
+
+.copy-btn {
+  font-size: 24rpx;
+  color: #f97316;
+  background: #fff7ed;
+  border: none;
+  padding: 8rpx 24rpx;
+  border-radius: 20rpx;
+  margin: 0;
+
+  &::after {
+    border: none;
+  }
+}
+
+.bind-btn {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 !important;
+  margin: 0;
+  border: 2rpx solid #f97316;
+  border-radius: 40rpx;
+  background: #fff;
+  color: #f97316;
+  font-size: 28rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::after {
+    border: none;
+  }
+
+  &[disabled] {
+    opacity: 0.5;
+  }
 }
 
 .edit-btn {

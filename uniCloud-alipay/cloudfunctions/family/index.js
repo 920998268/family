@@ -1,5 +1,5 @@
 'use strict'
-// 家庭空间云函数：创建 / 加入 / 查询 / 邀请码管理 / 移除成员
+// 家庭空间云函数：创建 / 加入 / 查询 / 邀请码管理 / 移除成员 / 成员绑定
 // 依赖公共模块 uni-id-common（导入 uni-id-pages 插件后自动提供）
 const db = uniCloud.database()
 const dbCmd = db.command
@@ -26,6 +26,16 @@ function getDisplayName(user) {
   return '家庭成员'
 }
 
+// 生成6位绑定码（大写字母+数字，排除易混淆字符）
+function generateBindCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
 exports.main = async (event, context) => {
   const auth = await getUid(context, event)
   if (auth.code !== 0) return auth
@@ -37,6 +47,8 @@ exports.main = async (event, context) => {
     case 'getFamilyInfo': return getFamilyInfo(uid)
     case 'regenerateInviteCode': return regenerateInviteCode(uid)
     case 'removeMember': return removeMember(uid, event)
+    case 'generateBindCode': return generateBindCode(uid, event)
+    case 'bindMember': return bindMember(uid, event)
     default: return { code: 400, msg: `未知操作: ${event.action}` }
   }
 }
@@ -181,4 +193,70 @@ async function removeMember(uid, event) {
   await db.collection(MEMBERS).doc(memberId).remove()
   await db.collection(FAMILIES).doc(user.familyId).update({ memberCount: dbCmd.inc(-1) })
   return { code: 0 }
+}
+
+// 家庭管理员为虚拟成员生成绑定码
+async function generateBindCode(uid, event) {
+  const memberId = event.memberId
+  if (!memberId) return { code: 400, msg: '缺少 memberId' }
+  const user = (await db.collection(USERS).doc(uid).get()).data[0]
+  if (!user || !user.familyId) return { code: 400, msg: '尚未加入家庭' }
+  if (user.familyRole !== 'owner') return { code: 403, msg: '仅家庭管理员可操作' }
+  const member = (await db.collection(MEMBERS).doc(memberId).get()).data[0]
+  if (!member || member.familyId !== user.familyId) return { code: 403, msg: '无权操作该成员' }
+  if (member.userId) return { code: 400, msg: '该成员已绑定登录账号' }
+  // 生成唯一绑定码
+  let bindCode = generateBindCode()
+  for (let i = 0; i < 5; i++) {
+    const exist = await db.collection(MEMBERS).where({ bindCode }).count()
+    if (exist.total === 0) break
+    bindCode = generateBindCode()
+  }
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24小时有效
+  await db.collection(MEMBERS).doc(memberId).update({
+    bindCode,
+    bindCodeExpiresAt: expiresAt,
+    updatedAt: Date.now()
+  })
+  return { code: 0, data: { bindCode, expiresAt, memberName: member.name } }
+}
+
+// 用户通过绑定码绑定到已有虚拟成员
+async function bindMember(uid, event) {
+  const bindCode = (event.bindCode || '').toUpperCase().trim()
+  if (!bindCode || bindCode.length !== 6) return { code: 400, msg: '请输入6位绑定码' }
+  const user = (await db.collection(USERS).doc(uid).get()).data[0]
+  if (!user) return { code: 401, msg: '用户不存在' }
+  if (user.familyId) return { code: 400, msg: '你已加入家庭，无法绑定' }
+  // 查找绑定码对应的成员
+  const member = (await db.collection(MEMBERS).where({ bindCode }).limit(1).get()).data[0]
+  if (!member) return { code: 404, msg: '绑定码无效' }
+  if (member.userId) return { code: 400, msg: '该成员已被绑定' }
+  if (member.bindCodeExpiresAt && member.bindCodeExpiresAt < Date.now()) {
+    return { code: 400, msg: '绑定码已过期，请重新生成' }
+  }
+  const now = Date.now()
+  // 绑定：更新成员的 userId，更新用户的 familyId
+  await db.collection(MEMBERS).doc(member._id).update({
+    userId: uid,
+    bindCode: null,
+    bindCodeExpiresAt: null,
+    isSelf: true,
+    updatedAt: now
+  })
+  await db.collection(USERS).doc(uid).update({
+    familyId: member.familyId,
+    familyRole: 'member'
+  })
+  await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
+  return {
+    code: 0,
+    data: {
+      familyId: member.familyId,
+      familyName: family ? family.name : '',
+      memberName: member.name,
+      role: 'member'
+    }
+  }
 }

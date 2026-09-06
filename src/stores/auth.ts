@@ -10,6 +10,7 @@ import {
   getMyFamilyStatus,
   createFamily,
   joinFamily,
+  bindMemberByCode as cloudBindMember,
   type UniIdLoginResult,
   type MyFamilyStatus,
   type FamilyInfo,
@@ -135,6 +136,15 @@ export const useAuthStore = defineStore('auth', () => {
     return family;
   }
 
+  /** 通过绑定码绑定到已有虚拟成员 */
+  async function bindToMember(bindCode: string): Promise<{ familyId: string; familyName: string; memberName: string; role: string }> {
+    const result = await cloudBindMember(bindCode);
+    familyId.value = result.familyId;
+    familyName.value = result.familyName;
+    familyRole.value = result.role;
+    return result;
+  }
+
   /** 退出登录 */
   async function logout(): Promise<void> {
     await cloudLogout();
@@ -167,6 +177,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchFamilyStatus,
     createNewFamily,
     joinExistingFamily,
+    bindToMember,
     logout,
   };
 });
