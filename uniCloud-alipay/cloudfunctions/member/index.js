@@ -42,16 +42,19 @@ async function addMember(familyId, event) {
   const v = validateMember(event)
   if (!v.ok) return { code: 400, msg: v.msg }
   const now = Date.now()
-  const { name, gender, birthday, avatarColor, isSelf } = event
+  const { name, gender, birthday, avatarColor, avatarUrl, role, isSelf } = event
   const doc = await db.collection(MEMBERS).add({
     familyId,
+    userId: null, // 手动添加的成员为虚拟成员，未绑定登录账号
     name: name.trim(),
+    role: role || 'other',
     gender: gender || '',
     birthday: birthday || '',
     height: event.height != null && event.height !== '' ? Number(event.height) : null,
     weight: event.weight != null && event.weight !== '' ? Number(event.weight) : null,
     targetWeight: event.targetWeight != null && event.targetWeight !== '' ? Number(event.targetWeight) : null,
     avatarColor: avatarColor || '#f97316',
+    avatarUrl: avatarUrl || '',
     isSelf: !!isSelf,
     createdAt: now,
     updatedAt: now
@@ -67,7 +70,7 @@ async function updateMember(familyId, event) {
   const v = validateMember(event)
   if (!v.ok) return { code: 400, msg: v.msg }
   const upd = { updatedAt: Date.now() }
-  for (const k of ['name', 'gender', 'birthday', 'avatarColor', 'isSelf']) {
+  for (const k of ['name', 'gender', 'birthday', 'avatarColor', 'avatarUrl', 'role', 'isSelf']) {
     if (event[k] !== undefined) upd[k] = event[k]
   }
   for (const k of ['height', 'weight', 'targetWeight']) {
@@ -82,6 +85,10 @@ async function removeMember(familyId, event) {
   if (!id) return { code: 400, msg: '缺少 _id' }
   const target = (await db.collection(MEMBERS).doc(id).get()).data[0]
   if (!target || target.familyId !== familyId) return { code: 403, msg: '无权操作该成员' }
+  // 如果成员已绑定登录账号，移除时同时解除用户的家庭关联
+  if (target.userId) {
+    await db.collection(USERS).doc(target.userId).update({ familyId: '', familyRole: '' })
+  }
   await db.collection(MEMBERS).doc(id).remove()
   return { code: 0 }
 }

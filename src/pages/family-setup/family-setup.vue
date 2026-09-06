@@ -330,7 +330,11 @@ function removeMember(member: FamilyMember): void {
           <view v-for="member in familyStore.members" :key="member.id" class="member-card" @tap="goMemberDetail(member.id)">
             <MemberAvatar :name="member.name" :color="member.avatarColor" :avatarUrl="member.avatarUrl" />
             <view class="member-info">
-              <text class="member-name">{{ member.name }}</text>
+              <view class="member-name-row">
+                <text class="member-name">{{ member.name }}</text>
+                <text v-if="member.userId" class="bound-tag">已绑定</text>
+                <text v-else class="unbound-tag">未绑定</text>
+              </view>
               <text class="member-role">{{ MEMBER_ROLES.find((r) => r.value === member.role)?.label }}</text>
             </view>
             <view class="member-actions">
@@ -778,6 +782,28 @@ function removeMember(member: FamilyMember): void {
   font-size: 28rpx;
   font-weight: 600;
   color: #2d2a26;
+}
+
+.member-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.bound-tag {
+  font-size: 18rpx;
+  color: #10b981;
+  background: #ecfdf5;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.unbound-tag {
+  font-size: 18rpx;
+  color: #a8a29e;
+  background: #f5f0e8;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
 }
 
 .member-role {

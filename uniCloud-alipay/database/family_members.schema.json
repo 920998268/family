@@ -15,10 +15,18 @@
       "bsonType": "string",
       "title": "所属家庭空间 ID"
     },
+    "userId": {
+      "bsonType": ["string", "null"],
+      "title": "绑定的登录账号 UID（空=未绑定的虚拟成员）"
+    },
     "name": {
       "bsonType": "string",
       "title": "姓名",
       "maxLength": 20
+    },
+    "role": {
+      "bsonType": "string",
+      "title": "家庭关系：father/mother/grandfather/grandmother/maternalGrandfather/maternalGrandmother/son/daughter/other"
     },
     "gender": {
       "bsonType": "string",
@@ -43,6 +51,10 @@
     "avatarColor": {
       "bsonType": "string",
       "title": "头像颜色"
+    },
+    "avatarUrl": {
+      "bsonType": ["string", "null"],
+      "title": "头像图片 URL（微信头像授权后使用）"
     },
     "isSelf": {
       "bsonType": "bool",

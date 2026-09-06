@@ -17,6 +17,15 @@ async function getUid(context, event) {
   return { code: 0, uid: res.uid }
 }
 
+// 从用户信息中提取显示名称
+function getDisplayName(user) {
+  if (!user) return '家庭成员'
+  if (user.nickname) return user.nickname
+  if (user.username) return user.username
+  if (user.mobile) return user.mobile
+  return '家庭成员'
+}
+
 exports.main = async (event, context) => {
   const auth = await getUid(context, event)
   if (auth.code !== 0) return auth
@@ -52,6 +61,20 @@ async function createFamily(uid, event) {
     createdAt: now
   })
   await db.collection(USERS).doc(uid).update({ familyId: familyRes.id, familyRole: 'owner' })
+  // 自动创建家庭成员记录，关联当前登录账号
+  await db.collection(MEMBERS).add({
+    familyId: familyRes.id,
+    userId: uid,
+    name: getDisplayName(user),
+    role: 'other',
+    gender: user.gender || '',
+    birthday: user.birthday || '',
+    avatarColor: '#f97316',
+    avatarUrl: user.avatar_file ? (user.avatar_file.url || '') : '',
+    isSelf: true,
+    createdAt: now,
+    updatedAt: now
+  })
   return {
     code: 0,
     data: {
@@ -74,6 +97,21 @@ async function joinFamily(uid, event) {
   if (!family) return { code: 404, msg: '邀请码无效' }
   await db.collection(USERS).doc(uid).update({ familyId: family._id, familyRole: 'member' })
   await db.collection(FAMILIES).doc(family._id).update({ memberCount: dbCmd.inc(1) })
+  // 自动创建家庭成员记录，关联当前登录账号
+  const now = Date.now()
+  await db.collection(MEMBERS).add({
+    familyId: family._id,
+    userId: uid,
+    name: getDisplayName(user),
+    role: 'other',
+    gender: user.gender || '',
+    birthday: user.birthday || '',
+    avatarColor: '#0ea5e9',
+    avatarUrl: user.avatar_file ? (user.avatar_file.url || '') : '',
+    isSelf: true,
+    createdAt: now,
+    updatedAt: now
+  })
   return {
     code: 0,
     data: {
@@ -134,6 +172,13 @@ async function removeMember(uid, event) {
   const user = (await db.collection(USERS).doc(uid).get()).data[0]
   if (!user || !user.familyId) return { code: 400, msg: '尚未加入家庭' }
   if (user.familyRole !== 'owner') return { code: 403, msg: '仅家庭管理员可操作' }
+  const target = (await db.collection(MEMBERS).doc(memberId).get()).data[0]
+  if (!target || target.familyId !== user.familyId) return { code: 403, msg: '无权操作该成员' }
+  // 如果成员已绑定登录账号，移除时同时解除用户的家庭关联
+  if (target.userId) {
+    await db.collection(USERS).doc(target.userId).update({ familyId: '', familyRole: '' })
+  }
   await db.collection(MEMBERS).doc(memberId).remove()
+  await db.collection(FAMILIES).doc(user.familyId).update({ memberCount: dbCmd.inc(-1) })
   return { code: 0 }
 }

@@ -52,6 +52,7 @@ export type MemberRole =
 
 export interface FamilyMember {
   id: string;
+  userId?: string; // 绑定的登录账号 UID，空=未绑定的虚拟成员
   name: string;
   role: MemberRole;
   avatarColor: string;

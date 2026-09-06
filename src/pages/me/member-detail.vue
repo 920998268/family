@@ -61,6 +61,12 @@ function goBack(): void {
           <text class="info-value">{{ MEMBER_ROLE_LABELS[member.role] || '其他' }}</text>
         </view>
         <view class="info-row">
+          <text class="info-label">账号绑定</text>
+          <text class="info-value" :class="{ 'bound': member.userId, 'unbound': !member.userId }">
+            {{ member.userId ? '已绑定登录账号' : '未绑定（虚拟成员）' }}
+          </text>
+        </view>
+        <view class="info-row">
           <text class="info-label">身高</text>
           <text class="info-value">--</text>
         </view>
@@ -179,6 +185,14 @@ function goBack(): void {
   font-size: 28rpx;
   color: #2d2a26;
   font-weight: 500;
+
+  &.bound {
+    color: #10b981;
+  }
+
+  &.unbound {
+    color: #a8a29e;
+  }
 }
 
 .info-hint {
