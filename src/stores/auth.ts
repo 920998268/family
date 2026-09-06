@@ -77,11 +77,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /** 注册账号 */
+  /** 注册账号，注册成功后自动登录 */
   async function registerAccount(mobile: string, password: string): Promise<UniIdLoginResult> {
     loggingIn.value = true;
     try {
-      const result = await cloudRegister(mobile.trim(), password);
+      await cloudRegister(mobile.trim(), password);
+      // 注册成功后自动登录获取 token
+      const result = await loginByPassword(mobile.trim(), password);
       uid.value = result.uid || '';
       nickname.value = result.nickname || result.mobile || '';
       avatar.value = result.avatar || '';

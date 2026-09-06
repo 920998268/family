@@ -126,14 +126,17 @@ export async function loginByPassword(mobile: string, password: string): Promise
   return res as UniIdLoginResult;
 }
 
-/** 注册账号（手机号 + 密码） */
-export async function register(mobile: string, password: string): Promise<UniIdLoginResult> {
-  const uniIdCo = getCloud().importObject('uni-id-co');
-  const res = await uniIdCo.register({ mobile, password });
-  if (res.errCode !== 0) {
-    throw new Error(res.errMsg || '注册失败，该手机号可能已被注册');
+/** 注册账号（手机号 + 密码），调用自定义 register 云函数 */
+export async function register(mobile: string, password: string): Promise<{ uid: string; mobile: string }> {
+  const res = await getCloud().callFunction({
+    name: 'register',
+    data: { mobile, password },
+  });
+  const result = res.result;
+  if (result.errCode !== 0) {
+    throw new Error(result.errMsg || '注册失败，该手机号可能已被注册');
   }
-  return res as UniIdLoginResult;
+  return { uid: result.uid, mobile: result.mobile };
 }
 
 /** 退出登录 */
