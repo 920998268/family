@@ -18,9 +18,6 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const currentMonth = String(now.getMonth() + 1);
 const currentDay = String(now.getDate());
-const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
-const monthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const dayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 const form = reactive({
   name: '',
@@ -44,27 +41,13 @@ const roleIndex = computed(() =>
   Math.max(MEMBER_ROLES.findIndex((item) => item.value === form.role), 0),
 );
 
-const yearIndex = computed(() => {
-  const idx = yearOptions.indexOf(form.birthYear);
-  return idx >= 0 ? idx : yearOptions.length - 1;
-});
-
-const monthIndex = computed(() => {
-  const idx = monthOptions.indexOf(form.birthMonth);
-  return idx >= 0 ? idx : Number(currentMonth) - 1;
-});
-
-const dayIndex = computed(() => {
-  const idx = dayOptions.indexOf(form.birthDay);
-  return idx >= 0 ? idx : Number(currentDay) - 1;
-});
-
 onShow(() => {
   profileStore.load();
   const profile = profileStore.profile;
   if (profile) {
     form.name = profile.name;
     form.gender = profile.gender;
+    form.role = (profile as any).role || 'other';
     form.mobile = profile.mobile || authStore.mobile || '';
     form.avatarUrl = (profile as any).avatarUrl || '';
     // 解析出生年月日
@@ -92,16 +75,25 @@ function onRoleChange(event: { detail: { value: string | number } }): void {
   form.role = (MEMBER_ROLES[index]?.value ?? 'other') as MemberRole;
 }
 
-function onYearChange(event: { detail: { value: string | number } }): void {
-  form.birthYear = yearOptions[Number(event.detail.value)] || '';
+function onYearBlur(): void {
+  const y = Number(form.birthYear);
+  if (!form.birthYear) return;
+  if (y < 1900) form.birthYear = '1900';
+  if (y > currentYear) form.birthYear = String(currentYear);
 }
 
-function onMonthChange(event: { detail: { value: string | number } }): void {
-  form.birthMonth = monthOptions[Number(event.detail.value)] || '';
+function onMonthBlur(): void {
+  const m = Number(form.birthMonth);
+  if (!form.birthMonth) return;
+  if (m < 1) form.birthMonth = '1';
+  if (m > 12) form.birthMonth = '12';
 }
 
-function onDayChange(event: { detail: { value: string | number } }): void {
-  form.birthDay = dayOptions[Number(event.detail.value)] || '';
+function onDayBlur(): void {
+  const d = Number(form.birthDay);
+  if (!form.birthDay) return;
+  if (d < 1) form.birthDay = '1';
+  if (d > 31) form.birthDay = '31';
 }
 
 function onChooseAvatar(event: any): void {
@@ -221,28 +213,37 @@ function save(): void {
         />
       </view>
 
-      <!-- 出生日期：三列选择器同一行 -->
+      <!-- 出生日期：可手动输入的三个数字输入框 -->
       <view class="field">
         <text class="field-label">出生日期</text>
         <view class="date-row">
-          <picker :range="yearOptions" :value="yearIndex" @change="onYearChange">
-            <view class="date-picker">
-              <text>{{ form.birthYear || '年' }}</text>
-              <text class="picker-arrow">›</text>
-            </view>
-          </picker>
-          <picker :range="monthOptions" :value="monthIndex" @change="onMonthChange">
-            <view class="date-picker">
-              <text>{{ form.birthMonth || '月' }}</text>
-              <text class="picker-arrow">›</text>
-            </view>
-          </picker>
-          <picker :range="dayOptions" :value="dayIndex" @change="onDayChange">
-            <view class="date-picker">
-              <text>{{ form.birthDay || '日' }}</text>
-              <text class="picker-arrow">›</text>
-            </view>
-          </picker>
+          <input
+            v-model="form.birthYear"
+            class="date-input"
+            type="number"
+            maxlength="4"
+            placeholder="年"
+            placeholder-class="date-placeholder"
+            @blur="onYearBlur"
+          />
+          <input
+            v-model="form.birthMonth"
+            class="date-input"
+            type="number"
+            maxlength="2"
+            placeholder="月"
+            placeholder-class="date-placeholder"
+            @blur="onMonthBlur"
+          />
+          <input
+            v-model="form.birthDay"
+            class="date-input"
+            type="number"
+            maxlength="2"
+            placeholder="日"
+            placeholder-class="date-placeholder"
+            @blur="onDayBlur"
+          />
         </view>
       </view>
 
@@ -400,20 +401,22 @@ function save(): void {
 
 .date-row {
   display: flex;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
-.date-picker {
+.date-input {
   flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  height: 72rpx;
   background: #faf6f1;
   border-radius: 12rpx;
-  padding: 18rpx 16rpx;
+  padding: 0 20rpx;
   font-size: 28rpx;
   color: #2d2a26;
-  min-width: 0;
+  text-align: center;
+}
+
+.date-placeholder {
+  color: #d6d3d1;
 }
 
 .form-actions {

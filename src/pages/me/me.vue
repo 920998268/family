@@ -121,14 +121,10 @@ async function handleLogout(): Promise<void> {
         <!-- 头像：button 获取微信头像 -->
         <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
           <image v-if="avatarUrl || profile?.avatarUrl" :src="avatarUrl || profile?.avatarUrl" class="profile-avatar-img" mode="aspectFill" />
-          <view v-else class="profile-avatar">
-            <text>{{ displayName.slice(0, 1) }}</text>
+          <view v-else class="profile-avatar profile-avatar-empty">
+            <text class="camera-icon">📷</text>
           </view>
         </button>
-        <!-- 相册选择小图标 -->
-        <view class="avatar-camera-icon" @tap.stop="onAlbumTap">
-          <text>📷</text>
-        </view>
         <!-- 右侧信息：点击进入编辑 -->
         <view class="profile-info" @tap="goProfile">
           <view class="name-row">
@@ -142,6 +138,7 @@ async function handleLogout(): Promise<void> {
             <text class="meta-divider">·</text>
             <text class="meta-item">{{ displayMobile }}</text>
           </view>
+          <text v-if="!avatarUrl && !profile?.avatarUrl" class="avatar-hint" @tap.stop="onAlbumTap">从相册选择</text>
         </view>
         <text class="card-arrow" @tap="goProfile">›</text>
       </view>
@@ -249,31 +246,23 @@ async function handleLogout(): Promise<void> {
   }
 }
 
+.profile-avatar-empty {
+  .camera-icon {
+    font-size: 48rpx;
+    line-height: 1;
+  }
+}
+
+.avatar-hint {
+  font-size: 22rpx;
+  color: #f97316;
+  margin-top: 6rpx;
+}
+
 .profile-avatar-img {
   width: 112rpx;
   height: 112rpx;
   border-radius: 50%;
-}
-
-.avatar-camera-icon {
-  position: absolute;
-  left: 88rpx;
-  top: 88rpx;
-  z-index: 10;
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 50%;
-  background: #fff;
-  border: 2rpx solid #f97316;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-
-  text {
-    font-size: 20rpx;
-    line-height: 1;
-  }
 }
 
 .profile-info {

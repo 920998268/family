@@ -3,8 +3,8 @@ import { ref, reactive, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { useFamilyStore } from '@/stores/family';
-import type { FamilyMember, MemberRole } from '@/types/models';
-import { AVATAR_COLORS, MEMBER_ROLES } from '@/types/models';
+import type { FamilyMember, MemberRole, Gender } from '@/types/models';
+import { AVATAR_COLORS, MEMBER_ROLES, GENDERS } from '@/types/models';
 import MemberAvatar from '@/components/MemberAvatar.vue';
 
 const authStore = useAuthStore();
@@ -25,6 +25,7 @@ const formVisible = ref(false);
 const editingMember = ref<FamilyMember | null>(null);
 const form = reactive({
   name: '',
+  gender: 'male' as Gender,
   role: 'father' as MemberRole,
   avatarColor: AVATAR_COLORS[0],
   avatarUrl: '',
@@ -37,14 +38,13 @@ const form = reactive({
   birthDay: '',
 });
 
-const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => String(1900 + i));
-const monthOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
-const dayOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
-
 const roleNames = MEMBER_ROLES.map((item) => item.label);
+const genderNames = GENDERS.map((item) => item.label);
 const roleIndex = computed(() =>
   Math.max(MEMBER_ROLES.findIndex((item) => item.value === form.role), 0),
+);
+const genderIndex = computed(() =>
+  Math.max(GENDERS.findIndex((item) => item.value === form.gender), 0),
 );
 
 const roleLabel: Record<string, string> = {
@@ -155,6 +155,7 @@ function goMemberDetail(memberId: string): void {
 // 家庭成员管理
 function resetForm(): void {
   form.name = editingMember.value?.name ?? '';
+  form.gender = (editingMember.value as any)?.gender ?? 'male';
   form.role = editingMember.value?.role ?? 'father';
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
   form.avatarUrl = editingMember.value?.avatarUrl ?? '';
@@ -196,16 +197,25 @@ function onChooseAlbum(): void {
   });
 }
 
-function onMemberYearChange(event: { detail: { value: string | number } }): void {
-  form.birthYear = yearOptions[Number(event.detail.value)] || '';
+function onMemberYearBlur(): void {
+  const y = Number(form.birthYear);
+  if (!form.birthYear) return;
+  if (y < 1900) form.birthYear = '1900';
+  if (y > new Date().getFullYear()) form.birthYear = String(new Date().getFullYear());
 }
 
-function onMemberMonthChange(event: { detail: { value: string | number } }): void {
-  form.birthMonth = monthOptions[Number(event.detail.value)] || '';
+function onMemberMonthBlur(): void {
+  const m = Number(form.birthMonth);
+  if (!form.birthMonth) return;
+  if (m < 1) form.birthMonth = '1';
+  if (m > 12) form.birthMonth = '12';
 }
 
-function onMemberDayChange(event: { detail: { value: string | number } }): void {
-  form.birthDay = dayOptions[Number(event.detail.value)] || '';
+function onMemberDayBlur(): void {
+  const d = Number(form.birthDay);
+  if (!form.birthDay) return;
+  if (d < 1) form.birthDay = '1';
+  if (d > 31) form.birthDay = '31';
 }
 
 function openAdd(): void {
@@ -230,6 +240,11 @@ function onRoleChange(event: { detail: { value: string | number } }): void {
   form.role = (MEMBER_ROLES[index]?.value ?? 'parent') as MemberRole;
 }
 
+function onGenderChange(event: { detail: { value: string | number } }): void {
+  const index = Number(event.detail.value);
+  form.gender = (GENDERS[index]?.value ?? 'male') as Gender;
+}
+
 function saveMember(): void {
   if (!form.name.trim()) {
     uni.showToast({ title: '请填写成员姓名', icon: 'none' });
@@ -240,6 +255,7 @@ function saveMember(): void {
     : undefined;
   const draft = {
     name: form.name.trim(),
+    gender: form.gender,
     role: form.role,
     avatarColor: form.avatarColor,
     avatarUrl: form.avatarUrl,
@@ -393,22 +409,29 @@ function removeMember(member: FamilyMember): void {
         <view v-if="formVisible" class="form-card member-form">
           <view class="form-title">{{ editingMember ? '编辑成员' : '添加成员' }}</view>
           <view class="avatar-section">
-            <view class="avatar-preview">
-              <image v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar-preview-img" mode="aspectFill" />
-              <view v-else class="avatar-preview-dot" :style="{ background: form.avatarColor }">
+            <button class="avatar-circle-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+              <image v-if="form.avatarUrl" :src="form.avatarUrl" class="avatar-circle-img" mode="aspectFill" />
+              <view v-else class="avatar-circle-placeholder" :style="{ background: form.avatarColor }">
                 <text>{{ (form.name || '?').slice(0, 1) }}</text>
               </view>
-            </view>
-            <view class="avatar-btns">
-              <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-                微信头像
-              </button>
-              <text class="avatar-link" @tap="onChooseAlbum">相册选择</text>
+            </button>
+            <view class="avatar-actions">
+              <text class="avatar-hint">点击头像使用微信头像</text>
+              <text class="avatar-link" @tap="onChooseAlbum">从相册选择</text>
             </view>
           </view>
           <view class="form-group">
             <text class="form-label">姓名</text>
             <input v-model="form.name" class="form-input" placeholder="例如：爸爸 / 小明" />
+          </view>
+          <view class="form-group">
+            <text class="form-label">性别</text>
+            <picker :range="genderNames" :value="genderIndex" @change="onGenderChange">
+              <view class="picker-value">
+                <text>{{ genderNames[genderIndex] }}</text>
+                <text class="picker-arrow">›</text>
+              </view>
+            </picker>
           </view>
           <view class="form-group">
             <text class="form-label">家庭关系</text>
@@ -431,6 +454,14 @@ function removeMember(member: FamilyMember): void {
             />
           </view>
           <view class="form-group">
+            <text class="form-label">出生日期（选填）</text>
+            <view class="date-row">
+              <input v-model="form.birthYear" class="date-input" type="number" maxlength="4" placeholder="年" placeholder-class="date-placeholder" @blur="onMemberYearBlur" />
+              <input v-model="form.birthMonth" class="date-input" type="number" maxlength="2" placeholder="月" placeholder-class="date-placeholder" @blur="onMemberMonthBlur" />
+              <input v-model="form.birthDay" class="date-input" type="number" maxlength="2" placeholder="日" placeholder-class="date-placeholder" @blur="onMemberDayBlur" />
+            </view>
+          </view>
+          <view class="form-group">
             <text class="form-label">身高（cm，选填）</text>
             <input v-model="form.heightCm" class="form-input" type="number" placeholder="例如：170" placeholder-class="input-placeholder" />
           </view>
@@ -441,29 +472,6 @@ function removeMember(member: FamilyMember): void {
           <view class="form-group">
             <text class="form-label">目标体重（kg，选填）</text>
             <input v-model="form.targetWeightKg" class="form-input" type="digit" placeholder="例如：58" placeholder-class="input-placeholder" />
-          </view>
-          <view class="form-group">
-            <text class="form-label">出生日期（选填）</text>
-            <view class="date-row">
-              <picker :range="yearOptions" :value="yearOptions.indexOf(form.birthYear)" @change="onMemberYearChange">
-                <view class="date-picker">
-                  <text>{{ form.birthYear || '年' }}</text>
-                  <text class="picker-arrow">›</text>
-                </view>
-              </picker>
-              <picker :range="monthOptions" :value="monthOptions.indexOf(form.birthMonth)" @change="onMemberMonthChange">
-                <view class="date-picker">
-                  <text>{{ form.birthMonth || '月' }}</text>
-                  <text class="picker-arrow">›</text>
-                </view>
-              </picker>
-              <picker :range="dayOptions" :value="dayOptions.indexOf(form.birthDay)" @change="onMemberDayChange">
-                <view class="date-picker">
-                  <text>{{ form.birthDay || '日' }}</text>
-                  <text class="picker-arrow">›</text>
-                </view>
-              </picker>
-            </view>
           </view>
           <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>
@@ -786,47 +794,14 @@ function removeMember(member: FamilyMember): void {
   border-bottom: 2rpx solid #f5f0e8;
 }
 
-.avatar-preview {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.avatar-preview-img {
-  width: 100%;
-  height: 100%;
-}
-
-.avatar-preview-dot {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  text {
-    font-size: 40rpx;
-    color: #fff;
-    font-weight: 700;
-  }
-}
-
-.avatar-btn {
-  flex: 1;
-  height: 72rpx;
+.avatar-circle-btn {
+  width: 112rpx;
+  height: 112rpx;
   padding: 0 !important;
   margin: 0;
-  border: 2rpx solid #f97316;
-  border-radius: 36rpx;
-  background: #fff7ed;
-  color: #f97316;
-  font-size: 26rpx;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
   line-height: 1;
 
   &::after {
@@ -834,16 +809,40 @@ function removeMember(member: FamilyMember): void {
   }
 }
 
-.avatar-btns {
-  flex: 1;
+.avatar-circle-placeholder {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text {
+    font-size: 44rpx;
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.avatar-circle-img {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+}
+
+.avatar-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 12rpx;
+  gap: 8rpx;
+}
+
+.avatar-hint {
+  font-size: 24rpx;
+  color: #78716c;
 }
 
 .avatar-link {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #f97316;
   font-weight: 600;
 }
@@ -884,20 +883,22 @@ function removeMember(member: FamilyMember): void {
 
 .date-row {
   display: flex;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
-.date-picker {
+.date-input {
   flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  height: 72rpx;
   background: #faf6f1;
   border-radius: 12rpx;
-  padding: 18rpx 16rpx;
+  padding: 0 20rpx;
   font-size: 28rpx;
   color: #2d2a26;
-  min-width: 0;
+  text-align: center;
+}
+
+.date-placeholder {
+  color: #d6d3d1;
 }
 
 .form-actions {
