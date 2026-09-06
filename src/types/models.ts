@@ -9,6 +9,7 @@ export interface Profile {
   heightCm: number;
   currentWeightKg: number;
   targetWeightKg: number;
+  mobile?: string; // 手机号（选填，与登录账号手机号同步）
 }
 
 export interface DietEntry {

@@ -2,6 +2,7 @@
 import { computed, reactive } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
+import { useAuthStore } from '@/stores/auth';
 import type { Gender } from '@/types/models';
 import { GENDERS } from '@/types/models';
 import type { Profile } from '@/types/models';
@@ -10,6 +11,7 @@ import { errorMessage } from '@/utils/error';
 import { openMeTab } from '@/utils/navigation';
 
 const profileStore = useProfileStore();
+const authStore = useAuthStore();
 
 const genderNames = GENDERS.map((item) => item.label);
 
@@ -20,6 +22,7 @@ const form = reactive({
   heightCm: 170,
   currentWeightKg: 60,
   targetWeightKg: 58,
+  mobile: '',
 });
 
 const genderIndex = computed(() =>
@@ -36,6 +39,9 @@ onShow(() => {
     form.heightCm = profile.heightCm;
     form.currentWeightKg = profile.currentWeightKg;
     form.targetWeightKg = profile.targetWeightKg;
+    form.mobile = profile.mobile || authStore.mobile || '';
+  } else {
+    form.mobile = authStore.mobile || '';
   }
 });
 
@@ -60,6 +66,7 @@ function save(): void {
     heightCm: Number(form.heightCm),
     currentWeightKg: Number(form.currentWeightKg),
     targetWeightKg: Number(form.targetWeightKg),
+    mobile: form.mobile.trim() || undefined,
   };
 
   if (!profile.name) {
@@ -73,10 +80,10 @@ function save(): void {
     setTimeout(() => {
       openMeTab();
     }, 400);
-  } catch (error) {
+  } catch (err) {
     uni.showModal({
       title: '保存失败',
-      content: errorMessage(error, '请检查填写内容'),
+      content: errorMessage(err),
       showCancel: false,
     });
   }
@@ -102,6 +109,18 @@ function save(): void {
             <text class="picker-arrow">›</text>
           </view>
         </picker>
+      </view>
+
+      <view class="field">
+        <text class="field-label">手机号</text>
+        <input
+          v-model="form.mobile"
+          class="field-control"
+          type="number"
+          maxlength="11"
+          placeholder="请输入手机号（选填）"
+          placeholder-class="field-placeholder"
+        />
       </view>
 
       <view class="field">
@@ -136,3 +155,105 @@ function save(): void {
     </view>
   </view>
 </template>
+
+<style scoped lang="scss">
+.page-shell {
+  min-height: 100vh;
+  padding: 32rpx;
+  background: #faf6f1;
+}
+
+.form-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.section-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #2d2a26;
+  margin-bottom: 8rpx;
+}
+
+.page-subtitle {
+  display: block;
+  font-size: 24rpx;
+  color: #a8a29e;
+  margin-bottom: 32rpx;
+}
+
+.field {
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #f5f0e8;
+
+  &.field-first {
+    padding-top: 0;
+  }
+}
+
+.field-label {
+  display: block;
+  font-size: 26rpx;
+  color: #78716c;
+  margin-bottom: 12rpx;
+}
+
+.field-control {
+  width: 100%;
+  font-size: 30rpx;
+  color: #2d2a26;
+}
+
+.field-placeholder {
+  color: #d6d3d1;
+}
+
+.picker-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.picker-arrow {
+  color: #c9c2ba;
+  font-size: 36rpx;
+}
+
+.form-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 40rpx;
+}
+
+.btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0;
+
+  &::after {
+    border: none;
+  }
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: #fff;
+  border: none;
+}
+
+.btn-ghost {
+  background: #f5f0e8;
+  color: #78716c;
+  border: none;
+}
+</style>

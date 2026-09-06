@@ -330,7 +330,7 @@ function removeMember(member: FamilyMember): void {
           <text class="section-count">共 {{ familyStore.members.length }} 位</text>
         </view>
 
-        <button v-if="isOwner" class="add-member-btn" @tap="openAdd">+ 添加成员</button>
+        <button class="add-member-btn" @tap="openAdd">+ 添加成员</button>
 
         <view v-if="formVisible" class="form-card member-form">
           <view class="form-title">{{ editingMember ? '编辑成员' : '添加成员' }}</view>
@@ -399,9 +399,9 @@ function removeMember(member: FamilyMember): void {
               </view>
               <text class="member-role">{{ MEMBER_ROLES.find((r) => r.value === member.role)?.label }}</text>
             </view>
-            <view v-if="isOwner" class="member-actions">
+            <view class="member-actions">
               <button class="btn-sm btn-secondary" @tap.stop="openEdit(member)">编辑</button>
-              <button class="btn-sm btn-danger" @tap.stop="removeMember(member)">删除</button>
+              <button v-if="isOwner" class="btn-sm btn-danger" @tap.stop="removeMember(member)">删除</button>
             </view>
           </view>
           <view v-if="familyStore.members.length === 0" class="empty-tip">

@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const uid = ref<string>('');
   const nickname = ref<string>('');
   const avatar = ref<string>('');
+  const mobile = ref<string>('');
   const familyId = ref<string>('');
   const familyName = ref<string>('');
   const familyRole = ref<string>('');
@@ -30,12 +31,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => hasToken());
   const hasFamily = computed(() => !!familyId.value);
+  const isOwner = computed(() => familyRole.value === 'owner');
 
   /** 从本地存储恢复登录态（仅 token 检查，用户信息需从云端拉取） */
   function restoreFromStorage(): void {
     // token 由 uniCloud SDK 自动管理，这里只重置内存状态
     uid.value = '';
     nickname.value = '';
+    avatar.value = '';
+    mobile.value = '';
     familyId.value = '';
     familyName.value = '';
     familyRole.value = '';
@@ -59,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
       uid.value = result.uid || '';
       nickname.value = result.nickname || '';
       avatar.value = result.avatar || '';
+      mobile.value = result.mobile || '';
       return result;
     } finally {
       loggingIn.value = false;
@@ -66,13 +71,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** 手机号 + 密码登录 */
-  async function loginWithPassword(mobile: string, password: string): Promise<UniIdLoginResult> {
+  async function loginWithPassword(phone: string, password: string): Promise<UniIdLoginResult> {
     loggingIn.value = true;
     try {
-      const result = await loginByPassword(mobile.trim(), password);
+      const result = await loginByPassword(phone.trim(), password);
       uid.value = result.uid || '';
       nickname.value = result.nickname || result.mobile || '';
       avatar.value = result.avatar || '';
+      mobile.value = result.mobile || phone.trim();
       return result;
     } finally {
       loggingIn.value = false;
@@ -80,15 +86,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** 注册账号，注册成功后自动登录 */
-  async function registerAccount(mobile: string, password: string): Promise<UniIdLoginResult> {
+  async function registerAccount(phone: string, password: string): Promise<UniIdLoginResult> {
     loggingIn.value = true;
     try {
-      await cloudRegister(mobile.trim(), password);
+      await cloudRegister(phone.trim(), password);
       // 注册成功后自动登录获取 token
-      const result = await loginByPassword(mobile.trim(), password);
+      const result = await loginByPassword(phone.trim(), password);
       uid.value = result.uid || '';
       nickname.value = result.nickname || result.mobile || '';
       avatar.value = result.avatar || '';
+      mobile.value = result.mobile || phone.trim();
       return result;
     } finally {
       loggingIn.value = false;
@@ -164,6 +171,7 @@ export const useAuthStore = defineStore('auth', () => {
     uid.value = '';
     nickname.value = '';
     avatar.value = '';
+    mobile.value = '';
     familyId.value = '';
     familyName.value = '';
     familyRole.value = '';
@@ -174,6 +182,7 @@ export const useAuthStore = defineStore('auth', () => {
     uid,
     nickname,
     avatar,
+    mobile,
     familyId,
     familyName,
     familyRole,
@@ -182,6 +191,7 @@ export const useAuthStore = defineStore('auth', () => {
     loggingIn,
     isLoggedIn,
     hasFamily,
+    isOwner,
     restoreFromStorage,
     loginWithWeixin,
     loginWithPassword,
