@@ -56,6 +56,13 @@ export interface MemberProfile {
 const UNI_ID_TOKEN_KEY = 'uni_id_token';
 
 let uniCloudInited = false;
+/** 初始化后的 uniCloud 实例（init() 返回新对象，必须用此变量引用） */
+let cloudInstance: any = null;
+
+/** 获取当前可用的 uniCloud 实例 */
+function getCloud(): any {
+  return cloudInstance || (globalThis as any).uniCloud;
+}
 
 /**
  * 手动初始化 uniCloud（CLI 项目需要，框架不会自动注入服务空间配置）
@@ -70,14 +77,14 @@ export function initUniCloud(): void {
     return;
   }
   try {
-    const inited = uniCloud.init({
+    const inited = (globalThis as any).uniCloud.init({
       spaceId,
       spaceAppId: (import.meta.env.VITE_UNI_CLOUD_SPACE_APP_ID as string) || '',
-      provider: 'alipay' as 'aliyun',
+      provider: 'alipay',
       accessKey,
       secretKey: import.meta.env.VITE_UNI_CLOUD_SECRET_KEY as string,
-    } as any);
-    // init() 返回新实例，需要替换全局 uniCloud 才能让后续调用生效
+    });
+    cloudInstance = inited;
     (globalThis as any).uniCloud = inited;
     uniCloudInited = true;
     console.log('[uniCloud] 初始化成功，spaceId:', spaceId);
@@ -101,7 +108,7 @@ export function clearToken(): void {
  * @param code uni.login() 返回的 code
  */
 export async function loginByWeixin(code: string): Promise<UniIdLoginResult> {
-  const uniIdCo = uniCloud.importObject('uni-id-co');
+  const uniIdCo = getCloud().importObject('uni-id-co');
   const res = await uniIdCo.loginByWeixin({ code });
   if (res.errCode !== 0) {
     throw new Error(res.errMsg || '微信登录失败');
@@ -112,7 +119,7 @@ export async function loginByWeixin(code: string): Promise<UniIdLoginResult> {
 /** 退出登录 */
 export async function logout(): Promise<void> {
   try {
-    const uniIdCo = uniCloud.importObject('uni-id-co');
+    const uniIdCo = getCloud().importObject('uni-id-co');
     await uniIdCo.logout();
   } catch {
     // 退出登录即使云对象调用失败也清除本地 token
@@ -124,7 +131,7 @@ export async function logout(): Promise<void> {
  * 调用 family 云函数
  */
 async function callFamily(action: string, payload: Record<string, unknown> = {}): Promise<any> {
-  const res = await uniCloud.callFunction({
+  const res = await getCloud().callFunction({
     name: 'family',
     data: { action, ...payload },
   });
@@ -164,7 +171,7 @@ export async function regenerateInviteCode(familyId: string): Promise<{ inviteCo
  * 调用 member 云函数
  */
 async function callMember(action: string, payload: Record<string, unknown> = {}): Promise<any> {
-  const res = await uniCloud.callFunction({
+  const res = await getCloud().callFunction({
     name: 'member',
     data: { action, ...payload },
   });
