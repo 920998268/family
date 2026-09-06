@@ -48,6 +48,19 @@ function goPage(url: string): void {
         </view>
       </view>
 
+      <view class="record-card me-card" @tap="goPage('/pages/family-setup/family-setup')">
+        <view class="me-head">
+          <view class="avatar-dot" style="background: #f97316">
+            <text>家</text>
+          </view>
+          <view class="me-head-info">
+            <text class="record-title">我的家庭</text>
+            <text class="record-meta">家庭空间、邀请码与成员管理</text>
+          </view>
+          <text class="checkin-arrow">›</text>
+        </view>
+      </view>
+
       <view class="record-card me-card" @tap="goPage('/pages/me/family')">
         <view class="me-head">
           <view>
