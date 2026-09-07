@@ -29,8 +29,8 @@ const formVisible = ref(false);
 const editingMember = ref<FamilyMember | null>(null);
 const form = reactive({
   name: '',
-  gender: 'male' as Gender,
-  role: 'father' as MemberRole,
+  gender: '' as Gender,
+  role: '' as MemberRole,
   avatarColor: AVATAR_COLORS[0],
   avatarUrl: '',
   mobile: '',
@@ -199,8 +199,8 @@ function goMemberDetail(memberId: string): void {
 // 家庭成员管理
 function resetForm(): void {
   form.name = editingMember.value?.name ?? '';
-  form.gender = (editingMember.value as any)?.gender ?? 'male';
-  form.role = editingMember.value?.role ?? 'father';
+  form.gender = (editingMember.value as any)?.gender ?? '';
+  form.role = (editingMember.value?.role ?? '') as MemberRole;
   form.avatarColor = editingMember.value?.avatarColor ?? AVATAR_COLORS[0];
   form.avatarUrl = editingMember.value?.avatarUrl ?? '';
   form.mobile = editingMember.value?.mobile ?? '';
@@ -293,17 +293,25 @@ function closeForm(): void {
 
 function onRoleChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
-  form.role = (MEMBER_ROLES[index]?.value ?? 'parent') as MemberRole;
+  form.role = (MEMBER_ROLES[index]?.value ?? '') as MemberRole;
 }
 
 function onGenderChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
-  form.gender = (GENDERS[index]?.value ?? 'male') as Gender;
+  form.gender = (GENDERS[index]?.value ?? '') as Gender;
 }
 
 function saveMember(): void {
   if (!form.name.trim()) {
     uni.showToast({ title: '请填写成员姓名', icon: 'none' });
+    return;
+  }
+  if (!form.gender) {
+    uni.showToast({ title: '请选择性别', icon: 'none' });
+    return;
+  }
+  if (!form.role) {
+    uni.showToast({ title: '请选择家庭关系', icon: 'none' });
     return;
   }
   const birthDate = form.birthYear && form.birthMonth && form.birthDay
@@ -552,7 +560,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
             <text class="form-label">性别</text>
             <picker :range="genderNames" :value="genderIndex" @change="onGenderChange">
               <view class="picker-value">
-                <text>{{ genderNames[genderIndex] }}</text>
+                <text :class="{ 'picker-placeholder': !form.gender }">{{ form.gender ? genderNames[genderIndex] : '请选择性别' }}</text>
                 <text class="picker-arrow">›</text>
               </view>
             </picker>
@@ -561,7 +569,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
             <text class="form-label">家庭关系</text>
             <picker :range="roleNames" :value="roleIndex" @change="onRoleChange">
               <view class="picker-value">
-                <text>{{ roleNames[roleIndex] }}</text>
+                <text :class="{ 'picker-placeholder': !form.role }">{{ form.role ? roleNames[roleIndex] : '请选择家庭关系' }}</text>
                 <text class="picker-arrow">›</text>
               </view>
             </picker>
@@ -1050,6 +1058,10 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
 .picker-arrow {
   color: #c9c2ba;
   font-size: 32rpx;
+}
+
+.picker-placeholder {
+  color: #a8a29e;
 }
 
 .color-row {

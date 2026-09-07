@@ -27,8 +27,8 @@ const dayPickerOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 const form = reactive({
   name: '',
-  gender: 'male' as Gender,
-  role: 'other' as MemberRole,
+  gender: '' as Gender,
+  role: '' as MemberRole,
   mobile: '',
   birthYear: '',
   birthMonth: '',
@@ -63,7 +63,7 @@ onShow(() => {
   if (profile) {
     form.name = profile.name;
     form.gender = profile.gender;
-    form.role = (profile as any).role || 'other';
+    form.role = (profile as any).role || '';
     form.mobile = profile.mobile || authStore.mobile || '';
     form.avatarUrl = (profile as any).avatarUrl || '';
     // 解析出生年月日
@@ -83,12 +83,12 @@ onShow(() => {
 
 function onGenderChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
-  form.gender = (GENDERS[index]?.value ?? 'male') as Gender;
+  form.gender = (GENDERS[index]?.value ?? '') as Gender;
 }
 
 function onRoleChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
-  form.role = (MEMBER_ROLES[index]?.value ?? 'other') as MemberRole;
+  form.role = (MEMBER_ROLES[index]?.value ?? '') as MemberRole;
 }
 
 function onYearBlur(): void {
@@ -174,6 +174,14 @@ function save(): void {
 
   if (!profile.name) {
     uni.showToast({ title: '请填写姓名', icon: 'none' });
+    return;
+  }
+  if (!profile.gender) {
+    uni.showToast({ title: '请选择性别', icon: 'none' });
+    return;
+  }
+  if (!form.role) {
+    uni.showToast({ title: '请选择家庭关系', icon: 'none' });
     return;
   }
 
@@ -279,7 +287,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
         <text class="field-label">性别</text>
         <picker :range="genderNames" :value="genderIndex" @change="onGenderChange">
           <view class="picker-value">
-            <text>{{ genderNames[genderIndex] }}</text>
+            <text :class="{ 'picker-placeholder': !form.gender }">{{ form.gender ? genderNames[genderIndex] : '请选择性别' }}</text>
             <text class="picker-arrow">›</text>
           </view>
         </picker>
@@ -289,7 +297,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
         <text class="field-label">家庭关系</text>
         <picker :range="roleNames" :value="roleIndex" @change="onRoleChange">
           <view class="picker-value">
-            <text>{{ roleNames[roleIndex] }}</text>
+            <text :class="{ 'picker-placeholder': !form.role }">{{ form.role ? roleNames[roleIndex] : '请选择家庭关系' }}</text>
             <text class="picker-arrow">›</text>
           </view>
         </picker>
@@ -515,6 +523,10 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 .picker-arrow {
   color: #c9c2ba;
   font-size: 36rpx;
+}
+
+.picker-placeholder {
+  color: #a8a29e;
 }
 
 .date-row {

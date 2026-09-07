@@ -149,13 +149,12 @@ async function bindToMyAccount(): Promise<void> {
         const anyM = m as any;
         const cm = cloudMembers.find((x: any) => anyM.cloudId && x._id === anyM.cloudId)
           || cloudMembers.find((x: any) => x.name === m.name && !x.userId);
-        const payload = { userId: authStore.uid, mobile: targetMobile || undefined };
+        const payload = { userId: authStore.uid, mobile: targetMobile || undefined, name: m.name };
         if (cm && cm._id) {
           await updateCloudMember(cm._id, payload);
           familyStore.update(m.id, { userId: authStore.uid, cloudId: cm._id, mobile: targetMobile || undefined } as any);
         } else {
           const res = await addCloudMember({
-            name: m.name,
             role: m.role,
             gender: anyM.gender,
             avatarColor: m.avatarColor,

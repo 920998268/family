@@ -72,14 +72,28 @@ async function updateMember(familyId, event) {
   if (!id) return { code: 400, msg: '缺少 _id' }
   const target = (await db.collection(MEMBERS).doc(id).get()).data[0]
   if (!target || target.familyId !== familyId) return { code: 403, msg: '无权操作该成员' }
-  const v = validateMember(event)
-  if (!v.ok) return { code: 400, msg: v.msg }
+  // 部分更新：仅校验本次显式传入的字段，不要求全量必填（如仅绑定账号时只传 userId/mobile）
   const upd = { updatedAt: Date.now() }
+  const GENDERS = ['male', 'female', 'other']
   for (const k of ['name', 'gender', 'birthday', 'avatarColor', 'avatarUrl', 'role', 'isSelf', 'mobile', 'userId']) {
-    if (event[k] !== undefined) upd[k] = event[k]
+    if (event[k] === undefined) continue
+    if (k === 'name' && (typeof event[k] !== 'string' || !event[k].trim())) {
+      return { code: 400, msg: '姓名不能为空' }
+    }
+    if (k === 'gender' && event[k] !== '' && !GENDERS.includes(event[k])) {
+      return { code: 400, msg: '性别取值不合法（male/female/other）' }
+    }
+    if (k === 'birthday' && event[k] !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(event[k])) {
+      return { code: 400, msg: '出生日期格式应为 YYYY-MM-DD' }
+    }
+    upd[k] = event[k]
   }
   for (const k of ['height', 'weight', 'targetWeight']) {
-    if (event[k] !== undefined && event[k] !== null && event[k] !== '') upd[k] = Number(event[k])
+    if (event[k] !== undefined && event[k] !== null && event[k] !== '') {
+      const n = Number(event[k])
+      if (!Number.isFinite(n) || n <= 0) return { code: 400, msg: `${k}数值不合法` }
+      upd[k] = n
+    }
   }
   await db.collection(MEMBERS).doc(id).update(upd)
   return { code: 0 }
