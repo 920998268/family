@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
@@ -26,7 +26,6 @@ const yearPickerOptions = Array.from({ length: currentYear - 1900 + 1 }, (_, i) 
 const monthPickerOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const dayPickerOptions = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
-const avatarFailed = ref(false);
 const form = reactive({
   name: '',
   gender: '' as Gender,
@@ -60,7 +59,6 @@ const dayPickerIndex = computed(() =>
 );
 
 onShow(() => {
-  avatarFailed.value = false;
   profileStore.load();
   const profile = profileStore.profile;
   if (profile) {
@@ -140,7 +138,6 @@ function onChooseAvatar(event: any): void {
   const url = event?.detail?.avatarUrl;
   if (url) {
     form.avatarUrl = url;
-    avatarFailed.value = false;
   }
 }
 
@@ -152,7 +149,6 @@ function onAlbumTap(): void {
     success: (imgRes) => {
       if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
         form.avatarUrl = imgRes.tempFilePaths[0];
-        avatarFailed.value = false;
       }
     },
   });
@@ -274,16 +270,13 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
       <!-- 头像 -->
       <view class="avatar-section">
         <button class="avatar-circle-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-          <image
-            v-if="form.avatarUrl && !avatarFailed"
+          <avatar-image
             :src="form.avatarUrl"
-            class="avatar-img"
-            mode="aspectFill"
-            @error="avatarFailed = true"
+            :size="120"
+            :bg="'#f97316'"
+            :name="form.name || '?'"
+            :font-size="44"
           />
-          <view v-else class="avatar-placeholder">
-            <text>{{ (form.name || '?').slice(0, 1) }}</text>
-          </view>
         </button>
         <view class="avatar-actions">
           <text class="avatar-hint">点击头像使用微信头像</text>

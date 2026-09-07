@@ -6,6 +6,8 @@ const { validateMember } = require('./lib')
 
 const USERS = 'uni-id-users'
 const MEMBERS = 'family_members'
+const FAMILIES = 'families'
+const dbCmd = db.command
 
 async function getUid(context, event) {
   const uniID = require('uni-id-common').createInstance({ context })
@@ -96,16 +98,48 @@ async function updateMember(familyId, event) {
     }
   }
   await db.collection(MEMBERS).doc(id).update(upd)
-  // 绑定账号后合并：删除同家庭下其他 userId=uid 的成员记录（账号自动创建记录与绑定记录合并）
+  // 绑定账号后合并：账号自动创建记录与绑定记录合并为一条（字段合并保留完整档案）
   if (upd.userId) {
-    const dup = (await db.collection(MEMBERS).where({ familyId, userId: upd.userId }).get()).data
-    for (const rec of dup) {
-      if (rec._id !== id) {
-        await db.collection(MEMBERS).doc(rec._id).remove()
-      }
-    }
+    await mergeUserMembers(familyId, upd.userId, id)
   }
   return { code: 0 }
+}
+
+// 合并同一账号在家庭下的重复成员记录：
+// 保留 keepId 记录，把其他记录的非空字段填补进 keep（保留完整档案），删除多余记录并修正 memberCount
+async function mergeUserMembers(familyId, uid, keepId) {
+  const dup = (await db.collection(MEMBERS).where({ familyId, userId: uid }).get()).data
+  if (dup.length <= 1) return
+  let keep = dup.find((r) => r._id === keepId) || dup[0]
+  const FIELDS = ['name', 'gender', 'role', 'birthday', 'height', 'weight', 'targetWeight', 'avatarColor', 'avatarUrl', 'mobile']
+  let removed = 0
+  for (const rec of dup) {
+    if (rec._id === keep._id) continue
+    for (const f of FIELDS) {
+      const v = rec[f]
+      if (v !== undefined && v !== null && v !== '' && (keep[f] === undefined || keep[f] === null || keep[f] === '')) {
+        keep[f] = v
+      }
+    }
+    await db.collection(MEMBERS).doc(rec._id).remove()
+    removed++
+  }
+  // keepId 记录本身可能已不存在（keep 选择了其他记录时）
+  if (keep._id !== keepId) {
+    const k = (await db.collection(MEMBERS).doc(keepId).get()).data[0]
+    if (k) {
+      await db.collection(MEMBERS).doc(keepId).remove()
+      removed++
+    }
+  }
+  if (removed > 0) {
+    const upd = { updatedAt: Date.now() }
+    for (const f of FIELDS) {
+      if (keep[f] !== undefined) upd[f] = keep[f]
+    }
+    await db.collection(MEMBERS).doc(keep._id).update(upd)
+    await db.collection(FAMILIES).doc(familyId).update({ memberCount: dbCmd.inc(-removed) })
+  }
 }
 
 async function removeMember(familyId, role, event) {

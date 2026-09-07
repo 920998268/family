@@ -25,3 +25,22 @@ export async function ensureCloudAvatar(url?: string): Promise<string | undefine
     uni.hideLoading();
   }
 }
+
+/** 云存储 fileID 临时 URL 缓存 */
+const tempUrlCache = new Map<string, string>();
+
+/** 将云存储 fileID(cloud://) 解析为可访问 URL；普通 URL 原样返回 */
+export async function resolveAvatarUrl(url?: string): Promise<string | undefined> {
+  if (!url) return undefined;
+  if (!url.startsWith('cloud://')) return url;
+  if (tempUrlCache.has(url)) return tempUrlCache.get(url);
+  try {
+    const res = await uniCloud.getTempFileURL({ fileList: [url] });
+    const u = res?.fileList?.[0]?.tempFileURL || url;
+    tempUrlCache.set(url, u);
+    return u;
+  } catch (e) {
+    console.warn('[头像] 临时URL解析失败，尝试原样显示:', e);
+    return url;
+  }
+}

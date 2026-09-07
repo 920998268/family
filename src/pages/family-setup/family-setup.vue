@@ -28,7 +28,6 @@ const familyNameInput = ref('');
 // 家庭成员管理
 const formVisible = ref(false);
 const editingMember = ref<FamilyMember | null>(null);
-const avatarFailed = ref(false);
 const form = reactive({
   name: '',
   gender: '' as Gender,
@@ -200,7 +199,6 @@ function goMemberDetail(memberId: string): void {
 
 // 家庭成员管理
 function resetForm(): void {
-  avatarFailed.value = false;
   form.name = editingMember.value?.name ?? '';
   form.gender = (editingMember.value as any)?.gender ?? '';
   form.role = (editingMember.value?.role ?? '') as MemberRole;
@@ -228,7 +226,6 @@ function onChooseAvatar(event: any): void {
   const avatarUrl = event?.detail?.avatarUrl;
   if (avatarUrl) {
     form.avatarUrl = avatarUrl;
-    avatarFailed.value = false;
   }
 }
 
@@ -240,7 +237,6 @@ function onChooseAlbum(): void {
     success: (imgRes) => {
       if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
         form.avatarUrl = imgRes.tempFilePaths[0];
-        avatarFailed.value = false;
       }
     },
   });
@@ -549,16 +545,13 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
           <view class="form-title">{{ editingMember ? '编辑成员' : '添加成员' }}</view>
           <view class="avatar-section">
             <button class="avatar-circle-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-              <image
-                v-if="form.avatarUrl && !avatarFailed"
+              <avatar-image
                 :src="form.avatarUrl"
-                class="avatar-circle-img"
-                mode="aspectFill"
-                @error="avatarFailed = true"
+                :size="112"
+                :bg="form.avatarColor"
+                :name="form.name || '?'"
+                :font-size="44"
               />
-              <view v-else class="avatar-circle-placeholder" :style="{ background: form.avatarColor }">
-                <text>{{ (form.name || '?').slice(0, 1) }}</text>
-              </view>
             </button>
             <view class="avatar-actions">
               <text class="avatar-hint">点击头像使用微信头像</text>

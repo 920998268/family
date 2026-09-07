@@ -13,7 +13,6 @@ const authStore = useAuthStore();
 
 const profile = computed(() => profileStore.profile);
 const avatarUrl = ref('');
-const avatarFailed = ref(false);
 
 // 手机号：优先从登录账号获取，其次从个人信息档案获取
 const displayMobile = computed(() => {
@@ -50,7 +49,6 @@ const familyRoleText = computed(() => {
 });
 
 onShow(() => {
-  avatarFailed.value = false;
   try {
     profileStore.load();
   } catch (e) {
@@ -141,16 +139,14 @@ async function handleLogout(): Promise<void> {
       <view class="profile-top">
         <!-- 头像：button 获取微信头像 -->
         <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-          <image
-            v-if="(avatarUrl || profile?.avatarUrl) && !avatarFailed"
+          <avatar-image
             :src="avatarUrl || profile?.avatarUrl"
-            class="profile-avatar-img"
-            mode="aspectFill"
-            @error="avatarFailed = true"
+            :size="112"
+            :bg="'#e7e5e4'"
+            :name="displayName"
+            placeholder="📷"
+            :font-size="44"
           />
-          <view v-else class="profile-avatar profile-avatar-empty">
-            <text class="camera-icon">📷</text>
-          </view>
         </button>
         <!-- 右侧信息：点击进入编辑 -->
         <view class="profile-info" @tap="goProfile">

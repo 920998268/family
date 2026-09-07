@@ -283,7 +283,7 @@ async function bindMember(uid, event) {
     familyId: member.familyId,
     familyRole: 'member'
   })
-  await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  // 虚拟成员已在添加时计入 memberCount，绑定不重复计数；合并多余记录时扣减
   await mergeUserMembers(member.familyId, uid, member._id)
   const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
   return {
@@ -297,13 +297,39 @@ async function bindMember(uid, event) {
   }
 }
 
-// 合并同一账号在家庭下的重复成员记录，保留 keepId
+// 合并同一账号在家庭下的重复成员记录：
+// 保留 keepId 记录，把其他记录的非空字段填补进 keep（保留完整档案），删除多余记录并修正 memberCount
 async function mergeUserMembers(familyId, uid, keepId) {
   const dup = (await db.collection(MEMBERS).where({ familyId, userId: uid }).get()).data
+  if (dup.length <= 1) return
+  let keep = dup.find((r) => r._id === keepId) || dup[0]
+  const FIELDS = ['name', 'gender', 'role', 'birthday', 'height', 'weight', 'targetWeight', 'avatarColor', 'avatarUrl', 'mobile']
+  let removed = 0
   for (const rec of dup) {
-    if (rec._id !== keepId) {
-      await db.collection(MEMBERS).doc(rec._id).remove()
+    if (rec._id === keep._id) continue
+    for (const f of FIELDS) {
+      const v = rec[f]
+      if (v !== undefined && v !== null && v !== '' && (keep[f] === undefined || keep[f] === null || keep[f] === '')) {
+        keep[f] = v
+      }
     }
+    await db.collection(MEMBERS).doc(rec._id).remove()
+    removed++
+  }
+  if (keep._id !== keepId) {
+    const k = (await db.collection(MEMBERS).doc(keepId).get()).data[0]
+    if (k) {
+      await db.collection(MEMBERS).doc(keepId).remove()
+      removed++
+    }
+  }
+  if (removed > 0) {
+    const upd = { updatedAt: Date.now() }
+    for (const f of FIELDS) {
+      if (keep[f] !== undefined) upd[f] = keep[f]
+    }
+    await db.collection(MEMBERS).doc(keep._id).update(upd)
+    await db.collection(FAMILIES).doc(familyId).update({ memberCount: dbCmd.inc(-removed) })
   }
 }
 
@@ -330,7 +356,7 @@ async function autoBindByMobile(uid) {
     familyId: member.familyId,
     familyRole: 'member'
   })
-  await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  // 虚拟成员已在添加时计入 memberCount，绑定不重复计数；合并多余记录时扣减
   await mergeUserMembers(member.familyId, uid, member._id)
   const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
   return {
