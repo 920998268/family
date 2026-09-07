@@ -2,6 +2,7 @@
 import { onLaunch } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { hasToken, clearToken, initUniCloud } from '@/unicloud';
+import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 
 onLaunch(() => {
   initUniCloud();
@@ -24,6 +25,12 @@ async function bootstrap(): Promise<void> {
     authStore.restoreFromStorage();
     const status = await authStore.fetchFamilyStatus();
     if (status.hasFamily) {
+      // 从云端恢复该账号已保存的个人档案与家庭成员
+      try {
+        await restoreFamilyDataFromCloud(authStore.uid);
+      } catch (e) {
+        console.warn('[启动] 云端数据恢复失败:', e);
+      }
       uni.switchTab({ url: '/pages/home/home' });
     } else {
       // 用 reLaunch 清空页面栈，避免用户返回到登录页

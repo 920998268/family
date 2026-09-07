@@ -242,9 +242,11 @@ export async function addCloudMember(data: Record<string, any> & { userId?: stri
   return callMember('add', { ...toCloudMember(data), userId: data.userId ?? null });
 }
 
-/** 云端更新成员 */
+/** 云端更新成员（userId 仅在显式传入时透传，避免误清已有绑定） */
 export async function updateCloudMember(id: string, data: Record<string, any>): Promise<void> {
-  return callMember('update', { _id: id, ...toCloudMember(data) });
+  const payload: Record<string, any> = { _id: id, ...toCloudMember(data) };
+  if (data.userId !== undefined) payload.userId = data.userId;
+  return callMember('update', payload);
 }
 
 /** 云端删除成员 */

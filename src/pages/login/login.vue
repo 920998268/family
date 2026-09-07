@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useProfileStore } from '@/stores/profile';
 import { PROFILE_KEY, FAMILY_MEMBERS_KEY } from '@/utils/storageKeys';
+import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 
 const authStore = useAuthStore();
 const profileStore = useProfileStore();
@@ -87,6 +88,12 @@ async function afterLogin(): Promise<void> {
   }
   const status = await authStore.fetchFamilyStatus();
   if (status.hasFamily) {
+    // 从云端恢复该账号已保存的个人档案与家庭成员（本地缓存可能已被退出登录/切换账号清空）
+    try {
+      await restoreFamilyDataFromCloud(authStore.uid);
+    } catch (e) {
+      console.warn('[登录] 云端数据恢复失败:', e);
+    }
     uni.switchTab({ url: '/pages/home/home' });
   } else {
     // 用 reLaunch 清空页面栈，避免用户返回到登录页

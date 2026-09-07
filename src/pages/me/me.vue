@@ -3,8 +3,11 @@ import { computed, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
+import { useFamilyStore } from '@/stores/family';
+import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 
 const profileStore = useProfileStore();
+const familyStore = useFamilyStore();
 const authStore = useAuthStore();
 
 const profile = computed(() => profileStore.profile);
@@ -45,7 +48,20 @@ const familyRoleText = computed(() => {
 });
 
 onShow(() => {
-  profileStore.load();
+  try {
+    profileStore.load();
+  } catch (e) {
+    console.error('[me] 加载个人信息失败:', e);
+  }
+  // 兜底：本地无档案但有家庭时，从云端恢复已保存数据（防抖，避免重复拉取）
+  if (!profileStore.profile && authStore.isLoggedIn && authStore.hasFamily) {
+    restoreFamilyDataFromCloud(authStore.uid)
+      .then((r) => {
+        if (r.restoredProfile) profileStore.load();
+        if (r.restoredMembers) familyStore.load();
+      })
+      .catch(() => {});
+  }
 });
 
 // 微信头像选择回调

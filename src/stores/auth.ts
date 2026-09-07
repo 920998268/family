@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { PROFILE_KEY, FAMILY_MEMBERS_KEY } from '@/utils/storageKeys';
 import {
   hasToken,
   clearToken,
@@ -168,6 +169,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(): Promise<void> {
     await cloudLogout();
     clearToken();
+    // 清除本地个人档案与家庭成员缓存（已保存到云端，重新登录后自动恢复），并清空账号记忆
+    try {
+      uni.removeStorageSync(PROFILE_KEY);
+      uni.removeStorageSync(FAMILY_MEMBERS_KEY);
+      uni.removeStorageSync('last_logged_in_uid');
+    } catch (e) {
+      // ignore
+    }
     uid.value = '';
     nickname.value = '';
     avatar.value = '';

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useProfileStore } from '@/stores/profile';
 import { useFamilyStore } from '@/stores/family';
@@ -10,10 +11,12 @@ import { useStudyStore } from '@/stores/study';
 import { useMealStore } from '@/stores/meal';
 import { useTravelStore } from '@/stores/travel';
 import { createLedgerService } from '@/services';
+import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { formatDateKey } from '@/utils/date';
 import { formatMoney } from '@/utils/format';
 import MemberAvatar from '@/components/MemberAvatar.vue';
 
+const authStore = useAuthStore();
 const appStore = useAppStore();
 const profileStore = useProfileStore();
 const familyStore = useFamilyStore();
@@ -52,6 +55,15 @@ onShow(() => {
   studyStore.loadCheckins(today.value);
   mealStore.load(today.value);
   travelStore.load();
+  // 兜底：本地无档案但有家庭时，从云端恢复已保存数据（防抖）
+  if (!profileStore.profile && authStore.isLoggedIn && authStore.hasFamily) {
+    restoreFamilyDataFromCloud(authStore.uid)
+      .then((r) => {
+        if (r.restoredProfile) profileStore.load();
+        if (r.restoredMembers) familyStore.load();
+      })
+      .catch(() => {});
+  }
 });
 
 function goTab(url: string): void {

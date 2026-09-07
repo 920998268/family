@@ -14,21 +14,23 @@ async function getUid(context, event) {
   return { code: 0, uid: res.uid }
 }
 
-async function getFamilyId(uid) {
+async function getUserFamily(uid) {
   const user = (await db.collection(USERS).doc(uid).get()).data[0]
-  return user && user.familyId ? user.familyId : null
+  if (!user || !user.familyId) return null
+  return { familyId: user.familyId, role: user.familyRole || 'member' }
 }
 
 exports.main = async (event, context) => {
   const auth = await getUid(context, event)
   if (auth.code !== 0) return auth
-  const familyId = await getFamilyId(auth.uid)
-  if (!familyId) return { code: 400, msg: '尚未加入家庭' }
+  const family = await getUserFamily(auth.uid)
+  if (!family) return { code: 400, msg: '尚未加入家庭' }
+  const familyId = family.familyId
   switch (event.action) {
     case 'list': return listMembers(familyId)
     case 'add': return addMember(familyId, event)
     case 'update': return updateMember(familyId, event)
-    case 'remove': return removeMember(familyId, event)
+    case 'remove': return removeMember(familyId, family.role, event)
     default: return { code: 400, msg: `未知操作: ${event.action}` }
   }
 }
@@ -83,11 +85,12 @@ async function updateMember(familyId, event) {
   return { code: 0 }
 }
 
-async function removeMember(familyId, event) {
+async function removeMember(familyId, role, event) {
   const id = event._id
   if (!id) return { code: 400, msg: '缺少 _id' }
   const target = (await db.collection(MEMBERS).doc(id).get()).data[0]
   if (!target || target.familyId !== familyId) return { code: 403, msg: '无权操作该成员' }
+  if (role !== 'owner') return { code: 403, msg: '仅家庭管理员可删除成员' }
   // 如果成员已绑定登录账号，移除时同时解除用户的家庭关联
   if (target.userId) {
     await db.collection(USERS).doc(target.userId).update({ familyId: '', familyRole: '' })
