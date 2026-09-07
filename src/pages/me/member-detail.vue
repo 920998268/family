@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useFamilyStore } from '@/stores/family';
 import { useAuthStore } from '@/stores/auth';
@@ -12,6 +12,7 @@ const familyStore = useFamilyStore();
 const authStore = useAuthStore();
 const profileStore = useProfileStore();
 const memberId = ref('');
+const avatarFailed = ref(false);
 const bindCode = ref('');
 const generating = ref(false);
 const presetMobile = ref('');
@@ -21,6 +22,11 @@ const member = computed(() =>
 );
 
 const isOwner = computed(() => authStore.familyRole === 'owner');
+
+// 成员切换时重置头像失败状态
+watch(member, () => {
+  avatarFailed.value = false;
+});
 
 // 可选择的手机号列表：当前登录手机号 + 家庭下未绑定的手机号
 const selectableMobiles = computed(() => {
@@ -187,10 +193,11 @@ async function bindToMyAccount(): Promise<void> {
     <view v-if="member" class="member-header">
       <view class="avatar-large">
         <image
-          v-if="member.avatarUrl"
+          v-if="member.avatarUrl && !avatarFailed"
           :src="member.avatarUrl"
           class="avatar-img"
           mode="aspectFill"
+          @error="avatarFailed = true"
         />
         <view v-else class="avatar-placeholder" :style="{ background: member.avatarColor }">
           <text>{{ member.name.slice(0, 1) }}</text>
