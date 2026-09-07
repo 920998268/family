@@ -464,7 +464,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
             class="form-input"
             v-model="familyName"
             placeholder="例如：我们的小家"
-            placeholder-class="input-placeholder"
+            placeholder-style="color:#d6d3d1;font-size:28rpx"
             maxlength="20"
           />
         </view>
@@ -481,7 +481,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
             class="form-input invite-input"
             v-model="inviteCode"
             placeholder="请输入6位邀请码"
-            placeholder-class="input-placeholder"
+            placeholder-style="color:#d6d3d1;font-size:28rpx"
             maxlength="6"
             @input="inviteCode = inviteCode.toUpperCase()"
           />
@@ -499,7 +499,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
             class="form-input invite-input"
             v-model="bindCode"
             placeholder="请输入6位绑定码"
-            placeholder-class="input-placeholder"
+            placeholder-style="color:#d6d3d1;font-size:28rpx"
             maxlength="6"
             @input="bindCode = bindCode.toUpperCase()"
           />
@@ -521,7 +521,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
               <text v-if="isOwner" class="edit-icon" @tap="startEditFamilyName">✏️</text>
             </view>
             <view v-else class="family-name-edit">
-              <input v-model="familyNameInput" class="family-name-input" placeholder="输入家庭名称" placeholder-class="input-placeholder" />
+              <input v-model="familyNameInput" class="family-name-input" placeholder="输入家庭名称" placeholder-style="color:#d6d3d1;font-size:28rpx" />
               <button class="save-name-btn" @tap="saveFamilyName">保存</button>
             </view>
             <text class="family-role">{{ roleLabel[familyInfo.role] || '家庭成员' }}</text>
@@ -567,7 +567,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
           </view>
           <view class="form-group">
             <text class="form-label">姓名</text>
-            <input v-model="form.name" class="form-input" placeholder="例如：爸爸 / 小明" />
+            <input v-model="form.name" class="form-input" placeholder="例如：爸爸 / 小明" placeholder-style="color:#d6d3d1;font-size:28rpx" />
           </view>
           <view class="form-group">
             <text class="form-label">性别</text>
@@ -595,26 +595,26 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
               type="number"
               maxlength="11"
               placeholder="填写后，对方用此手机号登录自动关联"
-              placeholder-class="input-placeholder"
+              placeholder-style="color:#d6d3d1;font-size:28rpx"
             />
           </view>
           <view class="form-group">
             <text class="form-label">出生日期（选填）</text>
             <view class="date-row">
               <view class="date-input-wrapper">
-                <input v-model="form.birthYear" class="date-input" type="number" maxlength="4" placeholder="年" placeholder-class="date-placeholder" @blur="onMemberYearBlur" @tap.stop />
+                <input v-model="form.birthYear" class="date-input" type="number" maxlength="4" placeholder="年" placeholder-style="color:#d6d3d1;font-size:28rpx" @blur="onMemberYearBlur" @tap.stop />
                 <picker :range="memberYearOptions" :value="memberYearPickerIndex" @change="onMemberYearPickerChange">
                   <text class="date-picker-icon">📅</text>
                 </picker>
               </view>
               <view class="date-input-wrapper">
-                <input v-model="form.birthMonth" class="date-input" type="number" maxlength="2" placeholder="月" placeholder-class="date-placeholder" @blur="onMemberMonthBlur" @tap.stop />
+                <input v-model="form.birthMonth" class="date-input" type="number" maxlength="2" placeholder="月" placeholder-style="color:#d6d3d1;font-size:28rpx" @blur="onMemberMonthBlur" @tap.stop />
                 <picker :range="memberMonthOptions" :value="memberMonthPickerIndex" @change="onMemberMonthPickerChange">
                   <text class="date-picker-icon">📅</text>
                 </picker>
               </view>
               <view class="date-input-wrapper">
-                <input v-model="form.birthDay" class="date-input" type="number" maxlength="2" placeholder="日" placeholder-class="date-placeholder" @blur="onMemberDayBlur" @tap.stop />
+                <input v-model="form.birthDay" class="date-input" type="number" maxlength="2" placeholder="日" placeholder-style="color:#d6d3d1;font-size:28rpx" @blur="onMemberDayBlur" @tap.stop />
                 <picker :range="memberDayOptions" :value="memberDayPickerIndex" @change="onMemberDayPickerChange">
                   <text class="date-picker-icon">📅</text>
                 </picker>
@@ -623,15 +623,15 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
           </view>
           <view class="form-group">
             <text class="form-label">身高（cm，选填）</text>
-            <input v-model="form.heightCm" class="form-input" type="number" placeholder="例如：170" placeholder-class="input-placeholder" />
+            <input v-model="form.heightCm" class="form-input" type="number" placeholder="例如：170" placeholder-style="color:#d6d3d1;font-size:28rpx" />
           </view>
           <view class="form-group">
             <text class="form-label">当前体重（kg，选填）</text>
-            <input v-model="form.currentWeightKg" class="form-input" type="digit" placeholder="例如：60" placeholder-class="input-placeholder" />
+            <input v-model="form.currentWeightKg" class="form-input" type="digit" placeholder="例如：60" placeholder-style="color:#d6d3d1;font-size:28rpx" />
           </view>
           <view class="form-group">
             <text class="form-label">目标体重（kg，选填）</text>
-            <input v-model="form.targetWeightKg" class="form-input" type="digit" placeholder="例如：58" placeholder-class="input-placeholder" />
+            <input v-model="form.targetWeightKg" class="form-input" type="digit" placeholder="例如：58" placeholder-style="color:#d6d3d1;font-size:28rpx" />
           </view>
           <view class="form-group" v-if="!form.avatarUrl">
             <text class="form-label">头像颜色</text>

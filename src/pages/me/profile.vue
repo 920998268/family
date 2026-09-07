@@ -293,7 +293,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
       <view class="field field-first">
         <text class="field-label">姓名</text>
-        <input v-model="form.name" class="field-control" placeholder="例如：张三" placeholder-class="field-placeholder" />
+        <input v-model="form.name" class="field-control" placeholder="例如：张三" placeholder-style="color:#d6d3d1;font-size:28rpx" />
       </view>
 
       <view class="field">
@@ -324,7 +324,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
           type="number"
           maxlength="12"
           placeholder="请输入手机号（选填）"
-          placeholder-class="field-placeholder"
+          placeholder-style="color:#d6d3d1;font-size:28rpx"
           @blur="onMobileBlur"
         />
       </view>
@@ -340,7 +340,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
               type="number"
               maxlength="4"
               placeholder="年"
-              placeholder-class="date-placeholder"
+              placeholder-style="color:#d6d3d1;font-size:28rpx"
               @blur="onYearBlur"
               @tap.stop
             />
@@ -355,7 +355,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
               type="number"
               maxlength="2"
               placeholder="月"
-              placeholder-class="date-placeholder"
+              placeholder-style="color:#d6d3d1;font-size:28rpx"
               @blur="onMonthBlur"
               @tap.stop
             />
@@ -370,7 +370,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
               type="number"
               maxlength="2"
               placeholder="日"
-              placeholder-class="date-placeholder"
+              placeholder-style="color:#d6d3d1;font-size:28rpx"
               @blur="onDayBlur"
               @tap.stop
             />
@@ -383,17 +383,17 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
       <view class="field">
         <text class="field-label">身高（cm）</text>
-        <input v-model.number="form.heightCm" class="field-control" type="number" placeholder="例如：170" placeholder-class="field-placeholder" />
+        <input v-model.number="form.heightCm" class="field-control" type="number" placeholder="例如：170" placeholder-style="color:#d6d3d1;font-size:28rpx" />
       </view>
 
       <view class="field">
         <text class="field-label">当前体重（kg）</text>
-        <input v-model.number="form.currentWeightKg" class="field-control" type="digit" placeholder="例如：60" placeholder-class="field-placeholder" />
+        <input v-model.number="form.currentWeightKg" class="field-control" type="digit" placeholder="例如：60" placeholder-style="color:#d6d3d1;font-size:28rpx" />
       </view>
 
       <view class="field">
         <text class="field-label">目标体重（kg）</text>
-        <input v-model.number="form.targetWeightKg" class="field-control" type="digit" placeholder="例如：58" placeholder-class="field-placeholder" />
+        <input v-model.number="form.targetWeightKg" class="field-control" type="digit" placeholder="例如：58" placeholder-style="color:#d6d3d1;font-size:28rpx" />
       </view>
 
       <text class="page-subtitle page-subtitle-bottom">完善个人基础信息与身体数据</text>
@@ -519,20 +519,20 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
 .field-control {
   width: 100%;
-  font-size: 30rpx;
+  font-size: 28rpx;
   color: #2d2a26;
 }
 
 .field-placeholder {
   color: #d6d3d1;
-  font-size: 30rpx;
+  font-size: 28rpx;
 }
 
 .picker-value {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 30rpx;
+  font-size: 28rpx;
   color: #2d2a26;
 }
 
@@ -543,7 +543,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
 .picker-placeholder {
   color: #d6d3d1;
-  font-size: 30rpx;
+  font-size: 28rpx;
 }
 
 .date-row {
