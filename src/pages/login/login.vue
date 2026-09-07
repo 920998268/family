@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useProfileStore } from '@/stores/profile';
+import { PROFILE_KEY, FAMILY_MEMBERS_KEY } from '@/utils/storageKeys';
 
 const authStore = useAuthStore();
 const profileStore = useProfileStore();
@@ -62,13 +63,12 @@ async function handlePasswordLogin(): Promise<void> {
 }
 
 async function afterLogin(): Promise<void> {
-  // 登录后如果 uid 变化，清空上一个账号的 Profile 数据
+  // 登录后如果 uid 变化，清空上一个账号的本地数据（个人信息档案 + 家庭成员缓存），保证账号数据隔离
   const lastUid = uni.getStorageSync('last_logged_in_uid') || '';
   if (lastUid && lastUid !== authStore.uid) {
-    profileStore.save = profileStore.save; // 保持引用
-    // 清空 Profile
     try {
-      uni.removeStorageSync('family-checkin.profile.v1');
+      uni.removeStorageSync(PROFILE_KEY);
+      uni.removeStorageSync(FAMILY_MEMBERS_KEY);
     } catch (e) {
       // ignore
     }

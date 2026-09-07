@@ -4,7 +4,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { useFamilyStore } from '@/stores/family';
 import { useAuthStore } from '@/stores/auth';
 import { MEMBER_ROLE_LABELS } from '@/types/models';
-import { generateMemberBindCode } from '@/unicloud';
+import { generateMemberBindCode, listCloudMembers, addCloudMember, updateCloudMember } from '@/unicloud';
 
 const familyStore = useFamilyStore();
 const authStore = useAuthStore();
@@ -128,6 +128,49 @@ function copyBindCode(): void {
     success: () => uni.showToast({ title: '已复制', icon: 'success' }),
   });
 }
+
+// 绑定到当前登录账号：校验预设手机号与当前登录手机号，一致或未预设才允许
+async function bindToMyAccount(): Promise<void> {
+  const m = member.value;
+  if (!m || m.userId) return;
+  const loginMobile = authStore.mobile;
+  if (m.mobile && loginMobile && m.mobile !== loginMobile) {
+    uni.showToast({ title: `预设手机号(${m.mobile})与当前登录手机号(${loginMobile})不一致，无法绑定`, icon: 'none' });
+    return;
+  }
+  const targetMobile = m.mobile || loginMobile || '';
+  uni.showModal({
+    title: '确认绑定',
+    content: `将「${m.name}」绑定到当前登录账号${loginMobile ? `（${loginMobile}）` : ''}？绑定后此账号即为该成员登录身份。`,
+    success: async (r) => {
+      if (!r.confirm) return;
+      try {
+        const cloudMembers = await listCloudMembers();
+        const anyM = m as any;
+        const cm = cloudMembers.find((x: any) => anyM.cloudId && x._id === anyM.cloudId)
+          || cloudMembers.find((x: any) => x.name === m.name && !x.userId);
+        const payload = { userId: authStore.uid, mobile: targetMobile || undefined };
+        if (cm && cm._id) {
+          await updateCloudMember(cm._id, payload);
+          familyStore.update(m.id, { userId: authStore.uid, cloudId: cm._id, mobile: targetMobile || undefined } as any);
+        } else {
+          const res = await addCloudMember({
+            name: m.name,
+            role: m.role,
+            gender: anyM.gender,
+            avatarColor: m.avatarColor,
+            avatarUrl: m.avatarUrl,
+            ...payload,
+          });
+          familyStore.update(m.id, { userId: authStore.uid, cloudId: res._id, mobile: targetMobile || undefined } as any);
+        }
+        uni.showToast({ title: '绑定成功', icon: 'success' });
+      } catch (err: any) {
+        uni.showToast({ title: err?.message || '绑定失败', icon: 'none' });
+      }
+    },
+  });
+}
 </script>
 
 <template>
@@ -190,11 +233,11 @@ function copyBindCode(): void {
       <text class="info-hint">个人信息档案功能开发中，后续支持每位成员独立维护身体数据</text>
     </view>
 
-    <!-- 未绑定成员：生成绑定码 + 预设手机号（仅管理员可见） -->
-    <view v-if="member && !member.userId && isOwner" class="section">
+    <!-- 未绑定成员：账号绑定（所有家庭成员均可操作，生成绑定码仅管理员） -->
+    <view v-if="member && !member.userId" class="section">
       <view class="section-title">账号绑定</view>
       <view class="bind-card">
-        <text class="bind-desc">预设手机号后，对方用此手机号登录将自动关联到该成员。也可生成绑定码让对方手动绑定。</text>
+        <text class="bind-desc">可预设手机号（对方用此手机号登录自动关联），也可直接绑定到当前登录账号。</text>
 
         <!-- 手机号预设：点击输入框下拉选择，选择绑定按钮确认 -->
         <view class="preset-mobile-row">
@@ -211,13 +254,19 @@ function copyBindCode(): void {
           <button class="preset-mobile-btn" @tap="handleBindMobile">选择绑定</button>
         </view>
 
-        <view v-if="bindCode" class="bind-code-row">
-          <text class="bind-code">{{ bindCode }}</text>
-          <button class="copy-btn" @tap="copyBindCode">复制</button>
-        </view>
-        <button class="bind-btn" :disabled="generating" @tap="handleGenerateBindCode">
-          {{ generating ? '生成中...' : bindCode ? '重新生成绑定码' : '生成绑定码' }}
-        </button>
+        <!-- 绑定到当前登录账号：校验预设手机号与登录手机号是否一致 -->
+        <button class="bind-to-account-btn" @tap="bindToMyAccount">绑定到当前登录账号</button>
+
+        <!-- 生成绑定码（仅管理员） -->
+        <template v-if="isOwner">
+          <view v-if="bindCode" class="bind-code-row">
+            <text class="bind-code">{{ bindCode }}</text>
+            <button class="copy-btn" @tap="copyBindCode">复制</button>
+          </view>
+          <button class="bind-btn" :disabled="generating" @tap="handleGenerateBindCode">
+            {{ generating ? '生成中...' : bindCode ? '重新生成绑定码' : '生成绑定码' }}
+          </button>
+        </template>
       </view>
     </view>
 
@@ -400,6 +449,9 @@ function copyBindCode(): void {
   height: 72rpx;
   padding: 0 28rpx !important;
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   border-radius: 12rpx;
   background: #f97316;
@@ -407,6 +459,26 @@ function copyBindCode(): void {
   font-size: 26rpx;
   font-weight: 600;
   line-height: 1;
+
+  &::after {
+    border: none;
+  }
+}
+
+.bind-to-account-btn {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 !important;
+  margin: 0 0 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid #f97316;
+  border-radius: 12rpx;
+  background: #fff;
+  color: #f97316;
+  font-size: 28rpx;
+  font-weight: 600;
 
   &::after {
     border: none;
