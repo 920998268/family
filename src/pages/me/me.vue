@@ -5,6 +5,7 @@ import { useProfileStore } from '@/stores/profile';
 import { useAuthStore } from '@/stores/auth';
 import { useFamilyStore } from '@/stores/family';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
+import { ensureCloudAvatar } from '@/utils/upload';
 
 const profileStore = useProfileStore();
 const familyStore = useFamilyStore();
@@ -88,11 +89,12 @@ function onAlbumTap(): void {
   });
 }
 
-// 保存头像到 profile
-function saveAvatar(url: string): void {
+// 保存头像到 profile（本地临时路径先上传云存储，确保跨设备可显示）
+async function saveAvatar(url: string): Promise<void> {
+  const cloudUrl = await ensureCloudAvatar(url);
   const current = profileStore.profile;
   if (current) {
-    profileStore.save({ ...current, avatarUrl: url } as any);
+    profileStore.save({ ...current, avatarUrl: cloudUrl } as any);
   } else {
     profileStore.save({
       name: displayName.value,
@@ -101,9 +103,10 @@ function saveAvatar(url: string): void {
       heightCm: 0,
       currentWeightKg: 0,
       targetWeightKg: 0,
-      avatarUrl: url,
+      avatarUrl: cloudUrl,
     } as any);
   }
+  avatarUrl.value = cloudUrl || url;
   uni.showToast({ title: '头像已更新', icon: 'success' });
 }
 

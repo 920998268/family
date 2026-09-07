@@ -10,6 +10,7 @@ import type { Profile } from '@/types/models';
 import { errorMessage } from '@/utils/error';
 import { openMeTab } from '@/utils/navigation';
 import { listCloudMembers, addCloudMember, updateCloudMember } from '@/unicloud';
+import { ensureCloudAvatar } from '@/utils/upload';
 
 const profileStore = useProfileStore();
 const authStore = useAuthStore();
@@ -157,7 +158,7 @@ function goBack(): void {
   uni.navigateBack();
 }
 
-function save(): void {
+async function save(): Promise<void> {
   const birthDate = form.birthYear && form.birthMonth && form.birthDay
     ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
     : '';
@@ -186,7 +187,9 @@ function save(): void {
   }
 
   try {
-    profileStore.save({ ...profile, avatarUrl: form.avatarUrl, role: form.role } as any);
+    // 头像为本地临时路径时先上传云存储，确保清缓存/跨设备后仍可显示
+    const cloudAvatar = await ensureCloudAvatar(form.avatarUrl);
+    profileStore.save({ ...profile, avatarUrl: cloudAvatar, role: form.role } as any);
 
     // 保存个人档案后，如果已登录且有家庭，但家庭成员中没有当前用户记录，自动创建
     if (authStore.isLoggedIn && authStore.hasFamily) {

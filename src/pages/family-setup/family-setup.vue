@@ -8,6 +8,7 @@ import { AVATAR_COLORS, MEMBER_ROLES, GENDERS } from '@/types/models';
 import MemberAvatar from '@/components/MemberAvatar.vue';
 import { listCloudMembers, addCloudMember, updateCloudMember, removeCloudMember, updateFamilyName } from '@/unicloud';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
+import { ensureCloudAvatar } from '@/utils/upload';
 
 const authStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -301,7 +302,7 @@ function onGenderChange(event: { detail: { value: string | number } }): void {
   form.gender = (GENDERS[index]?.value ?? '') as Gender;
 }
 
-function saveMember(): void {
+async function saveMember(): Promise<void> {
   if (!form.name.trim()) {
     uni.showToast({ title: '请填写成员姓名', icon: 'none' });
     return;
@@ -317,12 +318,14 @@ function saveMember(): void {
   const birthDate = form.birthYear && form.birthMonth && form.birthDay
     ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
     : undefined;
+  // 头像为本地临时路径时先上传云存储，确保清缓存/跨设备后仍可显示
+  const cloudAvatar = await ensureCloudAvatar(form.avatarUrl);
   const draft = {
     name: form.name.trim(),
     gender: form.gender,
     role: form.role,
     avatarColor: form.avatarColor,
-    avatarUrl: form.avatarUrl,
+    avatarUrl: cloudAvatar,
     mobile: form.mobile.trim() || undefined,
     heightCm: form.heightCm ? Number(form.heightCm) : undefined,
     currentWeightKg: form.currentWeightKg ? Number(form.currentWeightKg) : undefined,

@@ -284,6 +284,7 @@ async function bindMember(uid, event) {
     familyRole: 'member'
   })
   await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  await mergeUserMembers(member.familyId, uid, member._id)
   const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
   return {
     code: 0,
@@ -292,6 +293,16 @@ async function bindMember(uid, event) {
       familyName: family ? family.name : '',
       memberName: member.name,
       role: 'member'
+    }
+  }
+}
+
+// 合并同一账号在家庭下的重复成员记录，保留 keepId
+async function mergeUserMembers(familyId, uid, keepId) {
+  const dup = (await db.collection(MEMBERS).where({ familyId, userId: uid }).get()).data
+  for (const rec of dup) {
+    if (rec._id !== keepId) {
+      await db.collection(MEMBERS).doc(rec._id).remove()
     }
   }
 }
@@ -320,6 +331,7 @@ async function autoBindByMobile(uid) {
     familyRole: 'member'
   })
   await db.collection(FAMILIES).doc(member.familyId).update({ memberCount: dbCmd.inc(1) })
+  await mergeUserMembers(member.familyId, uid, member._id)
   const family = (await db.collection(FAMILIES).doc(member.familyId).get()).data[0]
   return {
     code: 0,

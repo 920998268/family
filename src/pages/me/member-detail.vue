@@ -3,11 +3,14 @@ import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useFamilyStore } from '@/stores/family';
 import { useAuthStore } from '@/stores/auth';
+import { useProfileStore } from '@/stores/profile';
+import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { MEMBER_ROLE_LABELS } from '@/types/models';
 import { generateMemberBindCode, listCloudMembers, addCloudMember, updateCloudMember } from '@/unicloud';
 
 const familyStore = useFamilyStore();
 const authStore = useAuthStore();
+const profileStore = useProfileStore();
 const memberId = ref('');
 const bindCode = ref('');
 const generating = ref(false);
@@ -164,6 +167,13 @@ async function bindToMyAccount(): Promise<void> {
           familyStore.update(m.id, { userId: authStore.uid, cloudId: res._id, mobile: targetMobile || undefined } as any);
         }
         uni.showToast({ title: '绑定成功', icon: 'success' });
+        // 绑定后云端已自动合并重复成员，强制刷新本地成员与个人档案
+        restoreFamilyDataFromCloud(authStore.uid, true)
+          .then((r) => {
+            if (r.restoredMembers) familyStore.load();
+            if (r.restoredProfile) profileStore.load();
+          })
+          .catch(() => {});
       } catch (err: any) {
         uni.showToast({ title: err?.message || '绑定失败', icon: 'none' });
       }

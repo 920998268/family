@@ -59,10 +59,10 @@ const RESTORE_DEBOUNCE_MS = 20000;
  * 覆盖场景：退出登录/切换账号清空本地缓存后，重新登录（或启动）时恢复已保存数据。
  * 依赖：已登录且有家庭（member 云函数按登录态与 familyId 校验）。
  */
-export async function restoreFamilyDataFromCloud(uid?: string): Promise<CloudRestoreResult> {
+export async function restoreFamilyDataFromCloud(uid?: string, force = false): Promise<CloudRestoreResult> {
   const empty: CloudRestoreResult = { restoredProfile: false, restoredMembers: false, skipped: false };
   const now = Date.now();
-  if (now - lastRestoreAt < RESTORE_DEBOUNCE_MS) {
+  if (!force && now - lastRestoreAt < RESTORE_DEBOUNCE_MS) {
     return { ...empty, skipped: true };
   }
   lastRestoreAt = now;

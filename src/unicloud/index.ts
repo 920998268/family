@@ -42,6 +42,19 @@ let uniCloudInited = false;
 /** 初始化后的 uniCloud 实例（init() 返回新对象，必须用此变量引用） */
 let cloudInstance: any = null;
 
+/** 上传头像到云存储，返回永久 fileID（用于跨设备显示） */
+export async function uploadAvatar(filePath: string): Promise<string> {
+  const cloud = getCloud();
+  const res = await cloud.uploadFile({
+    filePath,
+    cloudPath: `avatar/${Date.now()}-${Math.floor(Math.random() * 10000)}.png`,
+  });
+  if (!res || !res.fileID) {
+    throw new Error('头像上传失败');
+  }
+  return res.fileID;
+}
+
 /** 获取当前可用的 uniCloud 实例 */
 function getCloud(): any {
   return cloudInstance || (globalThis as any).uniCloud;

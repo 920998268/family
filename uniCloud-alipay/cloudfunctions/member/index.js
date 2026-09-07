@@ -96,6 +96,15 @@ async function updateMember(familyId, event) {
     }
   }
   await db.collection(MEMBERS).doc(id).update(upd)
+  // 绑定账号后合并：删除同家庭下其他 userId=uid 的成员记录（账号自动创建记录与绑定记录合并）
+  if (upd.userId) {
+    const dup = (await db.collection(MEMBERS).where({ familyId, userId: upd.userId }).get()).data
+    for (const rec of dup) {
+      if (rec._id !== id) {
+        await db.collection(MEMBERS).doc(rec._id).remove()
+      }
+    }
+  }
   return { code: 0 }
 }
 
