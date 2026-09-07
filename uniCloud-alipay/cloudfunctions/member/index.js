@@ -43,9 +43,11 @@ async function addMember(familyId, event) {
   if (!v.ok) return { code: 400, msg: v.msg }
   const now = Date.now()
   const { name, gender, birthday, avatarColor, avatarUrl, role, isSelf, mobile } = event
+  // 登录用户保存个人档案时传 userId，自动关联登录账号；手动添加的成员为虚拟成员
+  const userId = event.userId && typeof event.userId === 'string' ? event.userId.trim() : null
   const doc = await db.collection(MEMBERS).add({
     familyId,
-    userId: null, // 手动添加的成员为虚拟成员，未绑定登录账号
+    userId,
     mobile: mobile ? mobile.trim() : null,
     name: name.trim(),
     role: role || 'other',
@@ -71,7 +73,7 @@ async function updateMember(familyId, event) {
   const v = validateMember(event)
   if (!v.ok) return { code: 400, msg: v.msg }
   const upd = { updatedAt: Date.now() }
-  for (const k of ['name', 'gender', 'birthday', 'avatarColor', 'avatarUrl', 'role', 'isSelf', 'mobile']) {
+  for (const k of ['name', 'gender', 'birthday', 'avatarColor', 'avatarUrl', 'role', 'isSelf', 'mobile', 'userId']) {
     if (event[k] !== undefined) upd[k] = event[k]
   }
   for (const k of ['height', 'weight', 'targetWeight']) {

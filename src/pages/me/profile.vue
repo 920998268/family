@@ -9,6 +9,7 @@ import { GENDERS, MEMBER_ROLES, AVATAR_COLORS } from '@/types/models';
 import type { Profile } from '@/types/models';
 import { errorMessage } from '@/utils/error';
 import { openMeTab } from '@/utils/navigation';
+import { listCloudMembers, addCloudMember, updateCloudMember } from '@/unicloud';
 
 const profileStore = useProfileStore();
 const authStore = useAuthStore();
@@ -181,6 +182,7 @@ function save(): void {
 
     // 保存个人档案后，如果已登录且有家庭，但家庭成员中没有当前用户记录，自动创建
     if (authStore.isLoggedIn && authStore.hasFamily) {
+      // 本地成员同步：无当前用户记录时自动创建
       familyStore.load();
       const existingMember = familyStore.members.find(
         (m) => m.userId === authStore.uid || (m.mobile && m.mobile === authStore.mobile),
@@ -200,6 +202,8 @@ function save(): void {
           userId: authStore.uid || undefined,
         } as any);
       }
+      // 云端同步：已有匹配成员则更新，否则创建（关联当前登录账号）
+      syncProfileToCloud(profile, form);
     }
 
     uni.showToast({ title: '已保存', icon: 'success' });
@@ -212,6 +216,38 @@ function save(): void {
       content: errorMessage(err),
       showCancel: false,
     });
+  }
+}
+
+// 保存个人档案后同步云端：云端有匹配成员则更新，否则创建并关联当前登录账号
+async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
+  try {
+    const members = await listCloudMembers();
+    const uid = authStore.uid;
+    const existing = members.find(
+      (m: any) => m.userId === uid || (m.mobile && m.mobile === authStore.mobile),
+    );
+    const data = {
+      name: profile.name,
+      gender: profile.gender,
+      role: form.role,
+      mobile: profile.mobile || authStore.mobile || undefined,
+      avatarColor: AVATAR_COLORS[0],
+      avatarUrl: form.avatarUrl || undefined,
+      heightCm: profile.heightCm || undefined,
+      currentWeightKg: profile.currentWeightKg || undefined,
+      targetWeightKg: profile.targetWeightKg || undefined,
+      birthDate: profile.birthDate || undefined,
+      userId: uid || undefined,
+    };
+    if (existing && existing._id) {
+      await updateCloudMember(existing._id, data);
+    } else {
+      await addCloudMember(data);
+    }
+  } catch (e) {
+    console.warn('[云端同步] 个人档案保存失败:', e);
+    uni.showToast({ title: '云端同步失败，请检查网络后重试', icon: 'none' });
   }
 }
 </script>

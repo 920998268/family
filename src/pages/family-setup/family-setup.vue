@@ -6,6 +6,7 @@ import { useFamilyStore } from '@/stores/family';
 import type { FamilyMember, MemberRole, Gender } from '@/types/models';
 import { AVATAR_COLORS, MEMBER_ROLES, GENDERS } from '@/types/models';
 import MemberAvatar from '@/components/MemberAvatar.vue';
+import { listCloudMembers, addCloudMember, updateCloudMember, removeCloudMember } from '@/unicloud';
 
 const authStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -305,13 +306,55 @@ function saveMember(): void {
     targetWeightKg: form.targetWeightKg ? Number(form.targetWeightKg) : undefined,
     birthDate,
   };
+  let saved: FamilyMember;
   if (editingMember.value) {
-    familyStore.update(editingMember.value.id, draft);
+    saved = familyStore.update(editingMember.value.id, draft);
   } else {
-    familyStore.add(draft);
+    saved = familyStore.add(draft);
   }
   uni.showToast({ title: '已保存', icon: 'success' });
   closeForm();
+  // 云端同步（不阻塞 UI）
+  syncMemberToCloud(saved);
+}
+
+// 保存成员后同步云端：云端有匹配成员则更新，否则新增并回填 cloudId
+async function syncMemberToCloud(member: FamilyMember): Promise<void> {
+  try {
+    const cloudMembers = await listCloudMembers();
+    const anyMember = member as any;
+    const match = cloudMembers.find(
+      (m: any) =>
+        (anyMember.cloudId && m._id === anyMember.cloudId) ||
+        (member.userId && m.userId === member.userId) ||
+        (member.mobile && m.mobile === member.mobile),
+    );
+    const data = {
+      name: member.name,
+      role: member.role,
+      gender: anyMember.gender,
+      mobile: member.mobile,
+      avatarColor: member.avatarColor,
+      avatarUrl: member.avatarUrl,
+      heightCm: anyMember.heightCm,
+      currentWeightKg: anyMember.currentWeightKg,
+      targetWeightKg: anyMember.targetWeightKg,
+      birthDate: anyMember.birthDate,
+      userId: member.userId,
+    };
+    if (match && match._id) {
+      await updateCloudMember(match._id, data);
+      if (!anyMember.cloudId) {
+        familyStore.update(member.id, { cloudId: match._id } as any);
+      }
+    } else {
+      const res = await addCloudMember(data);
+      familyStore.update(member.id, { cloudId: res._id } as any);
+    }
+  } catch (e) {
+    console.warn('[云端同步] 成员保存失败:', e);
+    uni.showToast({ title: '云端同步失败，请检查网络', icon: 'none' });
+  }
 }
 
 function removeMember(member: FamilyMember): void {
@@ -322,9 +365,28 @@ function removeMember(member: FamilyMember): void {
       if (result.confirm) {
         familyStore.remove(member.id);
         uni.showToast({ title: '已删除', icon: 'success' });
+        removeMemberFromCloud(member);
       }
     },
   });
+}
+
+// 删除成员后同步云端
+async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
+  try {
+    const cloudMembers = await listCloudMembers();
+    const anyMember = member as any;
+    const match = cloudMembers.find(
+      (m: any) =>
+        (anyMember.cloudId && m._id === anyMember.cloudId) ||
+        (member.userId && m.userId === member.userId),
+    );
+    if (match && match._id) {
+      await removeCloudMember(match._id);
+    }
+  } catch (e) {
+    console.warn('[云端同步] 成员删除失败:', e);
+  }
 }
 </script>
 

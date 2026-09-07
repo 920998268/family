@@ -36,23 +36,6 @@ export interface MyFamilyStatus {
   inviteCode?: string;
 }
 
-/** member 云函数返回的成员档案 */
-export interface MemberProfile {
-  _id: string;
-  familyId: string;
-  userId: string;
-  name: string;
-  gender: string;
-  birthDate: string;
-  heightCm: number;
-  currentWeightKg: number;
-  targetWeightKg: number;
-  role: string;
-  avatarColor: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
 const UNI_ID_TOKEN_KEY = 'uni_id_token';
 
 let uniCloudInited = false;
@@ -223,12 +206,43 @@ async function callMember(action: string, payload: Record<string, unknown> = {})
   return result.data;
 }
 
-/** 获取当前用户成员档案 */
-export async function getMyMemberProfile(): Promise<MemberProfile | null> {
-  return callMember('getMyProfile');
+/** 成员字段映射：前端 FamilyMember 字段 → 云端字段 */
+function toCloudMember(data: Record<string, any>): Record<string, any> {
+  const mapped: Record<string, any> = {};
+  if (data.name !== undefined) mapped.name = data.name;
+  if (data.gender !== undefined) mapped.gender = data.gender;
+  if (data.role !== undefined) mapped.role = data.role;
+  if (data.mobile !== undefined) mapped.mobile = data.mobile;
+  if (data.avatarColor !== undefined) mapped.avatarColor = data.avatarColor;
+  if (data.avatarUrl !== undefined) mapped.avatarUrl = data.avatarUrl;
+  if (data.birthDate !== undefined) mapped.birthday = data.birthDate;
+  if (data.birthday !== undefined) mapped.birthday = data.birthday;
+  if (data.heightCm !== undefined) mapped.height = data.heightCm;
+  if (data.height !== undefined) mapped.height = data.height;
+  if (data.currentWeightKg !== undefined) mapped.weight = data.currentWeightKg;
+  if (data.weight !== undefined) mapped.weight = data.weight;
+  if (data.targetWeightKg !== undefined) mapped.targetWeight = data.targetWeightKg;
+  if (data.targetWeight !== undefined) mapped.targetWeight = data.targetWeight;
+  if (data.isSelf !== undefined) mapped.isSelf = data.isSelf;
+  return mapped;
 }
 
-/** 保存当前用户成员档案 */
-export async function saveMyMemberProfile(profile: Partial<MemberProfile>): Promise<MemberProfile> {
-  return callMember('saveMyProfile', profile);
+/** 获取家庭成员列表 */
+export async function listCloudMembers(): Promise<any[]> {
+  return callMember('list');
+}
+
+/** 云端新增成员（登录用户档案保存时传 userId 关联账号） */
+export async function addCloudMember(data: Record<string, any> & { userId?: string }): Promise<{ _id: string }> {
+  return callMember('add', { ...toCloudMember(data), userId: data.userId ?? null });
+}
+
+/** 云端更新成员 */
+export async function updateCloudMember(id: string, data: Record<string, any>): Promise<void> {
+  return callMember('update', { _id: id, ...toCloudMember(data) });
+}
+
+/** 云端删除成员 */
+export async function removeCloudMember(id: string): Promise<void> {
+  return callMember('remove', { _id: id });
 }
