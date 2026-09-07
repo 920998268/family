@@ -30,12 +30,12 @@ const form = reactive({
   gender: 'male' as Gender,
   role: 'other' as MemberRole,
   mobile: '',
-  birthYear: String(currentYear),
-  birthMonth: currentMonth,
-  birthDay: currentDay,
-  heightCm: 170,
-  currentWeightKg: 60,
-  targetWeightKg: 58,
+  birthYear: '',
+  birthMonth: '',
+  birthDay: '',
+  heightCm: '',
+  currentWeightKg: '',
+  targetWeightKg: '',
   avatarUrl: '',
 });
 
@@ -73,9 +73,9 @@ onShow(() => {
       form.birthMonth = parts[1] ? String(Number(parts[1])) : '';
       form.birthDay = parts[2] ? String(Number(parts[2])) : '';
     }
-    form.heightCm = profile.heightCm;
-    form.currentWeightKg = profile.currentWeightKg;
-    form.targetWeightKg = profile.targetWeightKg;
+    form.heightCm = profile.heightCm ? String(profile.heightCm) : '';
+    form.currentWeightKg = profile.currentWeightKg ? String(profile.currentWeightKg) : '';
+    form.targetWeightKg = profile.targetWeightKg ? String(profile.targetWeightKg) : '';
   } else {
     form.mobile = authStore.mobile || '';
   }
@@ -255,8 +255,6 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 <template>
   <view class="page-shell">
     <view class="form-card">
-      <view class="section-title">个人信息档案</view>
-      <text class="page-subtitle">完善个人基础信息与身体数据</text>
 
       <!-- 头像 -->
       <view class="avatar-section">
@@ -377,6 +375,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
         <input v-model.number="form.targetWeightKg" class="field-control" type="digit" placeholder="例如：58" />
       </view>
 
+      <text class="page-subtitle page-subtitle-bottom">完善个人基础信息与身体数据</text>
       <view class="form-actions">
         <button class="btn btn-ghost" @tap="goBack">取消</button>
         <button class="btn btn-primary" @tap="save">保存</button>
@@ -412,6 +411,10 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
   font-size: 24rpx;
   color: #a8a29e;
   margin-bottom: 32rpx;
+}
+
+.page-subtitle-bottom {
+  margin-bottom: 16rpx;
 }
 
 .avatar-section {

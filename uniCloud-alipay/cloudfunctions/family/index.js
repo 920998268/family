@@ -50,6 +50,7 @@ exports.main = async (event, context) => {
     case 'generateBindCode': return generateBindCode(uid, event)
     case 'bindMember': return bindMember(uid, event)
     case 'autoBindByMobile': return autoBindByMobile(uid)
+    case 'updateFamilyName': return updateFamilyName(uid, event)
     default: return { code: 400, msg: `未知操作: ${event.action}` }
   }
 }
@@ -330,4 +331,19 @@ async function autoBindByMobile(uid) {
       role: 'member'
     }
   }
+}
+
+// 修改家庭名称（仅家庭管理员）
+async function updateFamilyName(uid, event) {
+  const name = (event.name || '').trim()
+  if (!name) return { code: 400, msg: '家庭名称不能为空' }
+  if (name.length > 20) return { code: 400, msg: '家庭名称不能超过20字' }
+  const user = (await db.collection(USERS).doc(uid).get()).data[0]
+  if (!user || !user.familyId) return { code: 400, msg: '尚未加入家庭' }
+  if (user.familyRole !== 'owner') return { code: 403, msg: '仅家庭管理员可操作' }
+  await db.collection(FAMILIES).doc(user.familyId).update({
+    name,
+    updatedAt: Date.now()
+  })
+  return { code: 0, data: { familyId: user.familyId, name } }
 }

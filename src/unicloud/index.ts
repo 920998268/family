@@ -173,6 +173,11 @@ export async function regenerateInviteCode(familyId: string): Promise<{ inviteCo
   return callFamily('regenerateInviteCode', { familyId });
 }
 
+/** 修改家庭名称（仅管理员） */
+export async function updateFamilyName(name: string): Promise<{ familyId: string; name: string }> {
+  return callFamily('updateFamilyName', { name });
+}
+
 /** 为虚拟成员生成绑定码（仅家庭管理员），如果云端不存在该成员则自动创建 */
 export async function generateMemberBindCode(
   memberId: string,

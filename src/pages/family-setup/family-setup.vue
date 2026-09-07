@@ -6,7 +6,7 @@ import { useFamilyStore } from '@/stores/family';
 import type { FamilyMember, MemberRole, Gender } from '@/types/models';
 import { AVATAR_COLORS, MEMBER_ROLES, GENDERS } from '@/types/models';
 import MemberAvatar from '@/components/MemberAvatar.vue';
-import { listCloudMembers, addCloudMember, updateCloudMember, removeCloudMember } from '@/unicloud';
+import { listCloudMembers, addCloudMember, updateCloudMember, removeCloudMember, updateFamilyName } from '@/unicloud';
 
 const authStore = useAuthStore();
 const familyStore = useFamilyStore();
@@ -163,18 +163,24 @@ function startEditFamilyName(): void {
   editingFamilyName.value = true;
 }
 
-function saveFamilyName(): void {
+async function saveFamilyName(): Promise<void> {
   const name = familyNameInput.value.trim();
   if (!name) {
     uni.showToast({ title: '家庭名称不能为空', icon: 'none' });
     return;
   }
-  if (familyInfo.value) {
-    familyInfo.value.familyName = name;
+  try {
+    // 云端持久化（管理员），成功后同步本地状态
+    const res = await updateFamilyName(name);
+    if (familyInfo.value) {
+      familyInfo.value.familyName = res.name;
+    }
+    authStore.familyName = res.name;
+    editingFamilyName.value = false;
+    uni.showToast({ title: '已保存', icon: 'success' });
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '保存失败', icon: 'none' });
   }
-  authStore.familyName = name;
-  editingFamilyName.value = false;
-  uni.showToast({ title: '已保存', icon: 'success' });
 }
 
 function goMemberDetail(memberId: string): void {
@@ -825,6 +831,9 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
     height: 64rpx;
     padding: 0 24rpx !important;
     margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: 10rpx;
     background: #f97316;
