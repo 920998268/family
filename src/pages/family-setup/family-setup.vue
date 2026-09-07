@@ -775,6 +775,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
 
 .input-placeholder {
   color: #d6d3d1;
+  font-size: 28rpx;
 }
 
 .form-hint {
@@ -1075,6 +1076,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
 
 .picker-placeholder {
   color: #d6d3d1;
+  font-size: 28rpx;
 }
 
 .color-row {
@@ -1125,6 +1127,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
 
 .date-placeholder {
   color: #d6d3d1;
+  font-size: 28rpx;
 }
 
 .form-actions {

@@ -293,7 +293,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
       <view class="field field-first">
         <text class="field-label">姓名</text>
-        <input v-model="form.name" class="field-control" placeholder="例如：张三" />
+        <input v-model="form.name" class="field-control" placeholder="例如：张三" placeholder-class="field-placeholder" />
       </view>
 
       <view class="field">
@@ -383,17 +383,17 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
       <view class="field">
         <text class="field-label">身高（cm）</text>
-        <input v-model.number="form.heightCm" class="field-control" type="number" placeholder="例如：170" />
+        <input v-model.number="form.heightCm" class="field-control" type="number" placeholder="例如：170" placeholder-class="field-placeholder" />
       </view>
 
       <view class="field">
         <text class="field-label">当前体重（kg）</text>
-        <input v-model.number="form.currentWeightKg" class="field-control" type="digit" placeholder="例如：60" />
+        <input v-model.number="form.currentWeightKg" class="field-control" type="digit" placeholder="例如：60" placeholder-class="field-placeholder" />
       </view>
 
       <view class="field">
         <text class="field-label">目标体重（kg）</text>
-        <input v-model.number="form.targetWeightKg" class="field-control" type="digit" placeholder="例如：58" />
+        <input v-model.number="form.targetWeightKg" class="field-control" type="digit" placeholder="例如：58" placeholder-class="field-placeholder" />
       </view>
 
       <text class="page-subtitle page-subtitle-bottom">完善个人基础信息与身体数据</text>
@@ -525,6 +525,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
 .field-placeholder {
   color: #d6d3d1;
+  font-size: 30rpx;
 }
 
 .picker-value {
@@ -542,6 +543,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
 .picker-placeholder {
   color: #d6d3d1;
+  font-size: 30rpx;
 }
 
 .date-row {
@@ -576,6 +578,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 
 .date-placeholder {
   color: #d6d3d1;
+  font-size: 28rpx;
 }
 
 .form-actions {
