@@ -521,6 +521,8 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 30rpx;
+  color: #2d2a26;
 }
 
 .picker-arrow {
@@ -529,7 +531,7 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
 }
 
 .picker-placeholder {
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .date-row {

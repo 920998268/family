@@ -1064,7 +1064,7 @@ async function removeMemberFromCloud(member: FamilyMember): Promise<void> {
 }
 
 .picker-placeholder {
-  color: #a8a29e;
+  color: #d6d3d1;
 }
 
 .color-row {
