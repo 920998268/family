@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useProfileStore } from '@/stores/profile';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { MEMBER_ROLE_LABELS } from '@/types/models';
+import { matchCloudMember } from '@/utils/member';
 import { generateMemberBindCode, listCloudMembers, addCloudMember, updateCloudMember } from '@/unicloud';
 
 const familyStore = useFamilyStore();
@@ -40,12 +41,10 @@ const selectableMobiles = computed(() => {
 
 onLoad((options) => {
   memberId.value = options?.memberId || '';
+  // familyStore.load() 为同步读取本地缓存，无需延时等待
   familyStore.load();
-  // 初始化预设手机号
-  setTimeout(() => {
-    const m = familyStore.members.find((item) => item.id === memberId.value);
-    presetMobile.value = m?.mobile || '';
-  }, 100);
+  const m = familyStore.members.find((item) => item.id === memberId.value);
+  presetMobile.value = m?.mobile || '';
 });
 
 // 下拉选择手机号
@@ -66,7 +65,7 @@ function showMobilePicker(): void {
 }
 
 // 点击选择绑定按钮，绑定当前手机号
-function handleBindMobile(): void {
+async function handleBindMobile(): Promise<void> {
   if (!presetMobile.value) {
     uni.showToast({ title: '请先选择或输入手机号', icon: 'none' });
     return;
@@ -75,7 +74,7 @@ function handleBindMobile(): void {
     uni.showToast({ title: '手机号需为4-12位数字', icon: 'none' });
     return;
   }
-  savePresetMobile();
+  await savePresetMobile();
 }
 
 // 手机号输入校验
@@ -88,11 +87,42 @@ function onPresetMobileBlur(): void {
   }
 }
 
-// 保存预设手机号到成员
-function savePresetMobile(): void {
-  if (!member.value) return;
-  familyStore.update(member.value.id, { mobile: presetMobile.value || undefined } as any);
-  uni.showToast({ title: '手机号已保存', icon: 'success' });
+// 保存预设手机号：本地 + 云端同步（换设备/清缓存后仍需生效）
+async function savePresetMobile(): Promise<void> {
+  const m = member.value;
+  if (!m) return;
+  const mobile = presetMobile.value.trim() || undefined;
+
+  let cloudId: string | undefined = (m as any).cloudId;
+  try {
+    const cloudMembers = await listCloudMembers();
+    const cm = matchCloudMember(cloudMembers, m);
+    if (cm && cm._id) cloudId = cm._id;
+  } catch (e) {
+    console.warn('[云端同步] 查询成员失败:', e);
+  }
+
+  familyStore.update(m.id, { mobile, ...(cloudId ? { cloudId } : {}) } as any);
+
+  try {
+    if (cloudId) {
+      await updateCloudMember(cloudId, { name: m.name, mobile });
+    } else {
+      const res = await addCloudMember({
+        name: m.name,
+        role: m.role,
+        gender: (m as any).gender,
+        avatarColor: m.avatarColor,
+        avatarUrl: m.avatarUrl,
+        mobile,
+      });
+      familyStore.update(m.id, { cloudId: res._id } as any);
+    }
+    uni.showToast({ title: '预设手机号已保存', icon: 'success' });
+  } catch (e) {
+    console.warn('[云端同步] 预设手机号保存失败:', e);
+    uni.showToast({ title: '云端同步失败，请检查网络', icon: 'none' });
+  }
 }
 
 function goBack(): void {
@@ -150,8 +180,7 @@ async function bindToMyAccount(): Promise<void> {
       try {
         const cloudMembers = await listCloudMembers();
         const anyM = m as any;
-        const cm = cloudMembers.find((x: any) => anyM.cloudId && x._id === anyM.cloudId)
-          || cloudMembers.find((x: any) => x.name === m.name && !x.userId);
+        const cm = matchCloudMember(cloudMembers, m);
         const payload = { userId: authStore.uid, mobile: targetMobile || undefined, name: m.name };
         if (cm && cm._id) {
           await updateCloudMember(cm._id, payload);
@@ -246,20 +275,20 @@ async function bindToMyAccount(): Promise<void> {
       <view class="bind-card">
         <text class="bind-desc">可预设手机号（对方用此手机号登录自动关联），也可直接绑定到当前登录账号。</text>
 
-        <!-- 手机号预设：点击输入框下拉选择，选择绑定按钮确认 -->
+        <!-- 手机号预设：输入框可自由输入，选择按钮从家庭成员手机号中挑一个 -->
         <view class="preset-mobile-row">
           <input
             v-model="presetMobile"
             class="preset-mobile-input"
             type="number"
             maxlength="12"
-            placeholder="点击选择或输入手机号"
+            placeholder="输入或选择手机号"
             placeholder-class="preset-placeholder"
             @blur="onPresetMobileBlur"
-            @tap="showMobilePicker"
           />
-          <button class="preset-mobile-btn" @tap="handleBindMobile">选择绑定</button>
+          <button class="preset-mobile-btn" @tap="showMobilePicker">选择</button>
         </view>
+        <button class="bind-to-account-btn" @tap="handleBindMobile">保存预设手机号</button>
 
         <!-- 绑定到当前登录账号：校验预设手机号与登录手机号是否一致 -->
         <button class="bind-to-account-btn" @tap="bindToMyAccount">绑定到当前登录账号</button>
