@@ -14,6 +14,7 @@ import { createLedgerService } from '@/services';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { formatDateKey } from '@/utils/date';
 import { formatMoney } from '@/utils/format';
+import { openFamilySetup } from '@/utils/navigation';
 import { isPlaceholderProfile } from '@/utils/profile';
 import MemberAvatar from '@/components/MemberAvatar.vue';
 
@@ -107,7 +108,7 @@ function goProfile(): void {
           v-for="member in familyStore.members"
           :key="member.id"
           class="hero-member"
-          @tap="goPage('/pages/me/family')"
+          @tap="openFamilySetup"
         >
           <MemberAvatar :name="member.name" :color="member.avatarColor" size="sm" />
           <text class="hero-member-name">{{ member.name }}</text>

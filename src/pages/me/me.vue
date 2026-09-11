@@ -7,6 +7,7 @@ import { useFamilyStore } from '@/stores/family';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { ensureCloudAvatar } from '@/utils/upload';
 import { errorMessage } from '@/utils/error';
+import { openFamilySetup } from '@/utils/navigation';
 import { createAvatarOnlyProfile } from '@/utils/profile';
 
 const profileStore = useProfileStore();
@@ -194,7 +195,7 @@ async function handleLogout(): Promise<void> {
     </view>
 
     <view class="section">
-      <view class="record-card me-card" @tap="goPage('/pages/family-setup/family-setup')">
+      <view class="record-card me-card" @tap="openFamilySetup">
         <view class="me-head">
           <view class="avatar-dot" style="background: #f97316">
             <text>家</text>

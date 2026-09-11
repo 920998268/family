@@ -92,12 +92,6 @@
       }
     },
     {
-      "path": "pages/me/family",
-      "style": {
-        "navigationBarTitleText": "家庭成员"
-      }
-    },
-    {
       "path": "pages/me/member-detail",
       "style": {
         "navigationBarTitleText": "成员详情"
