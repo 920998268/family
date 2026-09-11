@@ -3,43 +3,41 @@ import { onLaunch } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { hasToken, clearToken, initUniCloud } from '@/unicloud';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
+import { bootstrapSession } from '@/services/SessionBootstrap';
 
 onLaunch(() => {
   initUniCloud();
-  // #ifdef MP-WEIXIN
+  // 全平台执行：H5 刷新后同样需要回填 uid / 家庭状态并恢复云端数据
   bootstrap();
-  // #endif
 });
 
 /**
- * 微信小程序启动引导：
- * 已登录 → 检查家庭状态 → 有家庭进首页 / 无家庭进家庭设置
+ * 启动引导：
+ * 已登录 → 回填 uid 与家庭状态 → 从云端恢复个人档案与家庭成员
  * 未登录 → 停留在登录页（pages.json 第一个页面）
+ *
+ * 仅「页面跳转」区分平台：微信小程序按有无家庭跳转，
+ * H5 停留在当前路由（刷新时不会把用户从所在页面拽走）。
  */
 async function bootstrap(): Promise<void> {
-  if (!hasToken()) {
-    return;
+  const authStore = useAuthStore();
+  const result = await bootstrapSession({
+    hasToken,
+    restoreFromStorage: () => authStore.restoreFromStorage(),
+    fetchFamilyStatus: () => authStore.fetchFamilyStatus(),
+    restoreCloudData: (uid) => restoreFamilyDataFromCloud(uid),
+    clearToken,
+    getUid: () => authStore.uid,
+  });
+
+  // #ifdef MP-WEIXIN
+  if (result === 'restored') {
+    uni.switchTab({ url: '/pages/home/home' });
+  } else if (result === 'no-family') {
+    // 用 reLaunch 清空页面栈，避免用户返回到登录页
+    uni.reLaunch({ url: '/pages/family-setup/family-setup' });
   }
-  try {
-    const authStore = useAuthStore();
-    authStore.restoreFromStorage();
-    const status = await authStore.fetchFamilyStatus();
-    if (status.hasFamily) {
-      // 从云端恢复该账号已保存的个人档案与家庭成员
-      try {
-        await restoreFamilyDataFromCloud(authStore.uid);
-      } catch (e) {
-        console.warn('[启动] 云端数据恢复失败:', e);
-      }
-      uni.switchTab({ url: '/pages/home/home' });
-    } else {
-      // 用 reLaunch 清空页面栈，避免用户返回到登录页
-      uni.reLaunch({ url: '/pages/family-setup/family-setup' });
-    }
-  } catch {
-    // token 失效或网络异常，清除后留在登录页
-    clearToken();
-  }
+  // #endif
 }
 </script>
 
