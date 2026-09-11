@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { resolveAvatarUrl } from '@/utils/upload';
 
 const props = defineProps<{
   name: string;
@@ -9,15 +10,34 @@ const props = defineProps<{
 }>();
 
 const initial = computed(() => (props.name || '家').slice(0, 1));
+
+// 云存储 fileID(cloud://) 无法被 image 直接渲染，需解析为临时 URL
+const resolvedUrl = ref('');
+const failed = ref(false);
+
+async function load(): Promise<void> {
+  failed.value = false;
+  resolvedUrl.value = (await resolveAvatarUrl(props.avatarUrl)) || '';
+}
+
+watch(() => props.avatarUrl, load, { immediate: true });
+
+const showImage = computed(() => !!resolvedUrl.value && !failed.value);
 </script>
 
 <template>
   <view
     class="avatar-dot"
     :class="props.size === 'sm' ? 'avatar-dot-sm' : ''"
-    :style="{ background: props.avatarUrl ? 'transparent' : props.color }"
+    :style="{ background: showImage ? 'transparent' : props.color }"
   >
-    <image v-if="props.avatarUrl" :src="props.avatarUrl" class="avatar-img" mode="aspectFill" />
+    <image
+      v-if="showImage"
+      :src="resolvedUrl"
+      class="avatar-img"
+      mode="aspectFill"
+      @error="failed = true"
+    />
     <text v-else>{{ initial }}</text>
   </view>
 </template>

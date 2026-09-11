@@ -110,7 +110,7 @@ function goProfile(): void {
           class="hero-member"
           @tap="openFamilySetup"
         >
-          <MemberAvatar :name="member.name" :color="member.avatarColor" size="sm" />
+          <MemberAvatar :name="member.name" :color="member.avatarColor" :avatar-url="member.avatarUrl" size="sm" />
           <text class="hero-member-name">{{ member.name }}</text>
         </view>
       </view>
