@@ -38,6 +38,16 @@ export interface MyFamilyStatus {
 
 const UNI_ID_TOKEN_KEY = 'uni_id_token';
 
+/**
+ * 提取云函数返回的错误文案。
+ * 本仓库自研云函数（family / member / register）统一返回 `{ code, msg }`，
+ * 而 uni-id-co 云对象走 `errMsg`，这里统一兼容，避免业务提示被吞成通用文案。
+ */
+function cloudErrorText(result: any, fallback: string): string {
+  const text = result?.msg || result?.message || result?.errMsg;
+  return typeof text === 'string' && text ? text : fallback;
+}
+
 let uniCloudInited = false;
 /** 初始化后的 uniCloud 实例（init() 返回新对象，必须用此变量引用） */
 let cloudInstance: any = null;
@@ -156,7 +166,7 @@ async function callFamily(action: string, payload: Record<string, unknown> = {})
   });
   const result = res.result;
   if (result?.code !== 0) {
-    throw new Error(result?.message || `family 云函数 [${action}] 调用失败`);
+    throw new Error(cloudErrorText(result, `family 云函数 [${action}] 调用失败`));
   }
   return result.data;
 }
@@ -219,7 +229,7 @@ async function callMember(action: string, payload: Record<string, unknown> = {})
   });
   const result = res.result;
   if (result?.code !== 0) {
-    throw new Error(result?.message || `member 云函数 [${action}] 调用失败`);
+    throw new Error(cloudErrorText(result, `member 云函数 [${action}] 调用失败`));
   }
   return result.data;
 }
