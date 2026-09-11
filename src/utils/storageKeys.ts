@@ -5,6 +5,7 @@ import type {
   StudyFrequency,
   TransactionType,
   TravelStatus,
+  WorkoutCategory,
   WorkoutSet,
 } from '@/types/models';
 
@@ -82,6 +83,10 @@ export function isTravelStatus(value: unknown): value is TravelStatus {
 
 export function isTransactionType(value: unknown): value is TransactionType {
   return value === 'income' || value === 'expense';
+}
+
+export function isWorkoutCategory(value: unknown): value is WorkoutCategory {
+  return value === 'strength' || value === 'cardio';
 }
 
 export function isWorkoutSet(value: unknown): value is WorkoutSet {

@@ -5,13 +5,16 @@ import {
   isStudyFrequency,
   isTransactionType,
   isTravelStatus,
+  isWorkoutCategory,
   isWorkoutSet,
 } from '@/utils/storageKeys';
 import { isValidDateKey } from '@/utils/date';
+import { normalizeWorkoutCategory } from '@/utils/workout';
 import type {
   BackupPayload,
   DietEntry,
   FamilyMember,
+  FavoriteFood,
   MealPlan,
   Profile,
   StudyCheckin,
@@ -39,6 +42,17 @@ const NUTRITION_FIELDS: NumberField[] = [
   { key: 'carbs', label: '碳水化合物', min: 0, max: 100000 },
   { key: 'fat', label: '脂肪', min: 0, max: 100000 },
 ];
+
+/** 力量训练组明细的取值区间 */
+const SET_REPS_RANGE = { min: 1, max: 10000 };
+const SET_WEIGHT_RANGE = { min: 0, max: 2000 };
+
+/** 有氧训练的取值区间（时长单位分钟，距离单位公里） */
+const CARDIO_DURATION_RANGE = { min: 1, max: 1440 };
+const CARDIO_DISTANCE_RANGE = { min: 0, max: 1000 };
+
+/** 消耗热量（千卡），力量与有氧均可选填 */
+const WORKOUT_CALORIES_RANGE = { min: 0, max: 100000 };
 
 function numberError(
   value: unknown,
@@ -87,6 +101,22 @@ function optionalNumberError(
     return `${label}需要在 ${min} 到 ${max} 之间`;
   }
   return null;
+}
+
+/**
+ * 必填数值校验：未填写直接报「不能为空」，已填写时执行类型与区间校验。
+ * 用于有氧训练的时长等必填数值字段。
+ */
+function requiredNumberError(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+): string | null {
+  if (value === undefined || value === null || value === '') {
+    return `${label}不能为空`;
+  }
+  return numberError(value, label, min, max);
 }
 
 function optionalIdError(value: unknown, label: string): string | null {
@@ -189,23 +219,117 @@ export function validateWorkoutEntry(value: unknown): ValidationResult {
     errors.push('动作名称不能为空');
   }
   pushError(errors, optionalIdError(entry.memberId, '打卡成员'));
-  if (!Array.isArray(entry.sets) || entry.sets.length === 0) {
-    errors.push('至少需要一组训练明细');
+
+  // category 为 0.3.2 新增字段。老记录没有它，只校验「填写了就必须合法」，
+  // 缺省时按「有组明细 = 力量」推断，绝不判为非法（否则历史数据会被静默丢弃）。
+  if (entry.category !== undefined && !isWorkoutCategory(entry.category)) {
+    errors.push('运动类型不合法');
+    return { valid: errors.length === 0, errors };
+  }
+
+  const category = normalizeWorkoutCategory({
+    category: entry.category,
+    sets: Array.isArray(entry.sets) ? entry.sets : [],
+  });
+
+  if (category === 'strength') {
+    if (!Array.isArray(entry.sets) || entry.sets.length === 0) {
+      errors.push('至少需要一组训练明细');
+    } else {
+      for (const [index, set] of entry.sets.entries()) {
+        if (!isWorkoutSet(set)) {
+          errors.push(`第 ${index + 1} 组明细不合法`);
+          continue;
+        }
+
+        if (set.order !== index + 1) {
+          errors.push(`第 ${index + 1} 组序号不连续`);
+        }
+
+        const repsError = numberError(set.reps, '次数', SET_REPS_RANGE.min, SET_REPS_RANGE.max);
+        const weightError = numberError(
+          set.weightKg,
+          '重量',
+          SET_WEIGHT_RANGE.min,
+          SET_WEIGHT_RANGE.max,
+        );
+        pushError(errors, repsError && `第 ${index + 1} 组${repsError}`);
+        pushError(errors, weightError && `第 ${index + 1} 组${weightError}`);
+      }
+    }
   } else {
-    for (const [index, set] of entry.sets.entries()) {
-      if (!isWorkoutSet(set)) {
-        errors.push(`第 ${index + 1} 组明细不合法`);
-        continue;
-      }
+    // 有氧：组明细不适用，时长必填，距离选填
+    if (Array.isArray(entry.sets) && entry.sets.length > 0) {
+      errors.push('有氧记录不应包含组明细');
+    }
+    pushError(
+      errors,
+      requiredNumberError(
+        entry.durationMin,
+        '运动时长',
+        CARDIO_DURATION_RANGE.min,
+        CARDIO_DURATION_RANGE.max,
+      ),
+    );
+    pushError(
+      errors,
+      optionalNumberError(
+        entry.distanceKm,
+        '运动距离',
+        CARDIO_DISTANCE_RANGE.min,
+        CARDIO_DISTANCE_RANGE.max,
+      ),
+    );
+  }
 
-      if (set.order !== index + 1) {
-        errors.push(`第 ${index + 1} 组序号不连续`);
-      }
+  // 消耗热量：力量与有氧均可选填
+  pushError(
+    errors,
+    optionalNumberError(
+      entry.calories,
+      '消耗热量',
+      WORKOUT_CALORIES_RANGE.min,
+      WORKOUT_CALORIES_RANGE.max,
+    ),
+  );
 
-      const repsError = numberError(set.reps, '次数', 1, 10000);
-      const weightError = numberError(set.weightKg, '重量', 0, 2000);
-      pushError(errors, repsError && `第 ${index + 1} 组${repsError}`);
-      pushError(errors, weightError && `第 ${index + 1} 组${weightError}`);
+  return { valid: errors.length === 0, errors };
+}
+
+/** 常用食物校验（云端沉淀，本地缓存写入前使用） */
+export function validateFavoriteFood(value: unknown): ValidationResult {
+  const errors: string[] = [];
+
+  if (!value || typeof value !== 'object') {
+    return { valid: false, errors: ['常用食物不能为空'] };
+  }
+
+  const food = value as Partial<FavoriteFood>;
+
+  if (typeof food.id !== 'string' || !food.id) {
+    errors.push('记录 ID 缺失');
+  }
+  if (typeof food.name !== 'string' || !food.name.trim()) {
+    errors.push('食物名称不能为空');
+  }
+  if (typeof food.quantity !== 'string' || !food.quantity.trim()) {
+    errors.push('数量不能为空');
+  }
+  if (
+    typeof food.useCount !== 'number' ||
+    !Number.isFinite(food.useCount) ||
+    food.useCount < 0
+  ) {
+    errors.push('使用次数不合法');
+  }
+
+  for (const field of NUTRITION_FIELDS) {
+    const fieldValue = food[field.key];
+    if (fieldValue !== undefined) {
+      pushError(
+        errors,
+        numberError(fieldValue, field.label, field.min, field.max),
+      );
     }
   }
 

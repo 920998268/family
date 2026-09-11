@@ -27,6 +27,20 @@ export interface DietEntry {
   memberId?: string;
 }
 
+/** 常用食物：云端沉淀，饮食录入时快捷带出名称与营养值 */
+export interface FavoriteFood {
+  id: string;
+  name: string;
+  quantity: string;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  /** 使用次数，列表按它降序排序（服务端维护） */
+  useCount: number;
+  lastUsedAt?: number;
+}
+
 export interface WorkoutSet {
   id: string;
   order: number;
@@ -34,11 +48,28 @@ export interface WorkoutSet {
   weightKg: number;
 }
 
+export type WorkoutCategory = 'strength' | 'cardio';
+
 export interface WorkoutEntry {
   id: string;
   date: string;
+  /**
+   * 运动类型：力量 / 有氧。
+   *
+   * ⚠️ 0.3.2 新增，**必须保持可选**：此前的训练记录没有该字段，
+   * 若设为必填，`parseStoredArray` 会在校验时把老记录判为非法并静默丢弃，
+   * 等同于用户历史训练数据消失。读取时统一由 `normalizeWorkoutCategory` 推断。
+   */
+  category?: WorkoutCategory;
   exerciseName: string;
+  /** 组明细：力量至少一组；有氧为空数组 */
   sets: WorkoutSet[];
+  /** 有氧：时长（分钟） */
+  durationMin?: number;
+  /** 有氧：距离（公里，选填） */
+  distanceKm?: number;
+  /** 消耗热量（千卡，选填；力量与有氧均可用） */
+  calories?: number;
   memberId?: string;
 }
 
@@ -161,6 +192,19 @@ export const MEAL_LABELS: Record<MealType, string> = {
   lunch: '午餐',
   dinner: '晚餐',
   snack: '加餐',
+};
+
+export const WORKOUT_CATEGORIES: ReadonlyArray<{
+  value: WorkoutCategory;
+  label: string;
+}> = [
+  { value: 'strength', label: '力量' },
+  { value: 'cardio', label: '有氧' },
+];
+
+export const WORKOUT_CATEGORY_LABELS: Record<WorkoutCategory, string> = {
+  strength: '力量',
+  cardio: '有氧',
 };
 
 export const MEMBER_ROLES: ReadonlyArray<{ value: MemberRole; label: string }> = [

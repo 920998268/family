@@ -1,6 +1,7 @@
 import type { DietEntry, TravelPlan, WorkoutEntry } from '@/types/models';
 import { MEAL_LABELS, TRAVEL_STATUS_LABELS } from '@/types/models';
 import { formatDateKey } from '@/utils/date';
+import { isCardioEntry } from '@/utils/workout';
 
 export function mealLabel(entry: DietEntry): string {
   return MEAL_LABELS[entry.mealType];
@@ -18,6 +19,17 @@ export function nutritionText(entry: DietEntry): string {
 }
 
 export function workoutText(entry: WorkoutEntry): string {
+  // 有氧记录没有组明细，展示「时长 · 距离 · 消耗热量」
+  if (isCardioEntry(entry)) {
+    return [
+      entry.durationMin === undefined ? '' : `${entry.durationMin} 分钟`,
+      entry.distanceKm === undefined ? '' : `${entry.distanceKm} 公里`,
+      entry.calories === undefined ? '' : `${entry.calories} 千卡`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
   return entry.sets
     .map((set) => `${set.weightKg}kg × ${set.reps}`)
     .join(' / ');
