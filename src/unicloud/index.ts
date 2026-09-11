@@ -3,6 +3,15 @@
  * 统一管理云对象、云函数调用与登录态。
  */
 
+import type { DietEntry, FavoriteFood, WorkoutEntry } from '@/types/models';
+import {
+  mapCloudDiets,
+  mapCloudFoods,
+  mapCloudWorkouts,
+  toCloudDiet,
+  toCloudWorkout,
+} from '@/utils/cloudMap';
+
 /** uni-id-co 云对象返回的登录结果 */
 export interface UniIdLoginResult {
   token: string;
@@ -299,4 +308,104 @@ export async function updateCloudMember(id: string, data: Record<string, any>): 
 /** 云端删除成员 */
 export async function removeCloudMember(id: string): Promise<void> {
   return callMember('remove', { _id: id });
+}
+
+/**
+ * 调用 diet 云函数（饮食打卡 + 常用食物）
+ *
+ * ⚠️ 与 callFamily / callMember 一致，必须走 getCloud()，
+ * 裸 `uniCloud.callFunction` 会命中框架静态快照而必然失败（见 getCloud 注释）。
+ */
+async function callDiet(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'diet',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `diet 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/** 拉取某一天的饮食记录（云端为准） */
+export async function listCloudDiets(date: string): Promise<DietEntry[]> {
+  return mapCloudDiets(await callDiet('list', { date }));
+}
+
+/** 拉取日期区间内的饮食记录 */
+export async function listCloudDietsRange(from: string, to: string): Promise<DietEntry[]> {
+  return mapCloudDiets(await callDiet('list', { from, to }));
+}
+
+/** 云端写入结果：`duplicated` 为真表示服务端已存在同 clientId 记录（幂等命中） */
+export interface CloudWriteResult {
+  _id: string;
+  duplicated?: boolean;
+}
+
+/** 新增饮食记录（以 entry.id 作为 clientId，服务端幂等） */
+export async function addCloudDiet(entry: DietEntry): Promise<CloudWriteResult> {
+  return callDiet('add', toCloudDiet(entry));
+}
+
+/** 更新饮食记录（同样以 entry.id 定位） */
+export async function updateCloudDiet(entry: DietEntry): Promise<void> {
+  return callDiet('update', toCloudDiet(entry));
+}
+
+/**
+ * 删除饮食记录（服务端幂等：记录不存在也返回成功）。
+ * 返回 `removed` 便于调用方区分「删掉了」与「云端本来就没有」。
+ */
+export async function removeCloudDiet(clientId: string): Promise<{ removed: boolean }> {
+  return callDiet('remove', { clientId });
+}
+
+/** 拉取常用食物（按使用次数降序，可按关键词模糊筛选） */
+export async function listCloudFavoriteFoods(keyword?: string): Promise<FavoriteFood[]> {
+  return mapCloudFoods(await callDiet('listFoods', keyword ? { keyword } : {}));
+}
+
+/** 删除常用食物（按名称，家庭内唯一） */
+export async function removeCloudFavoriteFood(name: string): Promise<void> {
+  return callDiet('removeFood', { name });
+}
+
+/** 调用 workout 云函数（运动打卡，力量 / 有氧共用） */
+async function callWorkout(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'workout',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `workout 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/** 拉取某一天的运动记录 */
+export async function listCloudWorkouts(date: string): Promise<WorkoutEntry[]> {
+  return mapCloudWorkouts(await callWorkout('list', { date }));
+}
+
+/** 拉取日期区间内的运动记录 */
+export async function listCloudWorkoutsRange(from: string, to: string): Promise<WorkoutEntry[]> {
+  return mapCloudWorkouts(await callWorkout('list', { from, to }));
+}
+
+/** 新增运动记录（以 entry.id 作为 clientId，服务端幂等） */
+export async function addCloudWorkout(entry: WorkoutEntry): Promise<CloudWriteResult> {
+  return callWorkout('add', toCloudWorkout(entry));
+}
+
+/** 更新运动记录 */
+export async function updateCloudWorkout(entry: WorkoutEntry): Promise<void> {
+  return callWorkout('update', toCloudWorkout(entry));
+}
+
+/** 删除运动记录（服务端幂等，返回 `removed` 见 removeCloudDiet 说明） */
+export async function removeCloudWorkout(clientId: string): Promise<{ removed: boolean }> {
+  return callWorkout('remove', { clientId });
 }
