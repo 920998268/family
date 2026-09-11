@@ -63,6 +63,32 @@ function pushError(errors: string[], error: string | null): void {
   }
 }
 
+/**
+ * 选填数值校验：未填写（undefined / null / 空串 / 0）视为有效并跳过区间校验，
+ * 已填写时仍执行类型与区间校验。
+ * 用于个人信息档案中的身高、体重等选填字段。
+ */
+function optionalNumberError(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return `${label}必须是数字`;
+  }
+  if (value === 0) {
+    return null;
+  }
+  if (value < min || value > max) {
+    return `${label}需要在 ${min} 到 ${max} 之间`;
+  }
+  return null;
+}
+
 function optionalIdError(value: unknown, label: string): string | null {
   if (value === undefined || value === null) {
     return null;
@@ -88,13 +114,19 @@ export function validateProfile(value: unknown): ValidationResult {
   if (!isGender(profile.gender)) {
     errors.push('性别不合法');
   }
-  if (typeof profile.birthDate !== 'string' || !isValidDateKey(profile.birthDate)) {
+  // 出生日期为选填：留空视为未填写，填写了才校验格式合法性
+  if (
+    profile.birthDate !== undefined &&
+    profile.birthDate !== null &&
+    profile.birthDate !== '' &&
+    (typeof profile.birthDate !== 'string' || !isValidDateKey(profile.birthDate))
+  ) {
     errors.push('出生日期不合法');
   }
 
-  pushError(errors, numberError(profile.heightCm, '身高', 50, 260));
-  pushError(errors, numberError(profile.currentWeightKg, '当前体重', 10, 500));
-  pushError(errors, numberError(profile.targetWeightKg, '目标体重', 10, 500));
+  pushError(errors, optionalNumberError(profile.heightCm, '身高', 50, 260));
+  pushError(errors, optionalNumberError(profile.currentWeightKg, '当前体重', 10, 500));
+  pushError(errors, optionalNumberError(profile.targetWeightKg, '目标体重', 10, 500));
 
   return { valid: errors.length === 0, errors };
 }

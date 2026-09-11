@@ -100,6 +100,45 @@ describe('validation', () => {
     expect(result.errors.join('')).toContain('身高');
   });
 
+  it('accepts a profile with optional fields left blank', () => {
+    const result = validateProfile({
+      name: '李四',
+      gender: 'female',
+      birthDate: '',
+      heightCm: 0,
+      currentWeightKg: 0,
+      targetWeightKg: 0,
+    });
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('accepts a profile whose optional fields are omitted or empty strings', () => {
+    expect(
+      validateProfile({ name: '王五', gender: 'other', birthDate: '' }).valid,
+    ).toBe(true);
+    expect(
+      validateProfile({
+        name: '王五',
+        gender: 'other',
+        birthDate: '',
+        heightCm: undefined,
+        currentWeightKg: null,
+        targetWeightKg: '',
+      }).valid,
+    ).toBe(true);
+  });
+
+  it('still rejects a non-empty but malformed birth date', () => {
+    const result = validateProfile({ ...profile, birthDate: '1990/01/01' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('')).toContain('出生日期');
+  });
+
+  it('still rejects out-of-range optional numbers when filled in', () => {
+    expect(validateProfile({ ...profile, currentWeightKg: 0.5 }).valid).toBe(false);
+    expect(validateProfile({ ...profile, targetWeightKg: 999 }).valid).toBe(false);
+  });
+
   it('accepts a valid diet entry', () => {
     const entry: DietEntry = {
       id: 'diet-1',
