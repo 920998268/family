@@ -205,7 +205,7 @@ async function save(): Promise<void> {
           gender: form.gender,
           avatarColor: AVATAR_COLORS[0],
           mobile: profile.mobile || authStore.mobile || undefined,
-          avatarUrl: form.avatarUrl || undefined,
+          avatarUrl: cloudAvatar || undefined,
           heightCm: profile.heightCm || undefined,
           currentWeightKg: profile.currentWeightKg || undefined,
           targetWeightKg: profile.targetWeightKg || undefined,
@@ -214,7 +214,7 @@ async function save(): Promise<void> {
         } as any);
       }
       // 云端同步：已有匹配成员则更新，否则创建（关联当前登录账号）
-      syncProfileToCloud(profile, form);
+      syncProfileToCloud(profile, form, cloudAvatar);
     }
 
     uni.showToast({ title: '已保存', icon: 'success' });
@@ -231,7 +231,7 @@ async function save(): Promise<void> {
 }
 
 // 保存个人档案后同步云端：云端有匹配成员则更新，否则创建并关联当前登录账号
-async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
+async function syncProfileToCloud(profile: Profile, form: any, cloudAvatar?: string): Promise<void> {
   try {
     const members = await listCloudMembers();
     const uid = authStore.uid;
@@ -244,7 +244,8 @@ async function syncProfileToCloud(profile: Profile, form: any): Promise<void> {
       role: form.role,
       mobile: profile.mobile || authStore.mobile || undefined,
       avatarColor: AVATAR_COLORS[0],
-      avatarUrl: form.avatarUrl || undefined,
+      // 必须写云端 fileID，本地临时路径换设备/清缓存后无法访问
+      avatarUrl: cloudAvatar || undefined,
       heightCm: profile.heightCm || undefined,
       currentWeightKg: profile.currentWeightKg || undefined,
       targetWeightKg: profile.targetWeightKg || undefined,
