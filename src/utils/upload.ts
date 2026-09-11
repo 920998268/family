@@ -1,4 +1,4 @@
-import { uploadAvatar } from '@/unicloud';
+import { getCloud, isCloudReady, uploadAvatar } from '@/unicloud';
 
 /**
  * 确保头像为云端可访问地址：
@@ -34,8 +34,15 @@ export async function resolveAvatarUrl(url?: string): Promise<string | undefined
   if (!url) return undefined;
   if (!url.startsWith('cloud://')) return url;
   if (tempUrlCache.has(url)) return tempUrlCache.get(url);
+  if (!isCloudReady()) {
+    // 未初始化时框架会给 uniCloud 挂上直接 reject 的桩方法，
+    // 报错信息是「cli项目需要使用HBuilderX运行菜单并关联服务空间」，容易误导
+    console.warn('[头像] uniCloud 未初始化，跳过临时URL解析，改用占位头像');
+    return url;
+  }
   try {
-    const res = await uniCloud.getTempFileURL({ fileList: [url] });
+    // 必须走 getCloud()：裸 uniCloud 编译后是框架的静态导出快照，取不到已初始化的实例
+    const res = await getCloud().getTempFileURL({ fileList: [url] });
     const u = res?.fileList?.[0]?.tempFileURL || url;
     tempUrlCache.set(url, u);
     return u;

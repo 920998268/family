@@ -67,25 +67,45 @@ export async function uploadAvatar(filePath: string): Promise<string> {
   return res.fileID;
 }
 
-/** 获取当前可用的 uniCloud 实例 */
-function getCloud(): any {
+/**
+ * 获取当前可用的 uniCloud 实例。
+ *
+ * ⚠️ 所有前端云能力调用都必须走这里，不要直接写裸 `uniCloud.xxx()`。
+ * 原因：编译后裸 `uniCloud` 会被内联成 `@dcloudio/uni-cloud` 的**静态导出快照**，
+ * 该快照在模块首次求值时就已经是「未关联服务空间」的桩对象，
+ * 之后 `initUniCloud()` 替换 `globalThis.uniCloud` 也改不到它，
+ * 于是运行时只会抛出「uni-app cli项目内使用uniCloud需要使用HBuilderX的运行菜单运行项目」。
+ * 本函数优先返回 `initUniCloud()` 产出的实例，因此不受该快照影响。
+ */
+export function getCloud(): any {
   return cloudInstance || (globalThis as any).uniCloud;
+}
+
+/** 云能力是否已成功初始化（未初始化时调用云 API 会命中框架桩对象而报错） */
+export function isCloudReady(): boolean {
+  return !!cloudInstance;
 }
 
 /**
  * 手动初始化 uniCloud（CLI 项目需要，框架不会自动注入服务空间配置）
  * 在 App.vue onLaunch 中调用一次即可
+ * @returns 是否初始化成功
  */
-export function initUniCloud(): void {
-  if (uniCloudInited) return;
+export function initUniCloud(): boolean {
+  if (uniCloudInited) return true;
   const spaceId = import.meta.env.VITE_UNI_CLOUD_SPACE_ID as string | undefined;
   const accessKey = import.meta.env.VITE_UNI_CLOUD_ACCESS_KEY as string | undefined;
   if (!spaceId || !accessKey) {
-    console.warn('[uniCloud] 缺少 VITE_UNI_CLOUD_SPACE_ID 或 VITE_UNI_CLOUD_ACCESS_KEY，云函数调用将不可用');
-    return;
+    console.warn('[uniCloud] 缺少 VITE_UNI_CLOUD_SPACE_ID 或 VITE_UNI_CLOUD_ACCESS_KEY，云能力不可用');
+    return false;
+  }
+  const raw = (globalThis as any).uniCloud;
+  if (!raw || typeof raw.init !== 'function') {
+    console.error('[uniCloud] 运行环境中未找到可用的 uniCloud，无法初始化');
+    return false;
   }
   try {
-    const inited = (globalThis as any).uniCloud.init({
+    const inited = raw.init({
       spaceId,
       spaceAppId: (import.meta.env.VITE_UNI_CLOUD_SPACE_APP_ID as string) || '',
       provider: 'alipay',
@@ -96,8 +116,10 @@ export function initUniCloud(): void {
     (globalThis as any).uniCloud = inited;
     uniCloudInited = true;
     console.log('[uniCloud] 初始化成功，spaceId:', spaceId);
+    return true;
   } catch (e) {
     console.error('[uniCloud] 初始化失败:', e);
+    return false;
   }
 }
 
