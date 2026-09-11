@@ -30,6 +30,8 @@ export interface FamilyInfo {
 /** family 云函数返回的当前用户家庭状态 */
 export interface MyFamilyStatus {
   hasFamily: boolean;
+  /** 当前登录账号 uid，用于云端恢复时匹配本人档案 */
+  uid?: string;
   familyId?: string;
   familyName?: string;
   role?: string;

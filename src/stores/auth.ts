@@ -108,6 +108,11 @@ export const useAuthStore = defineStore('auth', () => {
     checking.value = true;
     try {
       const status = await getMyFamilyStatus();
+      // 登录态由 token 维持，应用重启后 uid 需从云端回填，
+      // 否则云端恢复无法按 uid 匹配本人档案（档案会一直恢复不出来）
+      if (status.uid) {
+        uid.value = status.uid;
+      }
       if (status.hasFamily && status.familyId) {
         familyId.value = status.familyId;
         familyName.value = status.familyName || '';

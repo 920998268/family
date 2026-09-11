@@ -143,13 +143,14 @@ async function getMyStatus(uid) {
   const user = (await db.collection(USERS).doc(uid).get()).data[0]
   if (!user) return { code: 401, msg: '用户不存在' }
   if (!user.familyId) {
-    return { code: 0, data: { hasFamily: false, familyId: '', familyName: '', role: '', inviteCode: '' } }
+    return { code: 0, data: { hasFamily: false, uid, familyId: '', familyName: '', role: '', inviteCode: '' } }
   }
   const family = (await db.collection(FAMILIES).doc(user.familyId).get()).data[0]
   return {
     code: 0,
     data: {
       hasFamily: true,
+      uid,
       familyId: user.familyId,
       familyName: family ? family.name : '',
       role: user.familyRole || '',

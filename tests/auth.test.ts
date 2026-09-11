@@ -172,4 +172,51 @@ describe('auth store', () => {
     expect(store.nickname).toBe('');
     expect(store.isLoggedIn).toBe(false);
   });
+
+  it('fetchFamilyStatus 从云端回填 uid（应用重启后恢复档案的前提）', async () => {
+    vi.mocked(getMyFamilyStatus).mockResolvedValue({
+      hasFamily: true,
+      uid: 'user-9527',
+      familyId: 'fam-001',
+      familyName: '幸福一家',
+      role: 'owner',
+      inviteCode: 'AB12CD',
+    });
+    const store = useAuthStore();
+    // 模拟应用重启：restoreFromStorage 会把内存态清空
+    store.restoreFromStorage();
+    expect(store.uid).toBe('');
+
+    await store.fetchFamilyStatus();
+
+    expect(store.uid).toBe('user-9527');
+    expect(store.familyId).toBe('fam-001');
+    expect(store.hasFamily).toBe(true);
+  });
+
+  it('fetchFamilyStatus 在无家庭时也回填 uid 并清空家庭字段', async () => {
+    vi.mocked(getMyFamilyStatus).mockResolvedValue({
+      hasFamily: false,
+      uid: 'user-9527',
+      familyId: '',
+    });
+    const store = useAuthStore();
+    store.familyId = 'stale-family';
+
+    await store.fetchFamilyStatus();
+
+    expect(store.uid).toBe('user-9527');
+    expect(store.familyId).toBe('');
+    expect(store.hasFamily).toBe(false);
+  });
+
+  it('fetchFamilyStatus 在云端未返回 uid 时不清空已有 uid', async () => {
+    vi.mocked(getMyFamilyStatus).mockResolvedValue({ hasFamily: true, familyId: 'fam-001' });
+    const store = useAuthStore();
+    store.uid = 'user-keep';
+
+    await store.fetchFamilyStatus();
+
+    expect(store.uid).toBe('user-keep');
+  });
 });
