@@ -14,6 +14,7 @@ import { createLedgerService } from '@/services';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { formatDateKey } from '@/utils/date';
 import { formatMoney } from '@/utils/format';
+import { isPlaceholderProfile } from '@/utils/profile';
 import MemberAvatar from '@/components/MemberAvatar.vue';
 
 const authStore = useAuthStore();
@@ -43,7 +44,8 @@ const monthSummary = computed(() => {
   return createLedgerService().summary(entries);
 });
 
-const hasProfile = computed(() => profileStore.hasProfile());
+// 仅存了头像、身体数据尚未录入时，仍提示去完善档案
+const hasProfile = computed(() => !isPlaceholderProfile(profileStore.profile));
 
 onShow(() => {
   appStore.refreshToday();

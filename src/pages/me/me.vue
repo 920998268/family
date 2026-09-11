@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth';
 import { useFamilyStore } from '@/stores/family';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { ensureCloudAvatar } from '@/utils/upload';
+import { errorMessage } from '@/utils/error';
+import { createAvatarOnlyProfile } from '@/utils/profile';
 
 const profileStore = useProfileStore();
 const familyStore = useFamilyStore();
@@ -70,7 +72,7 @@ function onChooseAvatar(event: any): void {
   const url = event?.detail?.avatarUrl;
   if (url) {
     avatarUrl.value = url;
-    saveAvatar(url);
+    void saveAvatar(url);
   }
 }
 
@@ -83,7 +85,7 @@ function onAlbumTap(): void {
     success: (imgRes) => {
       if (imgRes.tempFilePaths && imgRes.tempFilePaths[0]) {
         avatarUrl.value = imgRes.tempFilePaths[0];
-        saveAvatar(imgRes.tempFilePaths[0]);
+        void saveAvatar(imgRes.tempFilePaths[0]);
       }
     },
   });
@@ -91,23 +93,26 @@ function onAlbumTap(): void {
 
 // 保存头像到 profile（本地临时路径先上传云存储，确保跨设备可显示）
 async function saveAvatar(url: string): Promise<void> {
-  const cloudUrl = await ensureCloudAvatar(url);
-  const current = profileStore.profile;
-  if (current) {
-    profileStore.save({ ...current, avatarUrl: cloudUrl } as any);
-  } else {
-    profileStore.save({
-      name: displayName.value,
-      gender: 'other',
-      birthDate: '',
-      heightCm: 0,
-      currentWeightKg: 0,
-      targetWeightKg: 0,
-      avatarUrl: cloudUrl,
-    } as any);
+  try {
+    const cloudUrl = await ensureCloudAvatar(url);
+    const current = profileStore.profile;
+    if (current) {
+      profileStore.save({ ...current, avatarUrl: cloudUrl } as any);
+    } else {
+      profileStore.save(createAvatarOnlyProfile(displayName.value, cloudUrl) as any);
+    }
+    avatarUrl.value = cloudUrl || url;
+    uni.showToast({ title: '头像已更新', icon: 'success' });
+  } catch (err) {
+    console.error('[me] 头像保存失败:', err);
+    // 保存失败时回退展示，避免留下无效的本地临时路径
+    avatarUrl.value = profileStore.profile?.avatarUrl || '';
+    uni.showModal({
+      title: '头像保存失败',
+      content: errorMessage(err, '请稍后重试'),
+      showCancel: false,
+    });
   }
-  avatarUrl.value = cloudUrl || url;
-  uni.showToast({ title: '头像已更新', icon: 'success' });
 }
 
 function goProfile(): void {
@@ -167,22 +172,22 @@ async function handleLogout(): Promise<void> {
       </view>
       <view class="profile-stats" @tap="goProfile">
         <view class="stat-item">
-          <text class="stat-value">{{ profile?.heightCm ?? '--' }}</text>
+          <text class="stat-value">{{ profile?.heightCm || '--' }}</text>
           <text class="stat-label">身高(cm)</text>
         </view>
         <view class="stat-divider" />
         <view class="stat-item">
-          <text class="stat-value">{{ profile?.currentWeightKg ?? '--' }}</text>
+          <text class="stat-value">{{ profile?.currentWeightKg || '--' }}</text>
           <text class="stat-label">体重(kg)</text>
         </view>
         <view class="stat-divider" />
         <view class="stat-item">
-          <text class="stat-value">{{ profile?.targetWeightKg ?? '--' }}</text>
+          <text class="stat-value">{{ profile?.targetWeightKg || '--' }}</text>
           <text class="stat-label">目标(kg)</text>
         </view>
         <view class="stat-divider" />
         <view class="stat-item">
-          <text class="stat-value">{{ profile?.birthDate?.slice(0, 7) ?? '--' }}</text>
+          <text class="stat-value">{{ profile?.birthDate ? profile.birthDate.slice(0, 7) : '--' }}</text>
           <text class="stat-label">出生年月</text>
         </view>
       </view>
