@@ -238,6 +238,18 @@ function validateListQuery(payload) {
   return { ok: true, value: { from: from || '', to: to || '' } }
 }
 
+/**
+ * 把 validateListQuery 的结果转成云数据库的 where 片段。
+ * 传入 dbCmd 而非直接引用 uniCloud，保证本函数可单元测试。
+ */
+function buildDateWhere(dbCmd, query) {
+  const q = query || {}
+  if (q.date) return { date: q.date }
+  if (q.from && q.to) return { date: dbCmd.gte(q.from).and(dbCmd.lte(q.to)) }
+  if (q.from) return { date: dbCmd.gte(q.from) }
+  return { date: dbCmd.lte(q.to) }
+}
+
 // 云端记录 → 前端 WorkoutEntry 形态（补齐 category，老记录也能正确显示）
 function toClientWorkout(row) {
   const doc = row || {}
@@ -279,5 +291,6 @@ module.exports = {
   validateWorkoutPayload,
   mergeWorkoutPatch,
   validateListQuery,
+  buildDateWhere,
   toClientWorkout
 }

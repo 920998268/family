@@ -1,0 +1,10 @@
+{
+  "name": "diet",
+  "version": "1.0.0",
+  "description": "饮食打卡云函数：饮食记录 + 常用食物",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}

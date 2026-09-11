@@ -1,0 +1,10 @@
+{
+  "name": "workout",
+  "version": "1.0.0",
+  "description": "运动打卡云函数：力量与有氧训练记录",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}

@@ -16,6 +16,8 @@ uniCloud-alipay/**/node_modules/
 src/uni_modules/uni-config-center/uniCloud/cloudfunctions/common/uni-config-center/uni-id/config.json
 
 # HBuilderX上传用的公共模块副本（来源为src/uni_modules，不重复提交）
-uniCloud-alipay/cloudfunctions/common/
+# 例外：checkin-shared 是本仓库自己的模块，没有别的来源，必须提交
+uniCloud-alipay/cloudfunctions/common/*
+!uniCloud-alipay/cloudfunctions/common/checkin-shared
 uniCloud-alipay/cloudfunctions/uni-captcha-co/
 uniCloud-alipay/cloudfunctions/common/uni-config-center/uni-id/config.json

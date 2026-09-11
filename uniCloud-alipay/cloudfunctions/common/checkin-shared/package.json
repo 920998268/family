@@ -1,0 +1,6 @@
+{
+  "name": "checkin-shared",
+  "version": "1.0.0",
+  "description": "打卡类云函数公共模块：登录态校验与家庭归属推导",
+  "main": "index.js"
+}

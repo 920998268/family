@@ -1,0 +1,74 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "clientId", "date", "mealType", "foodName", "quantity"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端记录 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "date": {
+      "bsonType": "string",
+      "title": "打卡日期 YYYY-MM-DD（字符串，服务端不做时区换算）"
+    },
+    "mealType": {
+      "bsonType": "string",
+      "title": "餐次：breakfast / lunch / dinner / snack"
+    },
+    "foodName": {
+      "bsonType": "string",
+      "title": "食物名称",
+      "maxLength": 40
+    },
+    "quantity": {
+      "bsonType": "string",
+      "title": "数量（如「1 碗」）",
+      "maxLength": 20
+    },
+    "calories": {
+      "bsonType": ["double", "null"],
+      "title": "热量（千卡）"
+    },
+    "protein": {
+      "bsonType": ["double", "null"],
+      "title": "蛋白质（g）"
+    },
+    "carbs": {
+      "bsonType": ["double", "null"],
+      "title": "碳水化合物（g）"
+    },
+    "fat": {
+      "bsonType": ["double", "null"],
+      "title": "脂肪（g）"
+    },
+    "memberId": {
+      "bsonType": ["string", "null"],
+      "title": "打卡成员（family_members._id；不属于本家庭时服务端置 null）"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}

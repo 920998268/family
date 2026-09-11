@@ -1,0 +1,69 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "clientId", "date", "category", "exerciseName", "sets"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端记录 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "date": {
+      "bsonType": "string",
+      "title": "打卡日期 YYYY-MM-DD（字符串，服务端不做时区换算）"
+    },
+    "category": {
+      "bsonType": "string",
+      "title": "运动类型：strength（力量）/ cardio（有氧）"
+    },
+    "exerciseName": {
+      "bsonType": "string",
+      "title": "动作 / 项目名称",
+      "maxLength": 40
+    },
+    "sets": {
+      "bsonType": "array",
+      "title": "组明细 [{ id, order, reps, weightKg }]；力量至少一组，有氧为空数组。元素级校验由云函数负责"
+    },
+    "durationMin": {
+      "bsonType": ["double", "null"],
+      "title": "有氧时长（分钟）"
+    },
+    "distanceKm": {
+      "bsonType": ["double", "null"],
+      "title": "有氧距离（公里，选填）"
+    },
+    "calories": {
+      "bsonType": ["double", "null"],
+      "title": "消耗热量（千卡，选填；力量与有氧均可用）"
+    },
+    "memberId": {
+      "bsonType": ["string", "null"],
+      "title": "打卡成员（family_members._id；不属于本家庭时服务端置 null）"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}

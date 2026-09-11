@@ -173,6 +173,24 @@ function validateListQuery(payload) {
   return { ok: true, value: { from: from || '', to: to || '' } }
 }
 
+/**
+ * 把 validateListQuery 的结果转成云数据库的 where 片段。
+ * 传入 dbCmd 而非直接引用 uniCloud，保证本函数可单元测试。
+ */
+function buildDateWhere(dbCmd, query) {
+  const q = query || {}
+  if (q.date) return { date: q.date }
+  if (q.from && q.to) return { date: dbCmd.gte(q.from).and(dbCmd.lte(q.to)) }
+  if (q.from) return { date: dbCmd.gte(q.from) }
+  return { date: dbCmd.lte(q.to) }
+}
+
+// 关键词模糊匹配前转义正则元字符，避免用户输入被当成正则执行
+function escapeRegExp(value) {
+  if (typeof value !== 'string') return ''
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 云端记录 → 前端 DietEntry 形态
 function toClientDiet(row) {
   const doc = row || {}
@@ -256,6 +274,8 @@ module.exports = {
   validateDietPayload,
   mergeDietPatch,
   validateListQuery,
+  buildDateWhere,
+  escapeRegExp,
   toClientDiet,
   validateFoodCollect,
   validateFoodQuery,

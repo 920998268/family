@@ -1,0 +1,65 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "name", "useCount"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "name": {
+      "bsonType": "string",
+      "title": "食物名称（家庭内唯一）",
+      "maxLength": 40
+    },
+    "quantity": {
+      "bsonType": "string",
+      "title": "默认数量（如「1 杯」）",
+      "maxLength": 20
+    },
+    "calories": {
+      "bsonType": ["double", "null"],
+      "title": "热量（千卡）"
+    },
+    "protein": {
+      "bsonType": ["double", "null"],
+      "title": "蛋白质（g）"
+    },
+    "carbs": {
+      "bsonType": ["double", "null"],
+      "title": "碳水化合物（g）"
+    },
+    "fat": {
+      "bsonType": ["double", "null"],
+      "title": "脂肪（g）"
+    },
+    "useCount": {
+      "bsonType": ["int", "double"],
+      "title": "使用次数（列表按它降序排序）"
+    },
+    "lastUsedAt": {
+      "bsonType": ["timestamp", "null"],
+      "title": "最近一次使用时间"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "首次录入者 uid"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}
