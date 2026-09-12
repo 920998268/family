@@ -43,7 +43,7 @@ describe('auth store', () => {
   it('初始状态未登录、无家庭', () => {
     vi.mocked(hasToken).mockReturnValue(false);
     const store = useAuthStore();
-    expect(store.isLoggedIn).toBe(false);
+    expect(store.isLoggedIn()).toBe(false);
     expect(store.hasFamily).toBe(false);
     expect(store.uid).toBe('');
     expect(store.familyId).toBe('');
@@ -54,7 +54,7 @@ describe('auth store', () => {
   it('已登录时 isLoggedIn 为 true', () => {
     vi.mocked(hasToken).mockReturnValue(true);
     const store = useAuthStore();
-    expect(store.isLoggedIn).toBe(true);
+    expect(store.isLoggedIn()).toBe(true);
   });
 
   it('restoreFromStorage 重置内存状态', () => {
@@ -170,7 +170,7 @@ describe('auth store', () => {
     expect(store.uid).toBe('');
     expect(store.familyId).toBe('');
     expect(store.nickname).toBe('');
-    expect(store.isLoggedIn).toBe(false);
+    expect(store.isLoggedIn()).toBe(false);
   });
 
   it('fetchFamilyStatus 从云端回填 uid（应用重启后恢复档案的前提）', async () => {

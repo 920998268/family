@@ -30,7 +30,26 @@ export const useAuthStore = defineStore('auth', () => {
   const checking = ref(false);
   const loggingIn = ref(false);
 
-  const isLoggedIn = computed(() => hasToken());
+  /**
+   * 是否已登录。
+   *
+   * ⚠️ **必须是函数，不能写成 `computed`。**
+   *
+   * token 由 uni-id-co 写入 uni storage，而 storage **不是响应式的**。
+   * 用 `computed(() => hasToken())` 包起来，这个 computed 没有任何响应式依赖，
+   * 于是**第一次求值后结果被永久缓存**：
+   * 未登录时求值过一次 → 之后即使登录成功也一直返回 `false`。
+   *
+   * 这条路径一定会踩中：`App.vue` 的 `onShow` 会在启动时（早于任何登录动作）
+   * 触发打卡云同步的前置判断，把 `false` 缓存下来；
+   * 之后再登录，所有云调用都会被静默跳过 —— 现象是「打卡一切正常，
+   * 但数据只存在本地、云端一条都没有，也不报错」。
+   *
+   * 每次调用都实时读一次 storage 才是正确语义（storage 读取是同步且廉价的）。
+   */
+  function isLoggedIn(): boolean {
+    return hasToken();
+  }
   const hasFamily = computed(() => !!familyId.value);
   const isOwner = computed(() => familyRole.value === 'owner');
 

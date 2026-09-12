@@ -59,7 +59,7 @@ onShow(() => {
   mealStore.load(today.value);
   travelStore.load();
   // 兜底：本地无档案但有家庭时，从云端恢复已保存数据（防抖）
-  if (!profileStore.profile && authStore.isLoggedIn && authStore.hasFamily) {
+  if (!profileStore.profile && authStore.isLoggedIn() && authStore.hasFamily) {
     restoreFamilyDataFromCloud(authStore.uid)
       .then((r) => {
         if (r.restoredProfile) profileStore.load();

@@ -70,7 +70,7 @@ onShow(() => {
   loadStatus();
   familyStore.load();
   // 兜底：本地无成员但有家庭时，从云端恢复已保存的成员与个人档案（防抖）
-  if (!familyStore.members.length && authStore.isLoggedIn && authStore.hasFamily) {
+  if (!familyStore.members.length && authStore.isLoggedIn() && authStore.hasFamily) {
     restoreFamilyDataFromCloud(authStore.uid)
       .then((r) => {
         if (r.restoredMembers) familyStore.load();

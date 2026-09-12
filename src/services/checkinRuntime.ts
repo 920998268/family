@@ -18,7 +18,9 @@ import type { SyncDomain, SyncOp } from '@/utils/pendingSync';
  */
 export function isCheckinCloudReady(): boolean {
   const auth = useAuthStore();
-  return auth.isLoggedIn && auth.hasFamily;
+  // isLoggedIn 是函数（不是 computed）——它每次都实时读 storage，
+  // 否则「启动时未登录 → 之后登录」会让本判断被永久缓存为 false
+  return auth.isLoggedIn() && auth.hasFamily;
 }
 
 /**

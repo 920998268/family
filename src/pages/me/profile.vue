@@ -192,7 +192,7 @@ async function save(): Promise<void> {
     profileStore.save({ ...profile, avatarUrl: cloudAvatar, role: form.role } as any);
 
     // 保存个人档案后，如果已登录且有家庭，但家庭成员中没有当前用户记录，自动创建
-    if (authStore.isLoggedIn && authStore.hasFamily) {
+    if (authStore.isLoggedIn() && authStore.hasFamily) {
       // 本地成员同步：无当前用户记录时自动创建
       familyStore.load();
       const existingMember = familyStore.members.find(
