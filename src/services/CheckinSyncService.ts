@@ -1,9 +1,13 @@
-import type { DietEntry, WorkoutEntry } from '@/types/models';
+import type { DietEntry, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
 import type { StorageAdapter } from '@/storage/StorageAdapter';
 import type { DietRepository } from '@/repositories/DietRepository';
 import type { WorkoutRepository } from '@/repositories/WorkoutRepository';
+import type { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
+import type { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
+import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
+import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
 import { mergeCheckins } from '@/utils/checkinMerge';
 import {
   MAX_SYNC_ATTEMPTS,
@@ -23,8 +27,12 @@ export interface CheckinSyncDeps {
   storage: StorageAdapter;
   dietRepository: DietRepository;
   workoutRepository: WorkoutRepository;
+  studyPlanRepository: StudyPlanRepository;
+  studyCheckinRepository: StudyCheckinRepository;
   dietRemote: DietRemoteRepo;
   workoutRemote: WorkoutRemoteRepo;
+  studyPlanRemote: StudyPlanRemoteRepo;
+  studyCheckinRemote: StudyCheckinRemoteRepo;
   /** 便于测试固定时间；默认 `Date.now` */
   now?: () => number;
 }
@@ -49,7 +57,7 @@ export interface FlushSummary {
 type PushOutcome = 'ok' | 'skip';
 
 /**
- * 打卡数据同步服务（饮食 + 运动）。
+ * 打卡数据同步服务（饮食 + 运动 + 学习计划 + 学习打卡）。
  *
  * 策略（对应方案文档 §5.4）：
  * - **写＝本地优先**：store 先写本地缓存让 UI 即时生效，再 `markDirty()` 登记待同步；
@@ -97,6 +105,29 @@ export class CheckinSyncService {
     const remote = await this.deps.workoutRemote.listByDate(date);
     const merged = mergeCheckins(local, remote, this.pendingIds('workout'));
     this.deps.workoutRepository.saveByDate(date, merged);
+    return merged;
+  }
+
+  /**
+   * 拉取**全部**学习计划并与本地合并。
+   *
+   * ⚠️ 与饮食 / 运动不同：计划**不分日期**（本地也是单键存全部），
+   * 所以这里没有 date 参数，拉的是全量列表。
+   */
+  async pullStudyPlans(): Promise<StudyPlan[]> {
+    const local = this.deps.studyPlanRepository.getAll();
+    const remote = await this.deps.studyPlanRemote.list();
+    const merged = mergeCheckins(local, remote, this.pendingIds('studyPlan'));
+    this.deps.studyPlanRepository.saveAll(merged);
+    return merged;
+  }
+
+  /** 拉取某日学习打卡并与本地合并（打卡按日期组织，同饮食 / 运动） */
+  async pullStudyCheckins(date: string): Promise<StudyCheckin[]> {
+    const local = this.deps.studyCheckinRepository.getByDate(date);
+    const remote = await this.deps.studyCheckinRemote.listByDate(date);
+    const merged = mergeCheckins(local, remote, this.pendingIds('studyCheckin'));
+    this.deps.studyCheckinRepository.saveByDate(date, merged);
     return merged;
   }
 
@@ -174,7 +205,20 @@ export class CheckinSyncService {
   }
 
   private pushOne(item: PendingSyncItem): Promise<PushOutcome> {
-    return item.domain === 'diet' ? this.pushDiet(item) : this.pushWorkout(item);
+    switch (item.domain) {
+      case 'diet':
+        return this.pushDiet(item);
+      case 'workout':
+        return this.pushWorkout(item);
+      case 'studyPlan':
+        return this.pushStudyPlan(item);
+      case 'studyCheckin':
+        return this.pushStudyCheckin(item);
+      default:
+        // 未知 domain（例如降级后读到更高版本写入的标记）：直接跳过，
+        // 由调用方当作「本地无内容可推」放弃，避免死循环
+        return Promise.resolve('skip');
+    }
   }
 
   private async pushDiet(item: PendingSyncItem): Promise<PushOutcome> {
@@ -224,6 +268,81 @@ export class CheckinSyncService {
       await this.deps.workoutRemote.update(entry);
     }
     return 'ok';
+  }
+
+  /**
+   * 推送学习计划。
+   *
+   * `remove` 分支**不需要**本地还留着这份计划 —— 与饮食 / 运动一致。
+   * 服务端会级联删掉该计划的全部打卡；本地那份级联由 `StudyService.removePlan`
+   * 在删除当时就完成了，所以这里不做重复清理。
+   */
+  private async pushStudyPlan(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      await this.deps.studyPlanRemote.remove(item.clientId);
+      return 'ok';
+    }
+
+    const plan = this.findStudyPlan(item);
+    if (!plan) {
+      return 'skip';
+    }
+
+    if (item.op === 'update') {
+      await this.deps.studyPlanRemote.update(plan);
+      return 'ok';
+    }
+
+    const result = await this.deps.studyPlanRemote.create(plan);
+    if (result?.duplicated) {
+      // 服务端已有同 clientId（多半是首次 add 的响应丢了，其实已写入）。
+      // 云端 add 命中重复时**不会更新内容**，不再补一次 update 的话，
+      // 用户在首次 add 之后做的编辑会永远停在云端旧版本。规则同饮食 / 运动。
+      await this.deps.studyPlanRemote.update(plan);
+    }
+    return 'ok';
+  }
+
+  /**
+   * 推送学习打卡。
+   *
+   * ⚠️ 打卡**没有 update 动作**（本地 `StudyService` 也只支持打卡 / 取消打卡），
+   * 所以 `update` 与 `add` 同样走 `create` —— 服务端 `addCheckin` 本身幂等，
+   * 不会产生副作用。
+   */
+  private async pushStudyCheckin(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      await this.deps.studyCheckinRemote.remove(item.clientId);
+      return 'ok';
+    }
+
+    const checkin = this.findStudyCheckin(item);
+    if (!checkin) {
+      // 本地已无这条打卡（例如所属计划被删、级联清理掉了）——
+      // 标记失去意义，直接放弃，不去打一次注定 404 的云调用
+      return 'skip';
+    }
+
+    await this.deps.studyCheckinRemote.create(checkin);
+    return 'ok';
+  }
+
+  /** 计划是全量列表，直接按 id 找（没有日期分区，无需按日期兜底） */
+  private findStudyPlan(item: PendingSyncItem): StudyPlan | undefined {
+    return this.deps.studyPlanRepository
+      .getAll()
+      .find((plan) => plan.id === item.clientId);
+  }
+
+  /** 按标记里记的日期找；找不到再全量兜底一次（记录可能被改到了别的日期） */
+  private findStudyCheckin(item: PendingSyncItem): StudyCheckin | undefined {
+    const inDate = this.deps.studyCheckinRepository
+      .getByDate(item.date)
+      .find((checkin) => checkin.id === item.clientId);
+    return (
+      inDate ??
+      this.deps.studyCheckinRepository.getAll().find((checkin) => checkin.id === item.clientId)
+    );
   }
 
   /** 按标记里记的日期找；找不到再全量兜底一次（记录可能被改到了别的日期） */

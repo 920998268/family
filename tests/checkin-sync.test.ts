@@ -5,8 +5,12 @@ import { setStorageAdapter } from '@/storage';
 import { getCheckinSyncService } from '@/services';
 import { DietRepository } from '@/repositories/DietRepository';
 import { WorkoutRepository } from '@/repositories/WorkoutRepository';
+import { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
+import { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
+import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
+import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
 import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { MAX_SYNC_ATTEMPTS, readPendingSync } from '@/utils/pendingSync';
 import type { DietEntry, WorkoutEntry } from '@/types/models';
@@ -55,12 +59,33 @@ function createWorkoutRemote(): WorkoutRemoteRepo {
   };
 }
 
+function createStudyPlanRemote(): StudyPlanRemoteRepo {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockResolvedValue({ _id: 'doc-3' }),
+    update: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue({ removed: true, deletedCheckins: 0 }),
+  };
+}
+
+function createStudyCheckinRemote(): StudyCheckinRemoteRepo {
+  return {
+    listByDate: vi.fn().mockResolvedValue([]),
+    create: vi.fn().mockResolvedValue({ _id: 'doc-4' }),
+    remove: vi.fn().mockResolvedValue({ removed: true }),
+  };
+}
+
 function createHarness() {
   const storage = new InMemoryStorageAdapter();
   const dietRepository = new DietRepository(storage);
   const workoutRepository = new WorkoutRepository(storage);
+  const studyPlanRepository = new StudyPlanRepository(storage);
+  const studyCheckinRepository = new StudyCheckinRepository(storage);
   const dietRemote = createDietRemote();
   const workoutRemote = createWorkoutRemote();
+  const studyPlanRemote = createStudyPlanRemote();
+  const studyCheckinRemote = createStudyCheckinRemote();
 
   // 单调递增的时钟，便于断言 queuedAt 的代次变化
   let clock = 1000;
@@ -68,12 +93,27 @@ function createHarness() {
     storage,
     dietRepository,
     workoutRepository,
+    studyPlanRepository,
+    studyCheckinRepository,
     dietRemote,
     workoutRemote,
+    studyPlanRemote,
+    studyCheckinRemote,
     now: () => (clock += 1),
   });
 
-  return { storage, dietRepository, workoutRepository, dietRemote, workoutRemote, sync };
+  return {
+    storage,
+    dietRepository,
+    workoutRepository,
+    studyPlanRepository,
+    studyCheckinRepository,
+    dietRemote,
+    workoutRemote,
+    studyPlanRemote,
+    studyCheckinRemote,
+    sync,
+  };
 }
 
 afterEach(() => {

@@ -7,8 +7,22 @@ export const PENDING_SYNC_KEY = 'family.pendingSync.v1';
 /** 连续失败达到该次数即丢弃，避免死循环重投 */
 export const MAX_SYNC_ATTEMPTS = 5;
 
-export type SyncDomain = 'diet' | 'workout';
+/**
+ * 待同步的领域。
+ *
+ * ⚠️ 学习占了**两个** domain：计划与打卡是两个独立实体、各自有幂等键，
+ * 出队/失败要分别记账。合成一个 domain 的话，用打卡的 clientId 去出队计划，
+ * 或者反过来，会互相误清标记。
+ */
+export type SyncDomain = 'diet' | 'workout' | 'studyPlan' | 'studyCheckin';
 export type SyncOp = 'add' | 'update' | 'remove';
+
+const SYNC_DOMAINS: ReadonlySet<string> = new Set<SyncDomain>([
+  'diet',
+  'workout',
+  'studyPlan',
+  'studyCheckin',
+]);
 
 /**
  * 一条待同步标记。
@@ -41,7 +55,8 @@ function isPendingSyncItem(value: unknown): boolean {
   }
   const item = value as Partial<PendingSyncItem>;
   return (
-    (item.domain === 'diet' || item.domain === 'workout') &&
+    typeof item.domain === 'string' &&
+    SYNC_DOMAINS.has(item.domain) &&
     typeof item.clientId === 'string' &&
     !!item.clientId &&
     typeof item.op === 'string' &&

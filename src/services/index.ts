@@ -23,6 +23,8 @@ import { FavoriteFoodService } from './FavoriteFoodService';
 import { createDietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import { createFavoriteFoodRemoteRepo } from '@/repositories/remote/FavoriteFoodRemoteRepo';
 import { createWorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
+import { createStudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
+import { createStudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
 
 export function createProfileService(): ProfileService {
   return new ProfileService(new ProfileRepository(getStorageAdapter()));
@@ -83,13 +85,17 @@ export function getCheckinSyncService(): CheckinSyncService {
   const adapter = getStorageAdapter();
   if (!checkinSyncService || checkinSyncAdapter !== adapter) {
     checkinSyncAdapter = adapter;
-    checkinSyncService = new CheckinSyncService({
-      storage: adapter,
-      dietRepository: new DietRepository(adapter),
-      workoutRepository: new WorkoutRepository(adapter),
-      dietRemote: createDietRemoteRepo(),
-      workoutRemote: createWorkoutRemoteRepo(),
-    });
+      checkinSyncService = new CheckinSyncService({
+        storage: adapter,
+        dietRepository: new DietRepository(adapter),
+        workoutRepository: new WorkoutRepository(adapter),
+        studyPlanRepository: new StudyPlanRepository(adapter),
+        studyCheckinRepository: new StudyCheckinRepository(adapter),
+        dietRemote: createDietRemoteRepo(),
+        workoutRemote: createWorkoutRemoteRepo(),
+        studyPlanRemote: createStudyPlanRemoteRepo(),
+        studyCheckinRemote: createStudyCheckinRemoteRepo(),
+      });
   }
   return checkinSyncService;
 }
