@@ -1,0 +1,10 @@
+{
+  "name": "study",
+  "version": "1.0.0",
+  "description": "学习打卡云函数：学习计划与每日打卡",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}
