@@ -89,7 +89,7 @@
 | **M1 核心档案** | 云端数据模型落库；个人档案 + 家庭成员远程化 | 档案/成员增删改查走云端，刷新不丢 |
 | **M2 打卡模块** | 饮食、运动打卡远程化 | 打卡数据云端持久化 + 双端可见 |
 | ↳ **M2-A** ✅ | 饮食 + 运动打卡上云（含扩展有氧、常用食物） | 见 `0.3.2-m2a-requirements-and-solution.md` §1.2；部署与验收见 `0.3.2-m2a-deploy-checklist.md`。**2026-09-12 真机验收通过** |
-| ↳ **M2-B** 🚧 | 学习打卡上云 | 见 `0.3.3-m2b-requirements-and-solution.md` §1.2 |
+| ↳ **M2-B** ✅ | 学习打卡上云（计划 + 每日打卡） | 见 `0.3.3-m2b-requirements-and-solution.md` §1.2；部署与验收见 `0.3.3-m2b-deploy-checklist.md`。**代码完成，真机验收待执行** |
 
 > ### M2 范围歧义 —— 已定夺（2026-09-12）
 >
@@ -103,7 +103,7 @@
 > 理由：产品语义上「打卡中心」本就是三大模块，学习留在本地会让「打卡已上云」半截；
 > 且 M2-A 刚建好的基建（鉴权 / 同步服务 / 映射层 / 离线标记）可直接复用，边际成本低；
 > 若并入 M3 会使该阶段变成三个模块，规模过大。
-| **M3 计划模块** | 学习计划、食谱、出行计划远程化 | 三类计划云端持久化 + 双端可见 |
+| **M3 计划模块** | 食谱、出行计划远程化（学习已并入 M2-B 完成） | 两类计划云端持久化 + 双端可见 |
 | **M4 账本与迁移** | 收支账本远程化；「本地数据导入云端」入口 | 旧本地数据可一键导入，账本云端化 |
 | **M5 上线** | 体验版/正式版；request 合法域名；隐私政策/用户协议；备份与导出 | 可正式使用，符合平台审核要求 |
 
@@ -191,8 +191,8 @@ familyRole: string    // owner | member
 | `diets` | 🟡 | 饮食打卡 | familyId, clientId, memberId, date, mealType, foodName, quantity, calories, protein, carbs, fat, createdByUid, createdAt, updatedAt |
 | `workouts` | 🟡 | 运动打卡（力量 / 有氧共用，靠 `category` 区分） | familyId, clientId, memberId, date, category(strength/cardio), exerciseName, sets[{id,order,reps,weightKg}], durationMin, distanceKm, calories, createdByUid, createdAt, updatedAt |
 | `favorite_foods` | 🟡 | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
-| `study_plans` | 🚧 | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
-| `study_checkins` | 🚧 | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
+| `study_plans` | 🟡 | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
+| `study_checkins` | 🟡 | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
 | `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
 | `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
