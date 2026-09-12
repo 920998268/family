@@ -25,6 +25,7 @@ import { createFavoriteFoodRemoteRepo } from '@/repositories/remote/FavoriteFood
 import { createWorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import { createStudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import { createStudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import { createTombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 
 export function createProfileService(): ProfileService {
   return new ProfileService(new ProfileRepository(getStorageAdapter()));
@@ -95,6 +96,7 @@ export function getCheckinSyncService(): CheckinSyncService {
         workoutRemote: createWorkoutRemoteRepo(),
         studyPlanRemote: createStudyPlanRemoteRepo(),
         studyCheckinRemote: createStudyCheckinRemoteRepo(),
+        tombstoneRemote: createTombstoneRemoteRepo(),
       });
   }
   return checkinSyncService;

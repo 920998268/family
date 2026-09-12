@@ -11,6 +11,7 @@ import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { MAX_SYNC_ATTEMPTS, readPendingSync } from '@/utils/pendingSync';
 import type { DietEntry, WorkoutEntry } from '@/types/models';
@@ -68,13 +69,20 @@ function createStudyPlanRemote(): StudyPlanRemoteRepo {
   };
 }
 
-function createStudyCheckinRemote(): StudyCheckinRemoteRepo {
-  return {
-    listByDate: vi.fn().mockResolvedValue([]),
-    create: vi.fn().mockResolvedValue({ _id: 'doc-4' }),
-    remove: vi.fn().mockResolvedValue({ removed: true }),
-  };
-}
+  function createStudyCheckinRemote(): StudyCheckinRemoteRepo {
+    return {
+      listByDate: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({ _id: 'doc-4' }),
+      remove: vi.fn().mockResolvedValue({ removed: true }),
+    };
+  }
+
+  /** 墓碑默认返回空：既有用例不受删除同步影响 */
+  function createTombstoneRemote(): TombstoneRemoteRepo {
+    return {
+      listAll: vi.fn().mockResolvedValue([]),
+    };
+  }
 
 function createHarness() {
   const storage = new InMemoryStorageAdapter();
@@ -85,22 +93,24 @@ function createHarness() {
   const dietRemote = createDietRemote();
   const workoutRemote = createWorkoutRemote();
   const studyPlanRemote = createStudyPlanRemote();
-  const studyCheckinRemote = createStudyCheckinRemote();
+    const studyCheckinRemote = createStudyCheckinRemote();
+    const tombstoneRemote = createTombstoneRemote();
 
-  // 单调递增的时钟，便于断言 queuedAt 的代次变化
-  let clock = 1000;
-  const sync = new CheckinSyncService({
-    storage,
-    dietRepository,
-    workoutRepository,
-    studyPlanRepository,
-    studyCheckinRepository,
-    dietRemote,
-    workoutRemote,
-    studyPlanRemote,
-    studyCheckinRemote,
-    now: () => (clock += 1),
-  });
+    // 单调递增的时钟，便于断言 queuedAt 的代次变化
+    let clock = 1000;
+    const sync = new CheckinSyncService({
+      storage,
+      dietRepository,
+      workoutRepository,
+      studyPlanRepository,
+      studyCheckinRepository,
+      dietRemote,
+      workoutRemote,
+      studyPlanRemote,
+      studyCheckinRemote,
+      tombstoneRemote,
+      now: () => (clock += 1),
+    });
 
   return {
     storage,
@@ -111,10 +121,11 @@ function createHarness() {
     dietRemote,
     workoutRemote,
     studyPlanRemote,
-    studyCheckinRemote,
-    sync,
-  };
-}
+      studyCheckinRemote,
+      tombstoneRemote,
+      sync,
+    };
+  }
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -296,7 +307,8 @@ describe('flush（重发待同步）', () => {
 
     const summary = await sync.flush();
 
-    expect(dietRemote.remove).toHaveBeenCalledWith('diet-gone');
+    // 第二个参数是墓碑的日期兜底（记录已不存在时用它定位），见删除同步方案 §3.2
+    expect(dietRemote.remove).toHaveBeenCalledWith('diet-gone', DATE);
     expect(summary.succeeded).toBe(1);
     expect(sync.pendingCount()).toBe(0);
   });

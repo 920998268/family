@@ -8,7 +8,14 @@ import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 import { mergeCheckins } from '@/utils/checkinMerge';
+import {
+  groupTombstonesByDomain,
+  nextTombstoneCursor,
+  readTombstoneCursor,
+  writeTombstoneCursor,
+} from '@/utils/tombstone';
 import {
   MAX_SYNC_ATTEMPTS,
   dequeuePendingSync,
@@ -33,6 +40,8 @@ export interface CheckinSyncDeps {
   workoutRemote: WorkoutRemoteRepo;
   studyPlanRemote: StudyPlanRemoteRepo;
   studyCheckinRemote: StudyCheckinRemoteRepo;
+  /** 墓碑（删除日志）远端读取，用于跨设备同步删除 */
+  tombstoneRemote: TombstoneRemoteRepo;
   /** 便于测试固定时间；默认 `Date.now` */
   now?: () => number;
 }
@@ -68,8 +77,19 @@ type PushOutcome = 'ok' | 'skip';
  * 未加入家庭时云函数会一直报错，而失败次数累加到上限会把标记丢掉＝本地记录再也上不了云。
  * 调用方（App / 页面的 onShow）需先判断登录与家庭状态，见第 6 步接线。
  */
+/** 应用墓碑的结果 */
+export interface TombstoneSummary {
+  /** 本轮拉到的墓碑条数 */
+  fetched: number;
+  /** 实际删除的本地记录条数（本地本来就没有的不计） */
+  removed: number;
+  /** 推进后的游标 */
+  cursor: number;
+}
+
 export class CheckinSyncService {
   private inFlight: Promise<FlushSummary> | null = null;
+  private tombstoneInFlight: Promise<void> | null = null;
 
   constructor(private readonly deps: CheckinSyncDeps) {}
 
@@ -88,10 +108,135 @@ export class CheckinSyncService {
   }
 
   /**
+   * 拉取并应用墓碑（删除日志）：让「别的设备删掉的记录」在本机也消失。
+   *
+   * 这是跨设备删除同步的落地（详见 `docs/0.3.4-cross-device-delete-sync.md`）。
+   * 之所以需要墓碑而不是「云端没有即删除」：本地有大量**从未上云的历史记录**，
+   * 它们同样表现为「云端没有」，靠推断会把这些记录全部误删。
+   *
+   * ⚠️ **删除优先**：被墓碑命中的记录，连同它身上可能存在的待同步标记一起清掉。
+   * 不清的话，`push` 的 `add` 分支会把记录重新建回云端 ——
+   * A 端刚删又看到它，两端来回横跳，比丢一次离线编辑严重。
+   */
+  async applyTombstones(): Promise<TombstoneSummary> {
+    const since = readTombstoneCursor(this.deps.storage);
+    const items = await this.deps.tombstoneRemote.listAll(since);
+
+    let removed = 0;
+    for (const [domain, list] of groupTombstonesByDomain(items)) {
+      for (const item of list) {
+        if (this.removeLocalByTombstone(domain, item.clientId, item.date)) {
+          removed += 1;
+          // 不传 queuedAt = 无条件丢弃（不做代次校验），因为删除优先于任何待推送的修改
+          dropPendingSync(this.deps.storage, domain, item.clientId);
+        }
+      }
+    }
+
+    const cursor = nextTombstoneCursor(since, items);
+    writeTombstoneCursor(this.deps.storage, cursor);
+    return { fetched: items.length, removed, cursor };
+  }
+
+  /**
+   * 保证本轮已经应用过墓碑；并发调用共享同一次执行。
+   *
+   * ⚠️ 失败时**只告警、不抛出**：删除同步是增强能力，
+   * 不该因为它挂了就让整个读取流程拿不到数据（本地已先渲染过画面）。
+   */
+  private ensureTombstonesApplied(): Promise<void> {
+    if (this.tombstoneInFlight) {
+      return this.tombstoneInFlight;
+    }
+    const run = this.applyTombstones()
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        console.warn('[同步] 墓碑应用失败，本轮跳过删除同步：', error);
+      })
+      .finally(() => {
+        this.tombstoneInFlight = null;
+      });
+    this.tombstoneInFlight = run;
+    return run;
+  }
+
+  /** 按 id 删掉本地记录；本地本来就没有则返回 false（不产生多余写操作） */
+  private removeLocalByTombstone(domain: SyncDomain, clientId: string, hintDate = ''): boolean {
+    switch (domain) {
+      case 'diet':
+        return this.removeFromPartitioned(this.deps.dietRepository, clientId, hintDate);
+      case 'workout':
+        return this.removeFromPartitioned(this.deps.workoutRepository, clientId, hintDate);
+      case 'studyCheckin':
+        return this.removeFromPartitioned(this.deps.studyCheckinRepository, clientId, hintDate);
+      case 'studyPlan':
+        return this.removeStudyPlanLocal(clientId);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * 「按日期分区存储」的仓储通用的按 id 删除。
+   *
+   * ⚠️ 要同时清两个日期：**记录自身的 date** 与**墓碑上带的 date**。
+   * 正常情况两者一致；但历史脏数据里可能存在「存在 A 日期键下、date 字段却是 B」的记录，
+   * 只清其中一个会漏删，漏删的后果是「删不掉的记录」，比多清一次严重。
+   * （这条正是被单测逼出来的：用例里 checkin-2 就属于这种不一致数据。）
+   */
+  private removeFromPartitioned<T extends { id: string; date: string }>(
+    repo: {
+      getAll(): T[];
+      getByDate(date: string): T[];
+      saveByDate(date: string, entries: T[]): void;
+    },
+    clientId: string,
+    hintDate = '',
+  ): boolean {
+    const dates = new Set<string>();
+    for (const entry of repo.getAll()) {
+      if (entry.id === clientId) {
+        dates.add(entry.date);
+      }
+    }
+    if (dates.size === 0 && !hintDate) {
+      return false;
+    }
+    if (hintDate) {
+      dates.add(hintDate);
+    }
+
+    let removed = false;
+    for (const date of dates) {
+      const before = repo.getByDate(date);
+      const next = before.filter((entry) => entry.id !== clientId);
+      if (next.length !== before.length) {
+        repo.saveByDate(date, next);
+        removed = true;
+      }
+    }
+    return removed;
+  }
+
+  /** 学习计划是全量单键存储（不分日期），单独处理 */
+  private removeStudyPlanLocal(clientId: string): boolean {
+    const all = this.deps.studyPlanRepository.getAll();
+    if (!all.some((plan) => plan.id === clientId)) {
+      return false;
+    }
+    this.deps.studyPlanRepository.saveAll(all.filter((plan) => plan.id !== clientId));
+    return true;
+  }
+
+  /**
    * 拉取某日饮食记录并与本地合并，合并结果回写本地缓存后返回。
    * 云端失败的异常**会向上抛出**，由调用方决定是否保留本地画面（本地已先渲染过）。
+   *
+   * ⚠️ 合并前**先应用墓碑**：否则本地那条已被别处删除的记录会被当成
+   * 「本地独有」保留下来，合并结果又把它写回本地 —— 删了等于没删。
    */
   async pullDiets(date: string): Promise<DietEntry[]> {
+    await this.ensureTombstonesApplied();
     const local = this.deps.dietRepository.getByDate(date);
     const remote = await this.deps.dietRemote.listByDate(date);
     const merged = mergeCheckins(local, remote, this.pendingIds('diet'));
@@ -101,6 +246,7 @@ export class CheckinSyncService {
 
   /** 拉取某日运动记录并与本地合并，逻辑同 `pullDiets` */
   async pullWorkouts(date: string): Promise<WorkoutEntry[]> {
+    await this.ensureTombstonesApplied();
     const local = this.deps.workoutRepository.getByDate(date);
     const remote = await this.deps.workoutRemote.listByDate(date);
     const merged = mergeCheckins(local, remote, this.pendingIds('workout'));
@@ -115,6 +261,7 @@ export class CheckinSyncService {
    * 所以这里没有 date 参数，拉的是全量列表。
    */
   async pullStudyPlans(): Promise<StudyPlan[]> {
+    await this.ensureTombstonesApplied();
     const local = this.deps.studyPlanRepository.getAll();
     const remote = await this.deps.studyPlanRemote.list();
     const merged = mergeCheckins(local, remote, this.pendingIds('studyPlan'));
@@ -124,6 +271,7 @@ export class CheckinSyncService {
 
   /** 拉取某日学习打卡并与本地合并（打卡按日期组织，同饮食 / 运动） */
   async pullStudyCheckins(date: string): Promise<StudyCheckin[]> {
+    await this.ensureTombstonesApplied();
     const local = this.deps.studyCheckinRepository.getByDate(date);
     const remote = await this.deps.studyCheckinRemote.listByDate(date);
     const merged = mergeCheckins(local, remote, this.pendingIds('studyCheckin'));
@@ -223,7 +371,8 @@ export class CheckinSyncService {
 
   private async pushDiet(item: PendingSyncItem): Promise<PushOutcome> {
     if (item.op === 'remove') {
-      await this.deps.dietRemote.remove(item.clientId);
+      // date 仅作墓碑兜底（记录已不存在时），删不到也不影响删除本身
+      await this.deps.dietRemote.remove(item.clientId, item.date);
       return 'ok';
     }
 
@@ -249,7 +398,7 @@ export class CheckinSyncService {
 
   private async pushWorkout(item: PendingSyncItem): Promise<PushOutcome> {
     if (item.op === 'remove') {
-      await this.deps.workoutRemote.remove(item.clientId);
+      await this.deps.workoutRemote.remove(item.clientId, item.date);
       return 'ok';
     }
 
@@ -312,7 +461,7 @@ export class CheckinSyncService {
    */
   private async pushStudyCheckin(item: PendingSyncItem): Promise<PushOutcome> {
     if (item.op === 'remove') {
-      await this.deps.studyCheckinRemote.remove(item.clientId);
+      await this.deps.studyCheckinRemote.remove(item.clientId, item.date);
       return 'ok';
     }
 

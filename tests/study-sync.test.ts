@@ -9,6 +9,7 @@ import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { MAX_SYNC_ATTEMPTS, readPendingSync } from '@/utils/pendingSync';
 import type { StudyCheckin, StudyPlan } from '@/types/models';
@@ -74,6 +75,10 @@ function createHarness() {
     create: vi.fn().mockResolvedValue({ _id: 'c1' }),
     remove: vi.fn().mockResolvedValue({ removed: true }),
   };
+  // 墓碑默认返回空：既有用例不受删除同步影响
+  const tombstoneRemote: TombstoneRemoteRepo = {
+    listAll: vi.fn().mockResolvedValue([]),
+  };
 
   let clock = 1000;
   const sync = new CheckinSyncService({
@@ -86,6 +91,7 @@ function createHarness() {
     workoutRemote,
     studyPlanRemote,
     studyCheckinRemote,
+    tombstoneRemote,
     now: () => (clock += 1),
   });
 
@@ -222,7 +228,8 @@ describe('推送学习打卡', () => {
 
     await sync.flush();
 
-    expect(studyCheckinRemote.remove).toHaveBeenCalledWith('checkin-1');
+    // 第二个参数是墓碑的日期兜底，见删除同步方案 §3.2
+    expect(studyCheckinRemote.remove).toHaveBeenCalledWith('checkin-1', expect.any(String));
   });
 
   it('⚠️ 本地已无该打卡（计划被删后级联清掉）时直接放弃，不打云调用', async () => {
