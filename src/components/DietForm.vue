@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
-import type { DietEntry, MealType } from '@/types/models';
+import { computed, reactive, ref, watch } from 'vue';
+import type { DietEntry, FavoriteFood, MealType } from '@/types/models';
 import { MEAL_TYPES } from '@/types/models';
 import type { DietDraft } from '@/services/DietService';
+import { useFavoriteFoodStore } from '@/stores/favoriteFood';
+import { favoriteFoodText } from '@/utils/format';
 
 const props = defineProps<{
   date: string;
@@ -13,6 +15,8 @@ const emit = defineEmits<{
   save: [draft: DietDraft];
   cancel: [];
 }>();
+
+const favoriteStore = useFavoriteFoodStore();
 
 const mealNames = MEAL_TYPES.map((item) => item.label);
 
@@ -25,6 +29,8 @@ const form = reactive<DietDraft>({
   carbs: undefined,
   fat: undefined,
 });
+
+const favoritesVisible = ref(false);
 
 const mealIndex = computed(() => {
   const index = MEAL_TYPES.findIndex((item) => item.value === form.mealType);
@@ -40,6 +46,7 @@ function resetForm(): void {
   form.protein = entry?.protein;
   form.carbs = entry?.carbs;
   form.fat = entry?.fat;
+  favoritesVisible.value = false;
 }
 
 watch(
@@ -51,6 +58,33 @@ watch(
 function onMealChange(event: { detail: { value: string | number } }): void {
   const index = Number(event.detail.value);
   form.mealType = (MEAL_TYPES[index]?.value ?? 'breakfast') as MealType;
+}
+
+/** 展开 / 收起常用食物列表；展开时按需拉取（不预加载，避免每次打开表单都打网络） */
+function toggleFavorites(): void {
+  favoritesVisible.value = !favoritesVisible.value;
+  if (favoritesVisible.value) {
+    void favoriteStore.load();
+  }
+}
+
+/** 一键带出：名称 / 数量 / 营养值一起填上，用户只需确认 */
+function applyFavorite(food: FavoriteFood): void {
+  form.foodName = food.name;
+  form.quantity = food.quantity;
+  form.calories = food.calories;
+  form.protein = food.protein;
+  form.carbs = food.carbs;
+  form.fat = food.fat;
+  favoritesVisible.value = false;
+}
+
+async function removeFavorite(food: FavoriteFood): Promise<void> {
+  try {
+    await favoriteStore.remove(food.name);
+  } catch (error) {
+    uni.showToast({ title: '删除失败', icon: 'none' });
+  }
 }
 
 function submit(): void {
@@ -104,12 +138,45 @@ function toOptionalNumber(value: number | undefined): number | undefined {
     </view>
 
     <view class="field">
-      <text class="field-label">食物名称</text>
+      <view class="section-header">
+        <text class="field-label field-label-inline">食物名称</text>
+        <button class="link-button" @tap="toggleFavorites">
+          {{ favoritesVisible ? '收起' : '常用' }}
+        </button>
+      </view>
       <input
         v-model="form.foodName"
         class="field-control"
         placeholder="例如：鸡胸肉"
       />
+
+      <view v-if="favoritesVisible" class="favorite-panel">
+        <text v-if="favoriteStore.loading" class="empty">加载中…</text>
+        <text v-else-if="favoriteStore.foods.length === 0" class="empty">
+          还没有常用食物，打卡后会自动沉淀
+        </text>
+        <view v-else class="record-list">
+          <view
+            v-for="food in favoriteStore.foods"
+            :key="food.id"
+            class="record-card favorite-card"
+            @tap="applyFavorite(food)"
+          >
+            <view class="section-header">
+              <text class="record-title">{{ food.name }}</text>
+              <text class="favorite-count">用过 {{ food.useCount }} 次</text>
+            </view>
+            <text v-if="favoriteFoodText(food)" class="record-meta">
+              {{ favoriteFoodText(food) }}
+            </text>
+            <view class="record-actions">
+              <button class="btn btn-danger btn-sm" @tap.stop="removeFavorite(food)">
+                删除
+              </button>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
 
     <view class="field">
@@ -168,3 +235,21 @@ function toOptionalNumber(value: number | undefined): number | undefined {
   </view>
 </template>
 
+<style scoped lang="scss">
+.favorite-panel {
+  margin-top: 14rpx;
+}
+
+.favorite-card {
+  padding: 16rpx 20rpx;
+}
+
+.favorite-count {
+  color: $uni-text-color-grey;
+  font-size: 22rpx;
+}
+
+.favorite-card .record-actions {
+  margin-top: 10rpx;
+}
+</style>

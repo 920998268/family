@@ -6,7 +6,7 @@ import { useFamilyStore } from '@/stores/family';
 import type { WorkoutEntry } from '@/types/models';
 import type { WorkoutDraft } from '@/services/WorkoutService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
-import { workoutText } from '@/utils/format';
+import { workoutCategoryLabel, workoutSummary } from '@/utils/format';
 import { errorMessage } from '@/utils/error';
 import { flushPendingCheckins } from '@/services/checkinRuntime';
 import WorkoutForm from '@/components/WorkoutForm.vue';
@@ -137,7 +137,9 @@ function remove(entry: WorkoutEntry): void {
           <text v-if="familyStore.nameOf(entry.memberId)" class="record-meta">
             成员：{{ familyStore.nameOf(entry.memberId) }}
           </text>
-          <text class="record-meta">{{ workoutText(entry) }}</text>
+          <text class="record-meta">
+            {{ workoutCategoryLabel(entry) }} · {{ workoutSummary(entry) }}
+          </text>
 
           <view class="record-actions">
             <button class="btn btn-secondary" @tap="startEdit(entry)">编辑</button>

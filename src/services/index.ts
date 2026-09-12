@@ -19,7 +19,9 @@ import { TravelService } from './TravelService';
 import { LedgerService } from './LedgerService';
 import { BackupService } from './BackupService';
 import { CheckinSyncService } from './CheckinSyncService';
+import { FavoriteFoodService } from './FavoriteFoodService';
 import { createDietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
+import { createFavoriteFoodRemoteRepo } from '@/repositories/remote/FavoriteFoodRemoteRepo';
 import { createWorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 
 export function createProfileService(): ProfileService {
@@ -59,6 +61,11 @@ export function createLedgerService(): LedgerService {
 
 export function createBackupService(): BackupService {
   return new BackupService(getStorageAdapter());
+}
+
+/** 常用食物服务（纯云端，无本地缓存） */
+export function createFavoriteFoodService(): FavoriteFoodService {
+  return new FavoriteFoodService(createFavoriteFoodRemoteRepo());
 }
 
 let checkinSyncService: CheckinSyncService | null = null;
