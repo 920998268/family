@@ -17,7 +17,15 @@ export const MAX_SYNC_ATTEMPTS = 5;
 export type SyncDomain = 'diet' | 'workout' | 'studyPlan' | 'studyCheckin';
 export type SyncOp = 'add' | 'update' | 'remove';
 
-const SYNC_DOMAINS: ReadonlySet<string> = new Set<SyncDomain>([
+/**
+ * 全部合法的同步领域。
+ *
+ * ⚠️ 对外导出是为了让文档 / 云侧的守卫能断言「两端的 domain 白名单一致」
+ * （见 `tests/tombstone-cloud.test.ts`）。**新增 domain 必须同时改三处**：
+ * 本集合、`SyncDomain` 类型、以及云侧 `checkin-shared/lib.js` 的
+ * `TOMBSTONE_DOMAINS` —— 少改任何一处，测试都会失败。
+ */
+export const SYNC_DOMAINS: ReadonlySet<string> = new Set<SyncDomain>([
   'diet',
   'workout',
   'studyPlan',

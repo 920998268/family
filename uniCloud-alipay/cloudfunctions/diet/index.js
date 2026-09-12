@@ -12,7 +12,8 @@
 
 const db = uniCloud.database()
 const dbCmd = db.command
-const { resolveContext, resolveMemberId } = require('checkin-shared')
+const { resolveContext, resolveMemberId, recordTombstones, listTombstones } =
+  require('checkin-shared')
 const {
   validateDietPayload,
   mergeDietPatch,
@@ -41,9 +42,10 @@ exports.main = async (event, context) => {
     case 'list': return listDiets(familyId, evt)
     case 'add': return addDiet(familyId, auth.uid, evt)
     case 'update': return updateDiet(familyId, evt)
-    case 'remove': return removeDiet(familyId, evt)
-    case 'listFoods': return listFoods(familyId, evt)
-    case 'removeFood': return removeFood(familyId, evt)
+      case 'remove': return removeDiet(familyId, auth.uid, evt)
+      case 'listTombstones': return listDietTombstones(familyId, evt)
+      case 'listFoods': return listFoods(familyId, evt)
+      case 'removeFood': return removeFood(familyId, evt)
     default: return { code: 400, msg: `未知操作: ${evt.action}` }
   }
 }
@@ -135,15 +137,47 @@ async function updateDiet(familyId, event) {
  * 离线队列重投一条「已经删成功」的记录时，如果返回 404 会被当成失败而无限重试；
  * 而「记录不存在」本身就等于目标已达成，返回成功更符合语义。
  */
-async function removeDiet(familyId, event) {
-  const target = await findDiet(familyId, event.clientId)
-  if (!target) return { code: 0, data: { removed: false } }
+  /**
+   * 删除饮食记录，并**写一条删除日志（墓碑）**让别的设备同步删除。
+   *
+   * ⚠️ 两条铁律（详见方案文档 §3.2）：
+   * 1. **先删记录，后写墓碑** —— 反过来（墓碑已写而删除失败）会造成
+   *    「记录复活」：别的设备删掉了本地记录，而这台设备下次 pull 时云端记录还在；
+   * 2. **无论记录是否存在都要写墓碑** —— 墓碑写入失败时客户端会重试，
+   *    重试时记录已不存在（`removed: false`），但墓碑还没写，必须能补上。
+   */
+  async function removeDiet(familyId, uid, event) {
+    const evt = event || {}
+    const target = await findDiet(familyId, evt.clientId)
 
-  await db.collection(DIETS).doc(target._id).remove()
-  return { code: 0, data: { removed: true } }
-}
+    if (target) {
+      await db.collection(DIETS).doc(target._id).remove()
+    }
 
-async function listFoods(familyId, event) {
+    const date = (target && target.date) || (typeof evt.date === 'string' ? evt.date : '')
+    await recordTombstones({
+      familyId,
+      domain: 'diet',
+      entries: [{ clientId: evt.clientId, date }],
+      uid,
+      deletedAt: Date.now(),
+    })
+
+    return { code: 0, data: { removed: !!target } }
+  }
+
+  /** 增量拉取本家庭的饮食墓碑，供客户端删除本地残留 */
+  async function listDietTombstones(familyId, event) {
+    const res = await listTombstones({
+      familyId,
+      domains: ['diet'],
+      since: event && event.since,
+      now: Date.now(),
+    })
+    return { code: 0, data: res }
+  }
+
+  async function listFoods(familyId, event) {
   const query = validateFoodQuery(event)
   if (!query.ok) return { code: 400, msg: query.msg }
 

@@ -19,7 +19,8 @@
 //   4. 打卡的 planId 必须指向**本家庭**的计划，否则拒绝。
 
 const db = uniCloud.database()
-const { resolveContext, resolveMemberId } = require('checkin-shared')
+const { resolveContext, resolveMemberId, recordTombstones, listTombstones } =
+  require('checkin-shared')
 const {
   validatePlanPayload,
   mergePlanPatch,
@@ -46,10 +47,11 @@ exports.main = async (event, context) => {
     case 'listPlans': return listPlans(familyId)
     case 'addPlan': return addPlan(familyId, auth.uid, evt)
     case 'updatePlan': return updatePlan(familyId, evt)
-    case 'removePlan': return removePlan(familyId, evt)
+    case 'removePlan': return removePlan(familyId, auth.uid, evt)
     case 'listCheckins': return listCheckins(familyId, evt)
     case 'addCheckin': return addCheckin(familyId, auth.uid, evt)
-    case 'removeCheckin': return removeCheckin(familyId, evt)
+    case 'removeCheckin': return removeCheckin(familyId, auth.uid, evt)
+    case 'listTombstones': return listStudyTombstones(familyId, evt)
     default: return { code: 400, msg: `未知操作: ${evt.action}` }
   }
 }
@@ -154,10 +156,34 @@ async function updatePlan(familyId, event) {
  *    因为每轮删除都有进展，客户端重试就能接着删完；
  *    而带着未删完的打卡删掉计划，才会真正留下孤儿。
  */
-async function removePlan(familyId, event) {
+/**
+ * 收集某计划下全部打卡的身份（clientId + date），用于写级联墓碑。
+ *
+ * ⚠️ 必须在删除**之前**调用：`where().remove()` 只返回删除条数，拿不到被删文档，
+ *    而墓碑需要 clientId，别的设备才能定位到该删哪几条。
+ *
+ * ⚠️ 上限 `LIST_LIMIT`（500）：一个计划的打卡数按天计，500 条约等于一年半，
+ *    实际不可能达到；真超了也只是墓碑不全，不会造成错误删除。
+ */
+async function collectCheckinRefs(familyId, planId) {
+  const res = await db.collection(CHECKINS).where({ familyId, planId }).limit(LIST_LIMIT).get()
+  return (res.data || []).map((doc) => ({ clientId: doc.clientId, date: doc.date }))
+}
+
+/**
+ * 删除学习计划，**级联删除其全部打卡**，并为计划与被删打卡各写墓碑。
+ *
+ * ⚠️ 墓碑只在**全部删完之后**才写：`truncated`（没删完）时直接返回可重试的失败，
+ *    一条墓碑都不写。
+ *    理由：此时云端仍留着没删完的打卡，若先写墓碑，别的设备会删掉本地打卡，
+ *    而下次 pull 时云端还有 → 记录复活。等删完再写，行为干净且可重试。
+ */
+async function removePlan(familyId, uid, event) {
   const planId = event && event.clientId
   const target = await findPlan(familyId, planId)
   if (!target) return { code: 0, data: { removed: false, deletedCheckins: 0 } }
+
+  const checkinRefs = await collectCheckinRefs(familyId, target.clientId)
 
   const cascade = await deleteInBatches(async () => {
     const res = await db
@@ -171,8 +197,40 @@ async function removePlan(familyId, event) {
     return { code: 500, msg: '该计划的历史打卡较多，本次未清理完，请稍后重试' }
   }
 
+  const now = Date.now()
+
+  // 先给打卡写墓碑，再删计划：两者都成功后整体才算完成。
+  // 顺序反了（计划先没）会失去「该删哪些打卡」的依据，留下永久孤儿。
+  await recordTombstones({
+    familyId,
+    domain: 'studyCheckin',
+    entries: checkinRefs,
+    uid,
+    deletedAt: now,
+  })
+
   await db.collection(PLANS).doc(target._id).remove()
+
+  await recordTombstones({
+    familyId,
+    domain: 'studyPlan',
+    entries: [{ clientId: target.clientId, date: '' }],
+    uid,
+    deletedAt: now,
+  })
+
   return { code: 0, data: { removed: true, deletedCheckins: cascade.deleted } }
+}
+
+/** 增量拉取本家庭的学习墓碑（计划 + 打卡两类，一次返回） */
+async function listStudyTombstones(familyId, event) {
+  const res = await listTombstones({
+    familyId,
+    domains: ['studyPlan', 'studyCheckin'],
+    since: event && event.since,
+    now: Date.now(),
+  })
+  return { code: 0, data: res }
 }
 
 // ---------- 学习打卡 ----------
@@ -253,10 +311,25 @@ async function addCheckin(familyId, uid, event) {
  * 记录不存在时同样返回成功 —— 「记录不存在」本身就等于目标已达成，
  * 返回 404 会让离线队列把已删成功的记录当成失败而无限重试。
  */
-async function removeCheckin(familyId, event) {
-  const target = await findCheckin(familyId, event && event.clientId)
-  if (!target) return { code: 0, data: { removed: false } }
+/**
+ * 删除学习打卡并写墓碑。两条铁律同 `diet` 云函数：
+ * **先删记录后写墓碑**，且**无论记录是否存在都要写**（便于重试补写）。
+ */
+async function removeCheckin(familyId, uid, event) {
+  const evt = event || {}
+  const target = await findCheckin(familyId, evt.clientId)
 
-  await db.collection(CHECKINS).doc(target._id).remove()
-  return { code: 0, data: { removed: true } }
+  if (target) {
+    await db.collection(CHECKINS).doc(target._id).remove()
+  }
+
+  await recordTombstones({
+    familyId,
+    domain: 'studyCheckin',
+    entries: [{ clientId: evt.clientId, date: (target && target.date) || evt.date || '' }],
+    uid,
+    deletedAt: Date.now(),
+  })
+
+  return { code: 0, data: { removed: !!target } }
 }

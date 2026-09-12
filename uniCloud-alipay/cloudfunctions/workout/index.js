@@ -12,7 +12,8 @@
 
 const db = uniCloud.database()
 const dbCmd = db.command
-const { resolveContext, resolveMemberId } = require('checkin-shared')
+const { resolveContext, resolveMemberId, recordTombstones, listTombstones } =
+  require('checkin-shared')
 const {
   validateWorkoutPayload,
   mergeWorkoutPatch,
@@ -36,7 +37,8 @@ exports.main = async (event, context) => {
     case 'list': return listWorkouts(familyId, evt)
     case 'add': return addWorkout(familyId, auth.uid, evt)
     case 'update': return updateWorkout(familyId, evt)
-    case 'remove': return removeWorkout(familyId, evt)
+    case 'remove': return removeWorkout(familyId, auth.uid, evt)
+    case 'listTombstones': return listWorkoutTombstones(familyId, evt)
     default: return { code: 400, msg: `未知操作: ${evt.action}` }
   }
 }
@@ -123,10 +125,37 @@ async function updateWorkout(familyId, event) {
  * 离线队列重投一条「已经删成功」的记录时，若返回 404 会被当成失败而无限重试；
  * 而「记录不存在」本身即等于目标已达成。
  */
-async function removeWorkout(familyId, event) {
-  const target = await findWorkout(familyId, event.clientId)
-  if (!target) return { code: 0, data: { removed: false } }
+  /**
+   * 删除运动记录并写墓碑。两条铁律同 `diet` 云函数的 `removeDiet`：
+   * **先删记录后写墓碑**，且**无论记录是否存在都要写**（便于重试补写）。
+   */
+  async function removeWorkout(familyId, uid, event) {
+    const evt = event || {}
+    const target = await findWorkout(familyId, evt.clientId)
 
-  await db.collection(WORKOUTS).doc(target._id).remove()
-  return { code: 0, data: { removed: true } }
-}
+    if (target) {
+      await db.collection(WORKOUTS).doc(target._id).remove()
+    }
+
+    const date = (target && target.date) || (typeof evt.date === 'string' ? evt.date : '')
+    await recordTombstones({
+      familyId,
+      domain: 'workout',
+      entries: [{ clientId: evt.clientId, date }],
+      uid,
+      deletedAt: Date.now(),
+    })
+
+    return { code: 0, data: { removed: !!target } }
+  }
+
+  /** 增量拉取本家庭的运动墓碑 */
+  async function listWorkoutTombstones(familyId, event) {
+    const res = await listTombstones({
+      familyId,
+      domains: ['workout'],
+      since: event && event.since,
+      now: Date.now(),
+    })
+    return { code: 0, data: res }
+  }
