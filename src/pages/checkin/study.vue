@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useStudyStore } from '@/stores/study';
 import { useFamilyStore } from '@/stores/family';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 import type { StudyFrequency, StudyPlan } from '@/types/models';
 import { STUDY_FREQUENCIES, STUDY_FREQUENCY_LABELS } from '@/types/models';
 import type { StudyPlanDraft } from '@/services/StudyService';
@@ -37,9 +38,11 @@ const doneCount = computed(() => studyStore.checkins.length);
 const totalCount = computed(() => studyStore.plans.length);
 
 onShow(() => {
-  studyStore.loadPlans();
-  studyStore.loadCheckins(date.value);
+  // 本地优先：load() 先同步渲染本地缓存（秒开），云端拉取在后台进行
+  studyStore.load(date.value);
   familyStore.load();
+  // 回到页面时补传上次没推上云的记录（未登录 / 未加入家庭时会自动跳过）
+  flushPendingCheckins();
 });
 
 function resetForm(): void {
