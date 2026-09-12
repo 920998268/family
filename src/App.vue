@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app';
+import { onLaunch, onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { hasToken, clearToken, initUniCloud } from '@/unicloud';
 import { restoreFamilyDataFromCloud } from '@/services/CloudRestoreService';
 import { bootstrapSession } from '@/services/SessionBootstrap';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 
 onLaunch(() => {
   initUniCloud();
   // 全平台执行：H5 刷新后同样需要回填 uid / 家庭状态并恢复云端数据
   bootstrap();
+});
+
+onShow(() => {
+  // 回到前台时补传离线期间产生的打卡记录。
+  // 前置条件（已登录 + 已加入家庭）在 flushPendingCheckins 内部判断，
+  // 不满足时直接返回且**不消耗重试次数**，标记会留到条件具备后再推。
+  flushPendingCheckins();
 });
 
 /**

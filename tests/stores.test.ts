@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { InMemoryStorageAdapter } from '@/storage/InMemoryStorageAdapter';
-import { setStorageAdapter } from '@/storage';
+import { getStorageAdapter, setStorageAdapter } from '@/storage';
+import { readPendingSync } from '@/utils/pendingSync';
 import { useProfileStore } from '@/stores/profile';
 import { useDietStore } from '@/stores/diet';
 import { useWorkoutStore } from '@/stores/workout';
@@ -27,6 +28,12 @@ describe('Pinia stores', () => {
   beforeEach(() => {
     setStorageAdapter(new InMemoryStorageAdapter());
     setActivePinia(createPinia());
+    // 无 token → 云同步前置条件不满足，store 走纯本地路径（本文件只验证本地行为）
+    (globalThis as any).uni = {
+      getStorageSync: () => '',
+      setStorageSync: () => {},
+      removeStorageSync: () => {},
+    };
   });
 
   it('persists and reloads the profile', () => {
@@ -77,6 +84,95 @@ describe('Pinia stores', () => {
     });
     expect(store.entries[0].exerciseName).toBe('负重引体向上');
     expect(store.entries[0].sets).toHaveLength(1);
+  });
+
+  it('饮食 / 运动写入后本地立即生效，并留下待同步标记', () => {
+    const dietStore = useDietStore();
+    dietStore.load('2026-09-02');
+    const diet = dietStore.add('2026-09-02', {
+      mealType: 'lunch',
+      foodName: '牛肉面',
+      quantity: '1碗',
+    });
+    // 本地优先：不等云端，store 里立刻就有
+    expect(dietStore.entries.map((entry) => entry.id)).toEqual([diet.id]);
+
+    const workoutStore = useWorkoutStore();
+    workoutStore.load('2026-09-02');
+    const workout = workoutStore.add('2026-09-02', {
+      exerciseName: '快走',
+      category: 'cardio',
+      sets: [],
+      durationMin: 40,
+      distanceKm: 3.2,
+    });
+    expect(workoutStore.entries.map((entry) => entry.id)).toEqual([workout.id]);
+    expect(workoutStore.entries[0].category).toBe('cardio');
+
+    const pending = readPendingSync(getStorageAdapter());
+    expect(pending).toHaveLength(2);
+    expect(pending.map((item) => `${item.domain}:${item.op}`).sort()).toEqual([
+      'diet:add',
+      'workout:add',
+    ]);
+    expect(pending.map((item) => item.clientId).sort()).toEqual([diet.id, workout.id].sort());
+  });
+
+  it('待同步动作随写入合并：新增后编辑仍是 add，删除则转为 remove', () => {
+    const store = useDietStore();
+    store.load('2026-09-02');
+    const added = store.add('2026-09-02', {
+      mealType: 'dinner',
+      foodName: '清蒸鱼',
+      quantity: '1条',
+    });
+
+    store.update('2026-09-02', added.id, { quantity: '1条半' });
+    // add 不被 update 顶掉：首次 add 的响应若丢失，改标 update 会让云端 404
+    expect(readPendingSync(getStorageAdapter())).toHaveLength(1);
+    expect(readPendingSync(getStorageAdapter())[0].op).toBe('add');
+
+    store.remove('2026-09-02', added.id);
+    const pending = readPendingSync(getStorageAdapter());
+    expect(pending).toHaveLength(1);
+    expect(pending[0].op).toBe('remove');
+    expect(pending[0].clientId).toBe(added.id);
+  });
+
+  it('未登录时不触发任何云调用（标记照留，等条件具备再推）', () => {
+    const store = useWorkoutStore();
+    store.load('2026-09-02');
+    const added = store.add('2026-09-02', {
+      exerciseName: '深蹲',
+      sets: [{ reps: 10, weightKg: 60 }],
+    });
+
+    // 无 token：云同步前置条件不满足，但本地写入与标记必须照常
+    expect(store.entries).toHaveLength(1);
+    expect(readPendingSync(getStorageAdapter())[0].clientId).toBe(added.id);
+  });
+
+  it('运动记录：有氧与力量分别按类型归一化形态', () => {
+    const store = useWorkoutStore();
+    store.load('2026-09-02');
+
+    const cardio = store.add('2026-09-02', {
+      exerciseName: '跑步',
+      category: 'cardio',
+      sets: [],
+      durationMin: 30,
+    });
+    expect(cardio).toMatchObject({ category: 'cardio', sets: [], durationMin: 30 });
+    expect(cardio.distanceKm).toBeUndefined();
+
+    // 有氧切力量：组明细进来，有氧字段被清掉（与云端落库形态一致）
+    const switched = store.update('2026-09-02', cardio.id, {
+      category: 'strength',
+      sets: [{ reps: 8, weightKg: 40 }],
+    });
+    expect(switched.category).toBe('strength');
+    expect(switched.sets).toHaveLength(1);
+    expect(switched.durationMin).toBeUndefined();
   });
 
   it('manages family members through the store', () => {

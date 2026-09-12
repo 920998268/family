@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { InMemoryStorageAdapter } from '@/storage/InMemoryStorageAdapter';
+import { setStorageAdapter } from '@/storage';
+import { getCheckinSyncService } from '@/services';
 import { DietRepository } from '@/repositories/DietRepository';
 import { WorkoutRepository } from '@/repositories/WorkoutRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
@@ -282,6 +284,27 @@ describe('flush（重发待同步）', () => {
     await sync.flush();
 
     expect(dietRemote.create).toHaveBeenCalledWith(entry);
+  });
+});
+
+describe('getCheckinSyncService 必须是单例', () => {
+  /**
+   * 若每次调用都 new 一个，实例内的 `inFlight` 去重就形同虚设：
+   * App `onShow` 与页面 `onShow` 会各跑一次 flush，对同一条记录并发推两遍。
+   */
+  it('同一存储适配器下返回同一实例', () => {
+    setStorageAdapter(new InMemoryStorageAdapter());
+
+    expect(getCheckinSyncService()).toBe(getCheckinSyncService());
+  });
+
+  it('替换存储适配器后自动重建，不会握着旧适配器', () => {
+    setStorageAdapter(new InMemoryStorageAdapter());
+    const first = getCheckinSyncService();
+
+    setStorageAdapter(new InMemoryStorageAdapter());
+
+    expect(getCheckinSyncService()).not.toBe(first);
   });
 });
 

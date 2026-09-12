@@ -8,6 +8,7 @@ import type { WorkoutDraft } from '@/services/WorkoutService';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
 import { workoutText } from '@/utils/format';
 import { errorMessage } from '@/utils/error';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 import WorkoutForm from '@/components/WorkoutForm.vue';
 import MemberSelect from '@/components/MemberSelect.vue';
 
@@ -30,6 +31,8 @@ onLoad((options) => {
 onShow(() => {
   workoutStore.load(date.value);
   familyStore.load();
+  // 顺手把离线期间的待同步记录补传（load 已在后台拉云端，这里只重发本地待推送的）
+  flushPendingCheckins();
 });
 
 function onDateChange(event: { detail: { value: string } }): void {
