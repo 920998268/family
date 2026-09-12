@@ -285,10 +285,14 @@ describe('拉取与合并', () => {
     expect(studyCheckinRemote.listByDate).toHaveBeenCalledWith(DATE);
   });
 
-  it('🔴 已记录的缺口：云端已删除的计划**不会**被本地合并删除（本地独有记录被保留）', async () => {
-    // 这是当前 mergeCheckins 的既定行为（云端为准，但本地独有记录保留），
-    // 后果是「A 删了计划，B 刷新后仍然看得到」。
-    // 用测试把这个行为**显式固定下来**，避免以后误以为它已经支持跨设备删除同步。
+  it('mergeCheckins 的既定语义：本地独有记录**不会**被合并删除（删除同步不靠合并，靠墓碑）', async () => {
+    // ⚠️ 这条**不再是**「已知缺口」的记录：0.3.4 起跨设备删除由**墓碑**负责，
+    //    不再靠 merge 推断「云端没有 = 已删除」（那样会误删从未上云的本地老数据）。
+    //    见 docs/0.3.4-cross-device-delete-sync.md。
+    //
+    //    这里固定的是 mergeCheckins **自身**的语义：它永远保留本地独有记录，
+    //    包括「云端已删、但本机还没收到墓碑」这个短暂的过渡态 —— 这是对的，
+    //    因为本地这条可能只是还没推上云。
     const { sync, studyPlanRepository, studyPlanRemote } = createHarness();
     studyPlanRepository.saveAll([plan({ id: 'deleted-on-cloud' })]);
     vi.mocked(studyPlanRemote.list).mockResolvedValue([]);

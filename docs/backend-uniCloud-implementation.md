@@ -193,6 +193,7 @@ familyRole: string    // owner | member
 | `favorite_foods` | ✅ | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
 | `study_plans` | ✅ | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
 | `study_checkins` | ✅ | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
+| `checkin_tombstones` | 🟡 | **删除日志（墓碑）**，跨设备删除同步用 | familyId, domain, clientId, date, deletedAt, createdByUid |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
 | `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
 | `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
@@ -200,6 +201,10 @@ familyRole: string    // owner | member
 | `sync_meta` | 同步元数据 | familyId, lastSyncAt, dataVersion |
 
 > 对应关系：`family_members` ≈ 现有 `family` store 的成员档案；`diets/workouts` ≈ 现有打卡；`study_*` ≈ 学习；`meal_plans` ≈ 食谱；`travels/travel_items` ≈ 出行；`transactions` ≈ 账本。**前端 `src/types/models.ts` 的现有类型可在加 `familyId`/`clientId` 后复用**。
+>
+> `checkin_tombstones` 是 0.3.4 新增的**删除日志**：云端用物理删除，
+> 「云端已删」与「从未上云」在别的设备上无法区分，所以删除必须靠显式日志传播。
+> 详见 `0.3.4-cross-device-delete-sync.md`。
 
 > ⚠️ 本表的 `diets` / `workouts` 字段曾按早期设计稿写成 `content` / `type` / `duration` / `note`，
 > 与实际实现不符。**以本表当前内容为准**（M2-A 落地时已按 `validateDietPayload` /
@@ -417,11 +422,10 @@ src/utils/network.ts          网络状态检测
 - [ ] M4：收支账本远程化 + **「本地数据导入云端」入口**（老数据迁移，M2 明确留到此处）
 - [ ] M5：体验版/正式版上线（request 合法域名、隐私政策、备份导出）
 
-### ⏸ 待决策（不阻塞 M3，但影响三个模块）
+### ✅ 已整改：跨设备删除不同步（0.3.4）
 
-- [ ] **跨设备删除不同步**：`utils/checkinMerge.ts` 的合并规则刻意保留
-      「云端已删但本地仍在」的记录，且无删除传播机制 → A 删除后 B 刷新仍可见。
-      影响 diet / workout / study 三处。修之前**必须先解决前置问题**：
-      现行规则下「重试超限被丢弃标记」的记录是「本地有、云端无、无标记」，
-      若直接改成「本地独有即视为云端已删」，会把同步失败但用户数据还在的记录
-      **误删成永久丢失**。需连同「重试超限后不再丢弃标记」一起改。
+- [x] **跨设备删除不同步** → **已改为同步删除**。
+      方案见 `0.3.4-cross-device-delete-sync.md`，部署与验收见
+      `0.3.4-cross-device-delete-sync-checklist.md`。
+      采用**删除日志（墓碑）**方案而非「云端没有即删除」——
+      后者会误删本地大量从未上云的历史记录（M2 明确把老数据导入留到 M4）。

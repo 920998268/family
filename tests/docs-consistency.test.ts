@@ -20,6 +20,8 @@ const M2A_DOC = 'docs/0.3.2-m2a-requirements-and-solution.md';
 const CHECKLIST = 'docs/0.3.2-m2a-deploy-checklist.md';
 const M2B_DOC = 'docs/0.3.3-m2b-requirements-and-solution.md';
 const M2B_CHECKLIST = 'docs/0.3.3-m2b-deploy-checklist.md';
+const DELETE_SYNC_DOC = 'docs/0.3.4-cross-device-delete-sync.md';
+const DELETE_SYNC_CHECKLIST = 'docs/0.3.4-cross-device-delete-sync-checklist.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -159,10 +161,14 @@ describe('M2-B 方案文档（学习打卡上云）', () => {
     expect(source).toContain('0.3.3-m2b-deploy-checklist.md');
   });
 
-  it('记录「跨设备删除不同步」这个已知缺口的口径', () => {
-    // 这条缺口的说明散落在方案与部署清单两处，容易被后来的改动删掉
-    expect(source).toContain('跨设备');
-    expect(source).toContain('删除');
+  it('「跨设备删除不同步」已标注为 0.3.4 整改，且保留原有推理', () => {
+    // 这段说明写在**部署清单** §5，不在方案文档里。
+    // 「为什么不能简单改成『云端没有即删除』」的推理是 0.3.4 选墓碑方案的依据，
+    // 删掉后新人无法理解为啥不用更简单的做法。所以既要求标注整改，也要求保留原文。
+    const checklist = read(M2B_CHECKLIST);
+    expect(checklist).toContain('跨设备删除不会同步');
+    expect(checklist).toContain('已整改');
+    expect(checklist).toContain('0.3.4-cross-device-delete-sync.md');
   });
 });
 
@@ -222,6 +228,59 @@ describe('M2-B 部署清单', () => {
 
   it('清单里提到的仓库内路径都真实存在', () => {
     expect(expectReferencedPathsExist(source, 'M2-B 部署清单')).toBeGreaterThan(3);
+  });
+});
+
+describe('0.3.4 跨设备删除同步（整改）', () => {
+  const doc = read(DELETE_SYNC_DOC);
+  const checklist = read(DELETE_SYNC_CHECKLIST);
+
+  it('方案文档写清了为什么否决「云端没有即删除」', () => {
+    // 这段推理是选墓碑方案的依据，也是最容易被人「简化」掉的地方
+    expect(doc).toContain('方案 C');
+    expect(doc).toContain('否决');
+    expect(doc).toContain('从未上云');
+  });
+
+  it('方案文档写明删除优先与墓碑保留期', () => {
+    expect(doc).toContain('删除优先');
+    expect(doc).toContain('180');
+  });
+
+  it('部署清单覆盖本期 6 项上传内容', () => {
+    for (const item of [
+      'uniCloud-alipay/database/checkin_tombstones.schema.json',
+      'uniCloud-alipay/cloudfunctions/common/checkin-shared',
+      'uniCloud-alipay/cloudfunctions/diet',
+      'uniCloud-alipay/cloudfunctions/workout',
+      'uniCloud-alipay/cloudfunctions/study',
+      'idx_family_deleted',
+    ]) {
+      expect(checklist, `清单缺少 ${item}`).toContain(item);
+    }
+  });
+
+  /**
+   * M2-B 那期的结论是「checkin-shared 不需要重传」，本期恰恰相反。
+   * 两期结论相反，最容易照着旧习惯漏掉，必须显式守着。
+   */
+  it('清单写明 checkin-shared **必须**重传（与 M2-B 的「不用传」相反）', () => {
+    expect(checklist).toContain('必须重传');
+    expect(checklist).toContain('上传所有云函数、公共模块及 actions');
+  });
+
+  it('清单提到历史删除不补（避免误以为部署后旧残留会自动清）', () => {
+    expect(checklist).toContain('历史删除不补');
+  });
+
+  it('路线图把该项标为已整改', () => {
+    const backend = read(BACKEND_DOC);
+    expect(backend).toContain('已整改：跨设备删除不同步');
+  });
+
+  it('§7.1 集合清单里有 checkin_tombstones', () => {
+    const backend = read(BACKEND_DOC);
+    expect(backend).toContain('`checkin_tombstones`');
   });
 });
 
