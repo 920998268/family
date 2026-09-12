@@ -12,7 +12,8 @@ export interface WorkoutRemoteRepo {
   listByDate(date: string): Promise<WorkoutEntry[]>;
   create(entry: WorkoutEntry): Promise<CloudWriteResult>;
   update(entry: WorkoutEntry): Promise<void>;
-  remove(clientId: string): Promise<void>;
+  /** 删除（服务端幂等）。`date` 可选，仅用于给墓碑兜底日期，见 DietRemoteRepo */
+  remove(clientId: string, date?: string): Promise<void>;
 }
 
 /** 生产实现：委托给 uniCloud 调用层 */
@@ -21,8 +22,8 @@ export function createWorkoutRemoteRepo(): WorkoutRemoteRepo {
     listByDate: (date) => listCloudWorkouts(date),
     create: (entry) => addCloudWorkout(entry),
     update: (entry) => updateCloudWorkout(entry),
-    remove: async (clientId) => {
-      await removeCloudWorkout(clientId);
+    remove: async (clientId, date) => {
+      await removeCloudWorkout(clientId, date);
     },
   };
 }

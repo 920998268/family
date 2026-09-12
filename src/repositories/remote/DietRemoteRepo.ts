@@ -22,8 +22,13 @@ export interface DietRemoteRepo {
   /** 新增。返回 `duplicated` 表示服务端已存在同 clientId 记录（幂等命中） */
   create(entry: DietEntry): Promise<CloudWriteResult>;
   update(entry: DietEntry): Promise<void>;
-  /** 删除。服务端幂等，记录不存在同样算成功 */
-  remove(clientId: string): Promise<void>;
+    /**
+     * 删除。服务端幂等，记录不存在同样算成功。
+     *
+     * `date` 可选，仅用于「记录已不存在」时给墓碑兜底一个日期
+     * （让别的设备能快速定位本地记录），不影响删除本身。
+     */
+    remove(clientId: string, date?: string): Promise<void>;
   listFavoriteFoods(keyword?: string): Promise<FavoriteFood[]>;
   removeFavoriteFood(name: string): Promise<void>;
 }
@@ -34,9 +39,9 @@ export function createDietRemoteRepo(): DietRemoteRepo {
     listByDate: (date) => listCloudDiets(date),
     create: (entry) => addCloudDiet(entry),
     update: (entry) => updateCloudDiet(entry),
-    remove: async (clientId) => {
-      await removeCloudDiet(clientId);
-    },
+      remove: async (clientId, date) => {
+        await removeCloudDiet(clientId, date);
+      },
     listFavoriteFoods: (keyword) => listCloudFavoriteFoods(keyword),
     removeFavoriteFood: (name) => removeCloudFavoriteFood(name),
   };

@@ -25,7 +25,8 @@ export interface StudyCheckinRemoteRepo {
    */
   create(checkin: StudyCheckin): Promise<CloudWriteResult>;
   /** 删除（服务端幂等：不存在也返回成功） */
-  remove(clientId: string): Promise<{ removed: boolean }>;
+  /** 删除（服务端幂等）。`date` 可选，仅用于给墓碑兜底日期，见 DietRemoteRepo */
+  remove(clientId: string, date?: string): Promise<{ removed: boolean }>;
 }
 
 /** 生产实现：委托给 uniCloud 调用层 */
@@ -33,6 +34,6 @@ export function createStudyCheckinRemoteRepo(): StudyCheckinRemoteRepo {
   return {
     listByDate: (date) => listCloudStudyCheckins(date),
     create: (checkin) => addCloudStudyCheckin(checkin),
-    remove: (clientId) => removeCloudStudyCheckin(clientId),
+    remove: (clientId, date) => removeCloudStudyCheckin(clientId, date),
   };
 }

@@ -15,6 +15,7 @@ import {
   toCloudStudyPlan,
   toCloudWorkout,
 } from '@/utils/cloudMap';
+import { parseTombstones, type Tombstone } from '@/utils/tombstone';
 
 /** uni-id-co 云对象返回的登录结果 */
 export interface UniIdLoginResult {
@@ -361,9 +362,25 @@ export async function updateCloudDiet(entry: DietEntry): Promise<void> {
 /**
  * 删除饮食记录（服务端幂等：记录不存在也返回成功）。
  * 返回 `removed` 便于调用方区分「删掉了」与「云端本来就没有」。
+ *
+ * `date` 是可选的**兜底信息**：云端会优先用记录自身的日期写墓碑，
+ * 只有当记录已不存在（重试场景）时才用它。墓碑的日期用来让别的设备
+ * 快速定位本地记录，不影响删除本身。
  */
-export async function removeCloudDiet(clientId: string): Promise<{ removed: boolean }> {
-  return callDiet('remove', { clientId });
+export async function removeCloudDiet(
+  clientId: string,
+  date?: string,
+): Promise<{ removed: boolean }> {
+  return callDiet('remove', date ? { clientId, date } : { clientId });
+}
+
+/**
+ * 增量拉取本家庭的**饮食墓碑**（删除日志），用于跨设备同步删除。
+ *
+ * `since` 传本地游标（已应用到的最大 deletedAt）；首次传 0 或省略即拉取全部。
+ */
+export async function listCloudDietTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callDiet('listTombstones', { since: since ?? 0 }));
 }
 
 /** 拉取常用食物（按使用次数降序，可按关键词模糊筛选） */
@@ -409,9 +426,17 @@ export async function updateCloudWorkout(entry: WorkoutEntry): Promise<void> {
   return callWorkout('update', toCloudWorkout(entry));
 }
 
-/** 删除运动记录（服务端幂等，返回 `removed` 见 removeCloudDiet 说明） */
-export async function removeCloudWorkout(clientId: string): Promise<{ removed: boolean }> {
-  return callWorkout('remove', { clientId });
+/** 删除运动记录（服务端幂等，返回 `removed` 见 removeCloudDiet 说明；`date` 同为其墓碑兜底） */
+export async function removeCloudWorkout(
+  clientId: string,
+  date?: string,
+): Promise<{ removed: boolean }> {
+  return callWorkout('remove', date ? { clientId, date } : { clientId });
+}
+
+/** 增量拉取本家庭的运动墓碑（语义同 `listCloudDietTombstones`） */
+export async function listCloudWorkoutTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callWorkout('listTombstones', { since: since ?? 0 }));
 }
 
 /**
@@ -472,7 +497,18 @@ export async function addCloudStudyCheckin(checkin: StudyCheckin): Promise<Cloud
   return callStudy('addCheckin', toCloudStudyCheckin(checkin));
 }
 
-/** 删除学习打卡（服务端幂等） */
-export async function removeCloudStudyCheckin(clientId: string): Promise<{ removed: boolean }> {
-  return callStudy('removeCheckin', { clientId });
+/** 删除学习打卡（服务端幂等；`date` 为其墓碑兜底，语义同 removeCloudDiet） */
+export async function removeCloudStudyCheckin(
+  clientId: string,
+  date?: string,
+): Promise<{ removed: boolean }> {
+  return callStudy('removeCheckin', date ? { clientId, date } : { clientId });
+}
+
+/**
+ * 增量拉取本家庭的学习墓碑，**一次返回计划与打卡两类**
+ * （主从同函数，一次调用拿全，避免两次往返）。
+ */
+export async function listCloudStudyTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callStudy('listTombstones', { since: since ?? 0 }));
 }
