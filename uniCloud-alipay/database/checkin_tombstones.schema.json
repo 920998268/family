@@ -1,0 +1,42 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "domain", "clientId", "deletedAt"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "domain": {
+      "bsonType": "string",
+      "title": "被删记录所属领域：diet / workout / studyPlan / studyCheckin",
+      "maxLength": 20
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "被删记录的客户端 ID（幂等键，= 前端记录 id）",
+      "maxLength": 64
+    },
+    "date": {
+      "bsonType": "string",
+      "title": "被删记录的日期 YYYY-MM-DD（学习计划为空串）。客户端用它快速定位本地记录，找不到再全量兜底",
+      "maxLength": 10
+    },
+    "deletedAt": {
+      "bsonType": ["double", "int"],
+      "title": "删除时间（**毫秒时间戳**）。客户端游标依据：每次只拉 deletedAt 大于游标的墓碑"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "删除操作人 uid（审计用）"
+    }
+  }
+}

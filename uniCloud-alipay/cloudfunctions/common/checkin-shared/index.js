@@ -9,6 +9,16 @@
 const USERS = 'uni-id-users'
 const MEMBERS = 'family_members'
 
+const {
+  TOMBSTONES,
+  TOMBSTONE_LIMIT,
+  isTombstoneDomain,
+  buildTombstoneDocs,
+  tombstoneWindowStart,
+  validateTombstoneCursor,
+  toClientTombstone,
+} = require('./lib')
+
 /**
  * 校验登录态。
  * uni-id-common 对「token 过期 / 校验失败」会以返回值形式给出 errCode，
@@ -77,4 +87,75 @@ async function resolveMemberId(familyId, memberId) {
   return memberId
 }
 
-module.exports = { getUid, getUserFamily, resolveContext, resolveMemberId }
+/**
+ * 记录删除日志（墓碑），让**别的设备**知道这条记录被删了。
+ *
+ * ⚠️ 调用顺序必须是「先删记录、后写墓碑」，且**无论记录是否存在都要写**
+ * （见方案文档 §3.2）。反过来（先写墓碑后删记录）在删除失败时会造成
+ * **记录复活** —— 别的设备已删、而这台设备下次 pull 时云端记录还在。
+ *
+ * @param {{ familyId: string, domain: string, entries: Array<{clientId: string, date?: string}>,
+ *           uid?: string, deletedAt: number }} options
+ * @returns {Promise<{ recorded: number }>}
+ */
+async function recordTombstones(options) {
+  const opts = options || {}
+  const docs = buildTombstoneDocs({
+    familyId: opts.familyId,
+    domain: opts.domain,
+    entries: opts.entries,
+    deletedAt: opts.deletedAt,
+    uid: opts.uid,
+  })
+  if (docs.length === 0) return { recorded: 0 }
+
+  const db = uniCloud.database()
+  await db.collection(TOMBSTONES).add(docs)
+  return { recorded: docs.length }
+}
+
+/**
+ * 增量读取本家庭的墓碑。
+ *
+ * 只返回「游标之后」且「仍在保留窗口内」的墓碑，按 deletedAt 升序。
+ * 客户端拿去删本地记录后，把游标推进到本批最大的 deletedAt。
+ *
+ * @param {{ familyId: string, domains: string[], since?: number, now?: number }} options
+ * @returns {Promise<{ items: Array<{domain: string, clientId: string, date: string, deletedAt: number}> }>}
+ */
+async function listTombstones(options) {
+  const opts = options || {}
+  const familyId = opts.familyId
+  if (!familyId) return { items: [] }
+
+  const domains = (Array.isArray(opts.domains) ? opts.domains : []).filter(isTombstoneDomain)
+  if (domains.length === 0) return { items: [] }
+
+  const since = validateTombstoneCursor(opts.since)
+  const from = Math.max(since, tombstoneWindowStart(opts.now))
+
+  const db = uniCloud.database()
+  const dbCmd = db.command
+  const res = await db
+    .collection(TOMBSTONES)
+    .where({
+      familyId,
+      domain: dbCmd.in(domains),
+      deletedAt: dbCmd.gt(from),
+    })
+    .orderBy('deletedAt', 'asc')
+    .limit(TOMBSTONE_LIMIT)
+    .get()
+
+  const items = ((res && res.data) || []).map(toClientTombstone).filter(Boolean)
+  return { items }
+}
+
+module.exports = {
+  getUid,
+  getUserFamily,
+  resolveContext,
+  resolveMemberId,
+  recordTombstones,
+  listTombstones,
+}
