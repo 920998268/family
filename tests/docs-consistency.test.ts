@@ -288,6 +288,26 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
     expect(source).toContain('**M2-A** ✅');
   });
 
+  it('M2-B 在路线图中标记为已完成，且写明真机验收通过', () => {
+    const line = source.split(/\r?\n/).find((row) => row.includes('M2-B')) as string;
+    expect(line, '路线图缺少 M2-B 行').toBeTruthy();
+    expect(line).toContain('✅');
+    expect(line, 'M2-B 已真机验收，路线图需写明').toContain('真机验收通过');
+  });
+
+  it('已真机验收的集合在 §7.1 标记为 ✅（防止状态滞后）', () => {
+    // 这 5 个集合随 M2-A / M2-B 于 2026-09-12 全部真机验收通过。
+    // 状态列（第 2 个单元格）若为 🟡（已实现待部署）即说明文档没跟上实际部署。
+    const verified = ['diets', 'workouts', 'favorite_foods', 'study_plans', 'study_checkins'];
+    for (const collection of verified) {
+      const line = source.split(/\r?\n/).find((row) => row.startsWith(`| \`${collection}\` `));
+      expect(line, `§7.1 缺少集合 ${collection} 的行`).toBeTruthy();
+
+      const status = (line as string).split('|')[2]?.trim();
+      expect(status, `${collection} 已部署验收，状态应更新为 ✅`).toBe('✅');
+    }
+  });
+
   it('不再残留早期设计稿的字段名（content / type / duration / note）', () => {
     const line = source.split(/\r?\n/).find((row) => row.startsWith('| `diets` ')) as string;
 

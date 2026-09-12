@@ -87,9 +87,9 @@
 |---|---|---|
 | **M0 最小闭环** | 开通服务空间；接入 uni-id-pages 微信登录；建家庭 + 邀请码 + 加入；双端看到同一份档案 | 两个微信号登录后可进同一家庭，档案一致 |
 | **M1 核心档案** | 云端数据模型落库；个人档案 + 家庭成员远程化 | 档案/成员增删改查走云端，刷新不丢 |
-| **M2 打卡模块** | 饮食、运动打卡远程化 | 打卡数据云端持久化 + 双端可见 |
+| **M2 打卡模块** ✅ | 饮食、运动、学习三大打卡远程化 | 打卡数据云端持久化 + 双端可见（**2026-09-12 全部验收通过**） |
 | ↳ **M2-A** ✅ | 饮食 + 运动打卡上云（含扩展有氧、常用食物） | 见 `0.3.2-m2a-requirements-and-solution.md` §1.2；部署与验收见 `0.3.2-m2a-deploy-checklist.md`。**2026-09-12 真机验收通过** |
-| ↳ **M2-B** ✅ | 学习打卡上云（计划 + 每日打卡） | 见 `0.3.3-m2b-requirements-and-solution.md` §1.2；部署与验收见 `0.3.3-m2b-deploy-checklist.md`。**代码完成，真机验收待执行** |
+| ↳ **M2-B** ✅ | 学习打卡上云（计划 + 每日打卡） | 见 `0.3.3-m2b-requirements-and-solution.md` §1.2；部署与验收见 `0.3.3-m2b-deploy-checklist.md`。**2026-09-12 真机验收通过**（23 条用例，未发现阻断问题） |
 
 > ### M2 范围歧义 —— 已定夺（2026-09-12）
 >
@@ -188,11 +188,11 @@ familyRole: string    // owner | member
 | `uni-id-users` | ✅ | 用户（uni-id 自带） | _id, username, wx_openid, familyId, familyRole |
 | `families` | ✅ | 家庭空间 | name, ownerUid, inviteCode, createdAt, memberCount |
 | `family_members` | ✅ | 家庭成员档案 | familyId, name, gender, birthday, height, weight, targetWeight, avatarColor, isSelf |
-| `diets` | 🟡 | 饮食打卡 | familyId, clientId, memberId, date, mealType, foodName, quantity, calories, protein, carbs, fat, createdByUid, createdAt, updatedAt |
-| `workouts` | 🟡 | 运动打卡（力量 / 有氧共用，靠 `category` 区分） | familyId, clientId, memberId, date, category(strength/cardio), exerciseName, sets[{id,order,reps,weightKg}], durationMin, distanceKm, calories, createdByUid, createdAt, updatedAt |
-| `favorite_foods` | 🟡 | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
-| `study_plans` | 🟡 | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
-| `study_checkins` | 🟡 | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
+| `diets` | ✅ | 饮食打卡 | familyId, clientId, memberId, date, mealType, foodName, quantity, calories, protein, carbs, fat, createdByUid, createdAt, updatedAt |
+| `workouts` | ✅ | 运动打卡（力量 / 有氧共用，靠 `category` 区分） | familyId, clientId, memberId, date, category(strength/cardio), exerciseName, sets[{id,order,reps,weightKg}], durationMin, distanceKm, calories, createdByUid, createdAt, updatedAt |
+| `favorite_foods` | ✅ | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
+| `study_plans` | ✅ | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
+| `study_checkins` | ✅ | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
 | `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
 | `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
@@ -381,9 +381,47 @@ src/utils/network.ts          网络状态检测
 
 ## 下一步（待办）
 
-- [x] M0-1a：创建服务空间（支付宝云免费版 `familycheckinprogram`，✅ 2026-09-05 确认）
-- [ ] M0-1b：安装 HBuilderX，创建 uniCloud 目录并关联服务空间
-- [ ] M0-2：导入 uni-id-pages / uni-id-co，配置微信登录（appid + appsecret）
-- [ ] M0-3：设计并创建 `families` / `family_members` 集合（DB Schema）
-- [ ] M0-4：实现 createFamily / joinFamily / getFamilyInfo 云对象
-- [ ] M0-5：前端登录页接入 + 家庭创建/加入页 + 双端联动验收
+> 最后更新：2026-09-12（M2-B 真机验收通过后）
+
+### M0 / M1 —— 已完成
+
+- [x] M0-1a：创建服务空间（支付宝云免费版 `familycheckinprogram`，2026-09-05）
+- [x] M0-1b：HBuilderX 关联服务空间（`uniCloud-alipay`，支付宝云不支持 CLI 发行）
+- [x] M0-2：uni-id-pages / uni-id-co 接入，微信登录可用
+- [x] M0-3：`families` / `family_members` 集合与 DB Schema ✅ 已部署
+- [x] M0-4：家庭创建 / 邀请码加入 / 家庭信息云对象
+- [x] M0-5：前端登录页 + 家庭创建/加入页，双端联动验收通过
+- [x] M1：个人档案 + 家庭成员远程化（`family_members` ✅ 已部署）
+
+### M2 —— 已完成（2026-09-12 全部真机验收通过）
+
+- [x] M2-A：饮食 + 运动打卡上云（含扩展有氧、常用食物），25 项用例通过
+- [x] M2-B：学习打卡上云（计划 + 每日打卡），23 项用例通过
+
+### 🎯 当前：M3 计划模块（食谱 + 出行计划远程化）
+
+范围随 M2 范围歧义的决策已缩减（学习打卡已并入 M2-B 完成），只剩两类：
+
+- [ ] M3-1：需求确认与技术方案（对齐 M2-A/B 的文档体例）
+- [ ] M3-2：`meal_plans` 集合 + schema + 索引
+- [ ] M3-3：`travels` / `travel_items` 集合 + schema + 索引
+- [ ] M3-4：对应云函数（纯逻辑 lib + 路由）
+- [ ] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
+- [ ] M3-6：部署清单 + 真机验收
+
+> 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。
+> M2-B 的 8 步流程已验证可套用。
+
+### 之后：M4 / M5
+
+- [ ] M4：收支账本远程化 + **「本地数据导入云端」入口**（老数据迁移，M2 明确留到此处）
+- [ ] M5：体验版/正式版上线（request 合法域名、隐私政策、备份导出）
+
+### ⏸ 待决策（不阻塞 M3，但影响三个模块）
+
+- [ ] **跨设备删除不同步**：`utils/checkinMerge.ts` 的合并规则刻意保留
+      「云端已删但本地仍在」的记录，且无删除传播机制 → A 删除后 B 刷新仍可见。
+      影响 diet / workout / study 三处。修之前**必须先解决前置问题**：
+      现行规则下「重试超限被丢弃标记」的记录是「本地有、云端无、无标记」，
+      若直接改成「本地独有即视为云端已删」，会把同步失败但用户数据还在的记录
+      **误删成永久丢失**。需连同「重试超限后不再丢弃标记」一起改。
