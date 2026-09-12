@@ -5,6 +5,7 @@ import { MEAL_TYPES } from '@/types/models';
 import type { DietDraft } from '@/services/DietService';
 import { useFavoriteFoodStore } from '@/stores/favoriteFood';
 import { favoriteFoodText } from '@/utils/format';
+import { DIET_LIMITS } from '@/utils/limits';
 
 const props = defineProps<{
   date: string;
@@ -147,6 +148,7 @@ function toOptionalNumber(value: number | undefined): number | undefined {
       <input
         v-model="form.foodName"
         class="field-control"
+        :maxlength="DIET_LIMITS.foodName"
         placeholder="例如：鸡胸肉"
       />
 
@@ -184,6 +186,7 @@ function toOptionalNumber(value: number | undefined): number | undefined {
       <input
         v-model="form.quantity"
         class="field-control"
+        :maxlength="DIET_LIMITS.quantity"
         placeholder="例如：200g / 1碗"
       />
     </view>

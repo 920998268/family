@@ -8,6 +8,7 @@ import type { StudyFrequency, StudyPlan } from '@/types/models';
 import { STUDY_FREQUENCIES, STUDY_FREQUENCY_LABELS } from '@/types/models';
 import type { StudyPlanDraft } from '@/services/StudyService';
 import { formatDateKey, todayKey } from '@/utils/date';
+import { STUDY_LIMITS } from '@/utils/limits';
 import { errorMessage } from '@/utils/error';
 import MemberSelect from '@/components/MemberSelect.vue';
 
@@ -179,12 +180,22 @@ function memberName(memberId: string | undefined): string {
 
         <view class="field field-first">
           <text class="field-label">计划标题</text>
-          <input v-model="form.title" class="field-control" placeholder="例如：每天背单词" />
+          <input
+            v-model="form.title"
+            class="field-control"
+            :maxlength="STUDY_LIMITS.title"
+            placeholder="例如：每天背单词"
+          />
         </view>
 
         <view class="field">
           <text class="field-label">学习内容 / 学科</text>
-          <input v-model="form.subject" class="field-control" placeholder="例如：英语" />
+          <input
+            v-model="form.subject"
+            class="field-control"
+            :maxlength="STUDY_LIMITS.subject"
+            placeholder="例如：英语"
+          />
         </view>
 
         <view class="field">

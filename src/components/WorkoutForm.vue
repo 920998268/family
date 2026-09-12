@@ -5,6 +5,7 @@ import { WORKOUT_CATEGORIES } from '@/types/models';
 import type { WorkoutDraft, WorkoutSetDraft } from '@/services/WorkoutService';
 import { normalizeWorkoutCategory } from '@/utils/workout';
 import { buildWorkoutDraft } from '@/utils/workoutForm';
+import { WORKOUT_LIMITS } from '@/utils/limits';
 
 const props = defineProps<{
   entry?: WorkoutEntry | null;
@@ -117,6 +118,7 @@ function submit(): void {
       <input
         v-model="exerciseName"
         class="field-control"
+        :maxlength="WORKOUT_LIMITS.exerciseName"
         :placeholder="isCardio ? '例如：跑步' : '例如：杠铃卧推'"
       />
     </view>
