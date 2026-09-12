@@ -193,7 +193,7 @@ familyRole: string    // owner | member
 | `favorite_foods` | ✅ | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
 | `study_plans` | ✅ | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
 | `study_checkins` | ✅ | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
-| `checkin_tombstones` | 🟡 | **删除日志（墓碑）**，跨设备删除同步用 | familyId, domain, clientId, date, deletedAt, createdByUid |
+| `checkin_tombstones` | ✅ | **删除日志（墓碑）**，跨设备删除同步用 | familyId, domain, clientId, date, deletedAt, createdByUid |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
 | `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
 | `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
@@ -386,7 +386,7 @@ src/utils/network.ts          网络状态检测
 
 ## 下一步（待办）
 
-> 最后更新：2026-09-12（M2-B 真机验收通过后）
+> 最后更新：2026-09-13（0.3.4 跨设备删除同步发布后）
 
 ### M0 / M1 —— 已完成
 
@@ -422,10 +422,12 @@ src/utils/network.ts          网络状态检测
 - [ ] M4：收支账本远程化 + **「本地数据导入云端」入口**（老数据迁移，M2 明确留到此处）
 - [ ] M5：体验版/正式版上线（request 合法域名、隐私政策、备份导出）
 
-### ✅ 已整改：跨设备删除不同步（0.3.4）
+### ✅ 已整改：跨设备删除不同步（0.3.4，真机验收通过）
 
 - [x] **跨设备删除不同步** → **已改为同步删除**。
       方案见 `0.3.4-cross-device-delete-sync.md`，部署与验收见
       `0.3.4-cross-device-delete-sync-checklist.md`。
       采用**删除日志（墓碑）**方案而非「云端没有即删除」——
       后者会误删本地大量从未上云的历史记录（M2 明确把老数据导入留到 M4）。
+- [x] 2026-09-13 云端部署完成，10 条真机用例（含「不误删」3 条）全部通过，
+      随 **v0.3.4** 发布（版本说明见 `0.3.4-release-notes.md`）。

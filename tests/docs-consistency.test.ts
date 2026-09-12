@@ -22,6 +22,7 @@ const M2B_DOC = 'docs/0.3.3-m2b-requirements-and-solution.md';
 const M2B_CHECKLIST = 'docs/0.3.3-m2b-deploy-checklist.md';
 const DELETE_SYNC_DOC = 'docs/0.3.4-cross-device-delete-sync.md';
 const DELETE_SYNC_CHECKLIST = 'docs/0.3.4-cross-device-delete-sync-checklist.md';
+const RELEASE_034 = 'docs/0.3.4-release-notes.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -281,6 +282,71 @@ describe('0.3.4 跨设备删除同步（整改）', () => {
   it('§7.1 集合清单里有 checkin_tombstones', () => {
     const backend = read(BACKEND_DOC);
     expect(backend).toContain('`checkin_tombstones`');
+  });
+});
+
+describe('0.3.4 版本说明', () => {
+  const source = read(RELEASE_034);
+
+  it('保留与 0.3.2 一致的章节体例', () => {
+    for (const heading of [
+      '## 版本概述',
+      '## 一、整改内容',
+      '## 二、Bug 修复',
+      '## 三、优化改进',
+      '## 四、已知限制',
+      '## 五、升级与发布说明',
+    ]) {
+      expect(source, `版本说明缺少章节：${heading}`).toContain(heading);
+    }
+  });
+
+  it('写明 checkin-shared 本期必须重传（与 M2-B 的「不用传」相反）', () => {
+    expect(source).toContain('必须重传');
+  });
+
+  it('复述「不要用批量上传」的警示（M2-A 踩过的坑）', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+    expect(source).toContain('Invalid uni-id config file');
+  });
+
+  it('如实标注本期不补历史删除（避免被当成「部署后旧残留会自动清」）', () => {
+    expect(source).toContain('历史已删除的数据不补');
+  });
+
+  it('版本说明提到的仓库内路径都真实存在', () => {
+    expect(expectReferencedPathsExist(source, '0.3.4 版本说明')).toBeGreaterThan(2);
+  });
+});
+
+/**
+ * 「版本号三处打架」是本项目反复出现的老问题（0.3.0 / 0.3.1 两次发布都没动过
+ * package.json，0.3.2 时才修掉）。写成版本号无关的断言，以后每次发版都能自动守住。
+ */
+describe('版本号三处一致', () => {
+  const pkg = JSON.parse(read('package.json')) as { version: string };
+  const manifest = JSON.parse(read('src/manifest.json')) as {
+    versionName: string;
+    versionCode: string;
+  };
+
+  it('package.json 与 manifest.json 的版本号一致', () => {
+    expect(manifest.versionName).toBe(pkg.version);
+  });
+
+  /**
+   * 本项目的 versionCode 约定：`major * 1000 + minor * 100 + patch`。
+   * 与历史值一致：0.2.0 → 200、0.3.2 → 302、0.3.3 → 303、0.3.4 → 304。
+   *
+   * ⚠️ 不是「去掉小数点」（那样 0.3.4 会得到 034），这个坑第一次写这条守卫时踩过。
+   */
+  it('versionCode 与版本号同步（0.3.4 → 304）', () => {
+    const [major, minor, patch] = pkg.version.split('.').map(Number);
+    expect(manifest.versionCode).toBe(String(major * 1000 + minor * 100 + patch));
+  });
+
+  it('当前版本有对应的版本说明文档', () => {
+    expect(existsSync(join(ROOT, `docs/${pkg.version}-release-notes.md`))).toBe(true);
   });
 });
 
