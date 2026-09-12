@@ -88,6 +88,8 @@
 | **M0 最小闭环** | 开通服务空间；接入 uni-id-pages 微信登录；建家庭 + 邀请码 + 加入；双端看到同一份档案 | 两个微信号登录后可进同一家庭，档案一致 |
 | **M1 核心档案** | 云端数据模型落库；个人档案 + 家庭成员远程化 | 档案/成员增删改查走云端，刷新不丢 |
 | **M2 打卡模块** | 饮食、运动打卡远程化 | 打卡数据云端持久化 + 双端可见 |
+| ↳ **M2-A** ✅ | 饮食 + 运动打卡上云（含扩展有氧、常用食物） | 见 `0.3.2-m2a-requirements-and-solution.md` §1.2；部署与验收见 `0.3.2-m2a-deploy-checklist.md` |
+| ↳ M2-B | 学习打卡上云 | 待排期 |
 | **M3 计划模块** | 学习计划、食谱、出行计划远程化 | 三类计划云端持久化 + 双端可见 |
 | **M4 账本与迁移** | 收支账本远程化；「本地数据导入云端」入口 | 旧本地数据可一键导入，账本云端化 |
 | **M5 上线** | 体验版/正式版；request 合法域名；隐私政策/用户协议；备份与导出 | 可正式使用，符合平台审核要求 |
@@ -166,13 +168,16 @@ familyRole: string    // owner | member
 
 ### 7.1 集合清单
 
-| 集合名 | 说明 | 关键字段 |
-|---|---|---|
-| `uni-id-users` | 用户（uni-id 自带） | _id, username, wx_openid, familyId, familyRole |
-| `families` | 家庭空间 | name, ownerUid, inviteCode, createdAt, memberCount |
-| `family_members` | 家庭成员档案 | familyId, name, gender, birthday, height, weight, targetWeight, avatarColor, isSelf |
-| `diets` | 饮食打卡 | familyId, memberId, date, mealType, content, calories, createdAt |
-| `workouts` | 运动打卡 | familyId, memberId, date, type, duration, calories, note, createdAt |
+> 实施状态：✅ 已实现并已上传部署 ｜ 🟡 已实现待部署 ｜ ⬜ 未实现
+
+| 集合名 | 状态 | 说明 | 关键字段 |
+|---|---|---|---|
+| `uni-id-users` | ✅ | 用户（uni-id 自带） | _id, username, wx_openid, familyId, familyRole |
+| `families` | ✅ | 家庭空间 | name, ownerUid, inviteCode, createdAt, memberCount |
+| `family_members` | ✅ | 家庭成员档案 | familyId, name, gender, birthday, height, weight, targetWeight, avatarColor, isSelf |
+| `diets` | 🟡 | 饮食打卡 | familyId, clientId, memberId, date, mealType, foodName, quantity, calories, protein, carbs, fat, createdByUid, createdAt, updatedAt |
+| `workouts` | 🟡 | 运动打卡（力量 / 有氧共用，靠 `category` 区分） | familyId, clientId, memberId, date, category(strength/cardio), exerciseName, sets[{id,order,reps,weightKg}], durationMin, distanceKm, calories, createdByUid, createdAt, updatedAt |
+| `favorite_foods` | 🟡 | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
 | `study_plans` | 学习计划 | familyId, title, frequency, startDate, endDate, createdAt |
 | `study_checkins` | 学习打卡 | familyId, planId, memberId, date, done, note |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
@@ -182,6 +187,10 @@ familyRole: string    // owner | member
 | `sync_meta` | 同步元数据 | familyId, lastSyncAt, dataVersion |
 
 > 对应关系：`family_members` ≈ 现有 `family` store 的成员档案；`diets/workouts` ≈ 现有打卡；`study_*` ≈ 学习；`meal_plans` ≈ 食谱；`travels/travel_items` ≈ 出行；`transactions` ≈ 账本。**前端 `src/types/models.ts` 的现有类型可在加 `familyId`/`clientId` 后复用**。
+
+> ⚠️ 本表的 `diets` / `workouts` 字段曾按早期设计稿写成 `content` / `type` / `duration` / `note`，
+> 与实际实现不符。**以本表当前内容为准**（M2-A 落地时已按 `validateDietPayload` /
+> `validateWorkoutPayload` 的实际落库字段校正），产品语义仍以 `product-design.md` §4.1 为准。
 
 ### 7.2 统一字段约定
 ```ts
