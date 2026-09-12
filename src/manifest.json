@@ -2,8 +2,8 @@
     "name" : "家庭打卡",
     "appid" : "__UNI__D440BC0",
     "description" : "家庭成员共享的日常打卡与计划管理小程序",
-    "versionName" : "0.2.0",
-    "versionCode" : "200",
+    "versionName" : "0.3.2",
+    "versionCode" : "302",
     "transformPx" : false,
     "h5" : {
         "title" : "家庭打卡",
