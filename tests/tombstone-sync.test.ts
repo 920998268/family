@@ -291,6 +291,180 @@ describe('应用墓碑：游标', () => {
   });
 });
 
+/**
+ * 内存假云端：让 A / B 两台「设备」（两个 CheckinSyncService 实例）共享同一份云端状态。
+ *
+ * 这是整改目标的**直接验证**：A 删除 → B 拉取 → B 本地消失。
+ * 单看任何一端的单元测试都覆盖不到这条链路。
+ */
+class FakeCloud {
+  diets = new Map<string, DietEntry>();
+  tombstones: Tombstone[] = [];
+  /** 单调递增的删除时间戳：同一毫秒写的两条墓碑会让游标边界变得不可靠 */
+  private clock = T1;
+
+  dietRemote(): DietRemoteRepo {
+    return {
+      listByDate: async (date) => [...this.diets.values()].filter((entry) => entry.date === date),
+      create: async (entry) => {
+        if (this.diets.has(entry.id)) {
+          return { _id: 'x', duplicated: true };
+        }
+        this.diets.set(entry.id, { ...entry });
+        return { _id: 'x' };
+      },
+      update: async (entry) => {
+        this.diets.set(entry.id, { ...entry });
+      },
+      remove: async (clientId, date) => {
+        // 复刻云端 remove 的两条铁律：先删记录，且无论是否存在都写墓碑
+        const existing = this.diets.get(clientId);
+        if (existing) {
+          this.diets.delete(clientId);
+        }
+        this.clock += 1;
+        this.tombstones.push({
+          domain: 'diet',
+          clientId,
+          date: existing?.date ?? date ?? '',
+          deletedAt: this.clock,
+        });
+      },
+      listFavoriteFoods: async () => [],
+      removeFavoriteFood: async () => undefined,
+    };
+  }
+
+  tombstoneRemote(): TombstoneRemoteRepo {
+    return {
+      listAll: async (since?: number) =>
+        this.tombstones.filter((item) => item.deletedAt > (since ?? 0)),
+    };
+  }
+}
+
+/** 造一台「设备」：独立本地存储 + 共享同一个假云端 */
+function createDevice(cloud: FakeCloud, deviceId: string) {
+  const storage = new InMemoryStorageAdapter();
+  const dietRepository = new DietRepository(storage);
+  const dietRemote = cloud.dietRemote();
+
+  const sync = new CheckinSyncService({
+    storage,
+    dietRepository,
+    workoutRepository: new WorkoutRepository(storage),
+    studyPlanRepository: new StudyPlanRepository(storage),
+    studyCheckinRepository: new StudyCheckinRepository(storage),
+    dietRemote,
+    workoutRemote: {
+      listByDate: async () => [],
+      create: async () => ({ _id: 'x' }),
+      update: async () => undefined,
+      remove: async () => undefined,
+    },
+    studyPlanRemote: {
+      list: async () => [],
+      create: async () => ({ _id: 'x' }),
+      update: async () => undefined,
+      remove: async () => ({ removed: true, deletedCheckins: 0 }),
+    },
+    studyCheckinRemote: {
+      listByDate: async () => [],
+      create: async () => ({ _id: 'x' }),
+      remove: async () => ({ removed: true }),
+    },
+    tombstoneRemote: cloud.tombstoneRemote(),
+    now: () => T1,
+  });
+
+  return { deviceId, storage, dietRepository, sync };
+}
+
+describe('双端端到端：A 删除 → B 同步消失', () => {
+  it('A 新增上云，B 拉取可见（前置条件成立）', async () => {
+    const cloud = new FakeCloud();
+    const a = createDevice(cloud, 'A');
+    const b = createDevice(cloud, 'B');
+
+    a.dietRepository.saveByDate(DATE, [dietEntry()]);
+    a.sync.markDirty('diet', 'add', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+
+    const seen = await b.sync.pullDiets(DATE);
+
+    expect(seen.map((entry) => entry.id)).toEqual(['diet-1']);
+  });
+
+  it('A 删除后，B 拉取时该记录消失（本次整改的目标）', async () => {
+    const cloud = new FakeCloud();
+    const a = createDevice(cloud, 'A');
+    const b = createDevice(cloud, 'B');
+
+    a.dietRepository.saveByDate(DATE, [dietEntry()]);
+    a.sync.markDirty('diet', 'add', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+    await b.sync.pullDiets(DATE);
+    expect(b.dietRepository.getByDate(DATE)).toHaveLength(1);
+
+    // A 本地删除并推上云
+    a.dietRepository.saveByDate(DATE, []);
+    a.sync.markDirty('diet', 'remove', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+
+    // B 只是重新拉取，什么都没做
+    const seen = await b.sync.pullDiets(DATE);
+
+    expect(seen).toEqual([]);
+    expect(b.dietRepository.getByDate(DATE)).toEqual([]);
+  });
+
+  it('B 离线新增的本地记录不会被误删（墓碑里没有它的 id）', async () => {
+    const cloud = new FakeCloud();
+    const a = createDevice(cloud, 'A');
+    const b = createDevice(cloud, 'B');
+
+    a.dietRepository.saveByDate(DATE, [dietEntry()]);
+    a.sync.markDirty('diet', 'add', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+    await b.sync.pullDiets(DATE);
+
+    // B 离线新增一条（还没上云）
+    b.dietRepository.saveByDate(DATE, [dietEntry(), dietEntry({ id: 'mine', foodName: '酸奶' })]);
+    b.sync.markDirty('diet', 'add', { id: 'mine', date: DATE });
+
+    // 同时 A 删掉了 diet-1
+    a.dietRepository.saveByDate(DATE, []);
+    a.sync.markDirty('diet', 'remove', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+
+    const seen = await b.sync.pullDiets(DATE);
+
+    // A 删的那条消失，B 自己的新增保留
+    expect(seen.map((entry) => entry.id)).toEqual(['mine']);
+  });
+
+  it('重复拉取是幂等的（已删的不复活、不报错）', async () => {
+    const cloud = new FakeCloud();
+    const a = createDevice(cloud, 'A');
+    const b = createDevice(cloud, 'B');
+
+    a.dietRepository.saveByDate(DATE, [dietEntry()]);
+    a.sync.markDirty('diet', 'add', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+    await b.sync.pullDiets(DATE);
+
+    a.dietRepository.saveByDate(DATE, []);
+    a.sync.markDirty('diet', 'remove', { id: 'diet-1', date: DATE });
+    await a.sync.flush();
+
+    await b.sync.pullDiets(DATE);
+    await b.sync.pullDiets(DATE);
+    const third = await b.sync.pullDiets(DATE);
+
+    expect(third).toEqual([]);
+  });
+});
+
 describe('读取流程中的墓碑应用', () => {
   it('pull 前先应用墓碑：合并结果里不含被删记录，本地缓存也不含', async () => {
     const { sync, dietRepository } = createHarness([tombstone()]);
