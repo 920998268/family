@@ -1,0 +1,58 @@
+{
+  "bsonType": "object",
+  "required": ["familyId", "clientId", "title", "subject", "frequency", "targetTimes"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端计划 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "title": {
+      "bsonType": "string",
+      "title": "计划标题",
+      "maxLength": 40
+    },
+    "subject": {
+      "bsonType": "string",
+      "title": "学习内容 / 学科",
+      "maxLength": 40
+    },
+    "frequency": {
+      "bsonType": "string",
+      "title": "打卡频率：daily（每天）/ weekly（每周）"
+    },
+    "targetTimes": {
+      "bsonType": ["int", "double"],
+      "title": "目标次数 1~1000（声明两种数值类型以兼容驱动落库形式；云函数侧校验范围）"
+    },
+    "memberId": {
+      "bsonType": ["string", "null"],
+      "title": "归属成员（family_members._id；不属于本家庭时服务端置 null）"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间（**毫秒时间戳**；返回给前端时由云函数转成 ISO 字符串）"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}

@@ -277,6 +277,81 @@ describe('云端记录 → 前端形态（跨模块守卫）', () => {
   });
 });
 
+describe('studyLib.deleteInBatches（级联删除的循环控制）', () => {
+  /** 按给定批次序列返回，跑完后一直返回 0 */
+  function batched(sequence: number[]) {
+    let index = 0;
+    let calls = 0;
+    const deleteBatch = async () => {
+      calls += 1;
+      const value = sequence[index] ?? 0;
+      index += 1;
+      return value;
+    };
+    return { deleteBatch, calls: () => calls };
+  }
+
+  it('一次删完就停（第二批返回 0 即终止）', async () => {
+    const { deleteBatch, calls } = batched([5]);
+
+    await expect(studyLib.deleteInBatches(deleteBatch)).resolves.toEqual({
+      deleted: 5,
+      rounds: 2,
+      truncated: false,
+    });
+    expect(calls()).toBe(2);
+  });
+
+  it('单批有上限时继续删，直到某一批为 0', async () => {
+    // 模拟「云数据库单次 remove 有条数上限」：100/100/100 之后才删空
+    const { deleteBatch, calls } = batched([100, 100, 100]);
+
+    const result = await studyLib.deleteInBatches(deleteBatch);
+
+    expect(result).toEqual({ deleted: 300, rounds: 4, truncated: false });
+    expect(calls()).toBe(4);
+  });
+
+  it('一开始就没得删时只跑一轮', async () => {
+    const { deleteBatch, calls } = batched([]);
+
+    await expect(studyLib.deleteInBatches(deleteBatch)).resolves.toEqual({
+      deleted: 0,
+      rounds: 1,
+      truncated: false,
+    });
+    expect(calls()).toBe(1);
+  });
+
+  it('⚠️ 达到轮次上限仍未删完 → truncated（调用方不得继续删主记录）', async () => {
+    // 一直返回 100，永远删不完；必须靠轮次上限兜住，否则死循环
+    const { deleteBatch, calls } = batched([100, 100, 100, 100, 100]);
+
+    const result = await studyLib.deleteInBatches(deleteBatch, { maxRounds: 3 });
+
+    expect(result.deleted).toBe(300);
+    expect(result.rounds).toBe(3);
+    expect(result.truncated).toBe(true);
+    expect(calls(), '轮次上限必须真正生效').toBe(3);
+  });
+
+  it('恰好在上限轮删完时不算 truncated', async () => {
+    const { deleteBatch } = batched([100, 100, 0]);
+
+    const result = await studyLib.deleteInBatches(deleteBatch, { maxRounds: 3 });
+
+    expect(result).toEqual({ deleted: 200, rounds: 3, truncated: false });
+  });
+
+  it('删除动作返回非数字时按 0 处理并停止（不让脏返回值造成死循环）', async () => {
+    const deleteBatch = async () => undefined as unknown as number;
+
+    await expect(
+      studyLib.deleteInBatches(deleteBatch, { maxRounds: 5 }),
+    ).resolves.toEqual({ deleted: 0, rounds: 1, truncated: false });
+  });
+});
+
 describe('长度上限与前端 UI 的一致性', () => {
   it('上限值被显式锁定（改动需同步前端 maxlength）', () => {
     // ⚠️ 云端上限若比前端更严，本地合法记录会推不上去、重试 5 次后被丢弃。

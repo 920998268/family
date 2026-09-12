@@ -171,6 +171,43 @@ function mergePlanPatch(existing, payload) {
   }
 }
 
+/** 级联删除的轮次上限：防止「一直删不完 → 死循环」 */
+const MAX_CASCADE_ROUNDS = 20
+
+/**
+ * 分批删除的循环控制（纯逻辑，**注入删除动作**以便单测）。
+ *
+ * ⚠️ 为什么不能「一次删完」：云数据库单次删除有条数上限，而一个学习计划
+ *    可能积累很多天的打卡。一次删不完就会留下**孤儿打卡** ——
+ *    计划已经没了、打卡还在，前端靠 planId 找不到计划标题，界面上根本渲染不出来。
+ *    所以按批循环，直到某一批删到 0 条为止。
+ *
+ * 把「删一批」作为参数注入，是为了让这段控制流能被单元测试穷举：
+ * 「单批有上限时会不会继续删」「什么时候停」「达到轮次上限怎么报告」
+ * 都是容易写错、又极难在真机上发现的地方。
+ *
+ * @param {() => Promise<number>} deleteBatch 执行一批删除，返回本批删除条数
+ * @param {{ maxRounds?: number }} [options]
+ * @returns {Promise<{ deleted: number, rounds: number, truncated: boolean }>}
+ *          `truncated: true` 表示达到轮次上限仍未删完 —— 调用方**不应**继续删主记录，
+ *          否则会留下孤儿；应当返回可重试的失败，让下次调用接着删（每轮都有进展）。
+ */
+async function deleteInBatches(deleteBatch, options) {
+  const maxRounds = (options && options.maxRounds) || MAX_CASCADE_ROUNDS
+  let deleted = 0
+  let rounds = 0
+  let lastCount = 0
+
+  while (rounds < maxRounds) {
+    lastCount = Number(await deleteBatch()) || 0
+    deleted += lastCount
+    rounds += 1
+    if (lastCount === 0) break
+  }
+
+  return { deleted, rounds, truncated: lastCount > 0 }
+}
+
 /**
  * 校验并归一化一条学习打卡。
  *
@@ -260,12 +297,14 @@ module.exports = {
   TARGET_TIMES_MAX,
   PLAN_LIST_LIMIT,
   CHECKIN_LIST_LIMIT,
+  MAX_CASCADE_ROUNDS,
   validateDate,
   validateClientId,
   toIsoString,
   normalizeNote,
   validatePlanPayload,
   mergePlanPatch,
+  deleteInBatches,
   validateCheckinPayload,
   validateCheckinQuery,
   toClientPlan,
