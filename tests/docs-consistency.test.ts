@@ -180,12 +180,28 @@ describe('M2-B 部署清单', () => {
     }
   });
 
-  it('给出 5 条索引，并标明哪 3 条是唯一索引', () => {
-    expect(source).toContain('familyId` + `clientId`');
-    expect(source).toContain('familyId` + `createdAt`');
-    expect(source).toContain('familyId` + `date`');
-    expect(source).toContain('familyId` + `planId` + `date`');
+  it('给出 5 条索引，且**字段顺序**正确（顺序错了索引会静默失效）', () => {
+    // `[^|]*` 限定在同一表格单元内匹配，只关心字段的**先后顺序**，
+    // 不关心分隔符与描述文字怎么写 —— 顺序才是真正会静默出问题的地方：
+    // 所有查询都带 familyId，它必须排第一，否则索引退化成全表扫描且不报错。
+    const specs: Array<[string, RegExp]> = [
+      ['计划·幂等键', /`familyId`[^|]*`clientId`/],
+      ['计划·按创建时间排序', /`familyId`[^|]*`createdAt`/],
+      ['打卡·幂等键', /`familyId`[^|]*`clientId`/],
+      ['打卡·按日期', /`familyId`[^|]*`date`/],
+      ['打卡·同计划同日唯一', /`familyId`[^|]*`planId`[^|]*`date`/],
+    ];
+
+    for (const [label, pattern] of specs) {
+      expect(pattern.test(source), `索引清单缺少「${label}」或字段顺序不对`).toBe(true);
+    }
+  });
+
+  it('标明 3 条是唯一索引，并说明字段顺序不可颠倒', () => {
     expect(source).toContain('唯一');
+    expect(source).toMatch(/唯一索引[\s\S]{0,80}字段顺序|字段顺序[\s\S]{0,80}唯一索引/);
+    // 必须写上「建唯一索引前表里不能有重复值」这个前提，否则创建失败时会摸不着头脑
+    expect(source).toContain('重复');
   });
 
   it('明确说明 checkin-shared 本期不需要重传', () => {
