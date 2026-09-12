@@ -3,12 +3,16 @@
  * 统一管理云对象、云函数调用与登录态。
  */
 
-import type { DietEntry, FavoriteFood, WorkoutEntry } from '@/types/models';
+import type { DietEntry, FavoriteFood, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
 import {
   mapCloudDiets,
   mapCloudFoods,
+  mapCloudStudyCheckins,
+  mapCloudStudyPlans,
   mapCloudWorkouts,
   toCloudDiet,
+  toCloudStudyCheckin,
+  toCloudStudyPlan,
   toCloudWorkout,
 } from '@/utils/cloudMap';
 
@@ -408,4 +412,67 @@ export async function updateCloudWorkout(entry: WorkoutEntry): Promise<void> {
 /** 删除运动记录（服务端幂等，返回 `removed` 见 removeCloudDiet 说明） */
 export async function removeCloudWorkout(clientId: string): Promise<{ removed: boolean }> {
   return callWorkout('remove', { clientId });
+}
+
+/**
+ * 调用 study 云函数（学习计划 + 学习打卡）
+ *
+ * 两者在同一个云函数里，是因为它们是主从关系（打卡从属于计划、
+ * 删计划要级联删打卡）。详见 docs/0.3.3-m2b-requirements-and-solution.md §2.1。
+ *
+ * ⚠️ 必须走 getCloud()，裸 `uniCloud.callFunction` 会命中框架静态快照而必然失败。
+ */
+async function callStudy(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'study',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `study 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/** 拉取本家庭的全部学习计划（计划不分日期，全量拉取） */
+export async function listCloudStudyPlans(): Promise<StudyPlan[]> {
+  return mapCloudStudyPlans(await callStudy('listPlans'));
+}
+
+/** 新增学习计划（以 plan.id 作为 clientId，服务端幂等） */
+export async function addCloudStudyPlan(plan: StudyPlan): Promise<CloudWriteResult> {
+  return callStudy('addPlan', toCloudStudyPlan(plan));
+}
+
+/** 更新学习计划（同样以 plan.id 定位；创建时间由服务端保留，不接受覆盖） */
+export async function updateCloudStudyPlan(plan: StudyPlan): Promise<void> {
+  return callStudy('updatePlan', toCloudStudyPlan(plan));
+}
+
+/**
+ * 删除学习计划。
+ *
+ * ⚠️ 服务端会**级联删除**该计划的全部打卡，所以返回里带 `deletedCheckins` 计数。
+ * 若云端历史打卡过多、一次没删完，服务端会返回可重试的失败（计划不会被删），
+ * 重试即可接着删 —— 这正是不能用「本地直接删掉」来替代的地方。
+ */
+export async function removeCloudStudyPlan(
+  clientId: string,
+): Promise<{ removed: boolean; deletedCheckins: number }> {
+  return callStudy('removePlan', { clientId });
+}
+
+/** 拉取某一天的学习打卡（打卡按日期组织） */
+export async function listCloudStudyCheckins(date: string): Promise<StudyCheckin[]> {
+  return mapCloudStudyCheckins(await callStudy('listCheckins', { date }));
+}
+
+/** 新增学习打卡（以 checkin.id 作为 clientId；服务端保证「同一计划同一天仅一次」） */
+export async function addCloudStudyCheckin(checkin: StudyCheckin): Promise<CloudWriteResult> {
+  return callStudy('addCheckin', toCloudStudyCheckin(checkin));
+}
+
+/** 删除学习打卡（服务端幂等） */
+export async function removeCloudStudyCheckin(clientId: string): Promise<{ removed: boolean }> {
+  return callStudy('removeCheckin', { clientId });
 }

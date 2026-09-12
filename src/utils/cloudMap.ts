@@ -2,14 +2,21 @@ import type {
   DietEntry,
   FavoriteFood,
   MealType,
+  StudyCheckin,
+  StudyFrequency,
+  StudyPlan,
   WorkoutEntry,
   WorkoutSet,
 } from '@/types/models';
-import { isMealType, isWorkoutCategory } from '@/utils/storageKeys';
+import { isMealType, isStudyFrequency, isWorkoutCategory } from '@/utils/storageKeys';
 import { normalizeWorkoutCategory } from '@/utils/workout';
+import { toIsoString } from '@/utils/date';
+import { normalizeStudyNote } from '@/utils/study';
 import {
   validateDietEntry,
   validateFavoriteFood,
+  validateStudyCheckin,
+  validateStudyPlan,
   validateWorkoutEntry,
 } from '@/utils/validation';
 
@@ -54,6 +61,25 @@ export type CloudWorkoutPayload = {
   durationMin: number | null;
   distanceKm: number | null;
   calories: number | null;
+  memberId: string | null;
+};
+
+/** 上行：前端学习计划 → `study` 云函数入参（同样必须用 `type`，原因见上） */
+export type CloudStudyPlanPayload = {
+  clientId: string;
+  title: string;
+  subject: string;
+  frequency: StudyFrequency;
+  targetTimes: number;
+  memberId: string | null;
+};
+
+/** 上行：前端学习打卡 → `study` 云函数入参 */
+export type CloudStudyCheckinPayload = {
+  clientId: string;
+  planId: string;
+  date: string;
+  note: string;
   memberId: string | null;
 };
 
@@ -158,6 +184,81 @@ export function toCloudWorkout(entry: WorkoutEntry): CloudWorkoutPayload {
   };
 }
 
+/**
+ * 前端学习计划 → `study` 云函数入参。
+ *
+ * ⚠️ **不上行 `createdAt`**：创建时间由服务端 `Date.now()` 决定。
+ * 上行的话，客户端的时钟偏差会污染计划排序（列表按 createdAt 排），
+ * 而且更新时还可能被误改。
+ */
+export function toCloudStudyPlan(plan: StudyPlan): CloudStudyPlanPayload {
+  return {
+    clientId: plan.id,
+    title: plan.title,
+    subject: plan.subject,
+    frequency: plan.frequency,
+    targetTimes: plan.targetTimes,
+    memberId: upId(plan.memberId),
+  };
+}
+
+/**
+ * 前端学习打卡 → `study` 云函数入参。
+ *
+ * `note` 恒为字符串（可为空串）：云端 `normalizeNote` 也把空值落成空串，
+ * 两端一致，不会出现「本地空串 / 云端 null」这种往返不一致。
+ */
+export function toCloudStudyCheckin(checkin: StudyCheckin): CloudStudyCheckinPayload {
+  return {
+    clientId: checkin.id,
+    planId: checkin.planId,
+    date: checkin.date,
+    note: normalizeStudyNote(checkin.note),
+    memberId: upId(checkin.memberId),
+  };
+}
+
+/**
+ * 云端计划记录 → 前端 `StudyPlan`。
+ *
+ * ⚠️ `createdAt` 需要**跨端换算**：云端存毫秒时间戳，前端模型是 ISO 字符串。
+ * `toIsoString` 同时接受毫秒与 ISO（服务端 `toClientPlan` 已转过一次也幂等），
+ * 解析失败返回空串 —— 会被 `validateStudyPlan` 明确拦下（显式丢弃），
+ * 而不是塞一个看似合法的值让计划列表排序静默错乱。
+ */
+export function fromCloudStudyPlan(row: unknown): StudyPlan {
+  const doc = (row || {}) as Record<string, unknown>;
+
+  return {
+    id: asString(doc.id) || asString(doc.clientId) || asString(doc._id),
+    title: asString(doc.title),
+    subject: asString(doc.subject),
+    frequency: isStudyFrequency(doc.frequency) ? doc.frequency : 'daily',
+    targetTimes: downNumber(doc.targetTimes) ?? 0,
+    memberId: asString(doc.memberId) || undefined,
+    createdAt: toIsoString(doc.createdAt),
+  };
+}
+
+/**
+ * 云端打卡记录 → 前端 `StudyCheckin`。
+ *
+ * ⚠️ `note` 必须经 `normalizeStudyNote` 归一：云端空备注是 `null`，
+ * 而 `validateStudyCheckin` 要求它是字符串 —— 不归一化整条打卡会被
+ * `StudyCheckinRepository` **静默丢弃**。
+ */
+export function fromCloudStudyCheckin(row: unknown): StudyCheckin {
+  const doc = (row || {}) as Record<string, unknown>;
+
+  return {
+    id: asString(doc.id) || asString(doc.clientId) || asString(doc._id),
+    planId: asString(doc.planId),
+    date: asString(doc.date),
+    note: normalizeStudyNote(doc.note),
+    memberId: asString(doc.memberId) || undefined,
+  };
+}
+
 /** 云端记录 → 前端 `DietEntry`（同时兼容服务端 `toClientDiet` 形态与裸库文档） */
 export function fromCloudDiet(row: unknown): DietEntry {
   const doc = (row || {}) as Record<string, unknown>;
@@ -249,4 +350,19 @@ export function mapCloudWorkouts(rows: unknown): WorkoutEntry[] {
 /** 云端常用食物列表 → 前端数组 */
 export function mapCloudFoods(rows: unknown): FavoriteFood[] {
   return mapRows(rows, fromCloudFood, (v) => validateFavoriteFood(v).valid, 'favorite_foods');
+}
+
+/** 云端学习计划列表 → 前端数组 */
+export function mapCloudStudyPlans(rows: unknown): StudyPlan[] {
+  return mapRows(rows, fromCloudStudyPlan, (v) => validateStudyPlan(v).valid, 'study_plans');
+}
+
+/** 云端学习打卡列表 → 前端数组 */
+export function mapCloudStudyCheckins(rows: unknown): StudyCheckin[] {
+  return mapRows(
+    rows,
+    fromCloudStudyCheckin,
+    (v) => validateStudyCheckin(v).valid,
+    'study_checkins',
+  );
 }
