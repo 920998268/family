@@ -88,27 +88,21 @@
 | **M0 最小闭环** | 开通服务空间；接入 uni-id-pages 微信登录；建家庭 + 邀请码 + 加入；双端看到同一份档案 | 两个微信号登录后可进同一家庭，档案一致 |
 | **M1 核心档案** | 云端数据模型落库；个人档案 + 家庭成员远程化 | 档案/成员增删改查走云端，刷新不丢 |
 | **M2 打卡模块** | 饮食、运动打卡远程化 | 打卡数据云端持久化 + 双端可见 |
-| ↳ **M2-A** ✅ | 饮食 + 运动打卡上云（含扩展有氧、常用食物） | 见 `0.3.2-m2a-requirements-and-solution.md` §1.2；部署与验收见 `0.3.2-m2a-deploy-checklist.md` |
-| ↳ M2-B ⚠️**待确认** | 学习打卡上云 | 见下方「M2 范围歧义」 |
+| ↳ **M2-A** ✅ | 饮食 + 运动打卡上云（含扩展有氧、常用食物） | 见 `0.3.2-m2a-requirements-and-solution.md` §1.2；部署与验收见 `0.3.2-m2a-deploy-checklist.md`。**2026-09-12 真机验收通过** |
+| ↳ **M2-B** 🚧 | 学习打卡上云 | 见 `0.3.3-m2b-requirements-and-solution.md` §1.2 |
 
-> ### ⚠️ M2 范围歧义（需定夺）
+> ### M2 范围歧义 —— 已定夺（2026-09-12）
 >
-> 本路线图原文把 **M2 定义为「饮食、运动打卡远程化」**，而把**学习放在 M3**
-> （「学习计划、食谱、出行计划远程化」）。
+> 本路线图原文把 **M2 定义为「饮食、运动打卡远程化」**，而把学习放在 M3；
+> 但 `product-design.md` 把**学习打卡列为「打卡」模块的三大组成之一**
+> （§4.2 + 第 69 行「打卡中心 = 运动/饮食/学习三大打卡模块」）。两者冲突。
 >
-> 但 `product-design.md` 把**学习打卡列为「打卡」模块的三大组成部分之一**：
-> - §4.1 运动健身、饮食打卡记录
-> - §4.2 学习计划打卡记录
-> - 页面设计：「打卡 | 打卡中心 | **运动/饮食/学习三大打卡模块**入口与今日完成进度」
+> **决策：采用方案 B** —— 把学习打卡并入 M2 收口（即 M2-B），
+> M3 相应缩减为「食谱 + 出行计划远程化」。
 >
-> 两者冲突。因此存在两种推进方式：
->
-> | 方案 | 含义 | M2 是否收口 |
-> |---|---|---|
-> | **A. 严格按本路线图** | M2 已完成，学习随 M3 一起做 | ✅ 已收口 |
-> | **B. 按产品设计文档语义** | 先做 M2-B（学习打卡上云），M3 只剩食谱 + 出行 | ⬜ 还差 M2-B |
->
-> **待确认后再据此更新本表**。
+> 理由：产品语义上「打卡中心」本就是三大模块，学习留在本地会让「打卡已上云」半截；
+> 且 M2-A 刚建好的基建（鉴权 / 同步服务 / 映射层 / 离线标记）可直接复用，边际成本低；
+> 若并入 M3 会使该阶段变成三个模块，规模过大。
 | **M3 计划模块** | 学习计划、食谱、出行计划远程化 | 三类计划云端持久化 + 双端可见 |
 | **M4 账本与迁移** | 收支账本远程化；「本地数据导入云端」入口 | 旧本地数据可一键导入，账本云端化 |
 | **M5 上线** | 体验版/正式版；request 合法域名；隐私政策/用户协议；备份与导出 | 可正式使用，符合平台审核要求 |
@@ -197,8 +191,8 @@ familyRole: string    // owner | member
 | `diets` | 🟡 | 饮食打卡 | familyId, clientId, memberId, date, mealType, foodName, quantity, calories, protein, carbs, fat, createdByUid, createdAt, updatedAt |
 | `workouts` | 🟡 | 运动打卡（力量 / 有氧共用，靠 `category` 区分） | familyId, clientId, memberId, date, category(strength/cardio), exerciseName, sets[{id,order,reps,weightKg}], durationMin, distanceKm, calories, createdByUid, createdAt, updatedAt |
 | `favorite_foods` | 🟡 | 常用食物（随饮食打卡自动沉淀） | familyId, name, quantity, calories, protein, carbs, fat, useCount, lastUsedAt, createdByUid, createdAt, updatedAt |
-| `study_plans` | 学习计划 | familyId, title, frequency, startDate, endDate, createdAt |
-| `study_checkins` | 学习打卡 | familyId, planId, memberId, date, done, note |
+| `study_plans` | 🚧 | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
+| `study_checkins` | 🚧 | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
 | `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
 | `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
 | `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
