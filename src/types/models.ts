@@ -103,6 +103,16 @@ export interface StudyPlan {
   frequency: StudyFrequency;
   targetTimes: number;
   memberId?: string;
+  /**
+   * 创建时间。
+   *
+   * ⚠️ 前端用 **ISO 字符串**，而云端 `study_plans.createdAt` 存 **毫秒时间戳**
+   * （与 diets / workouts 一致）。换算由 `utils/cloudMap.ts` 负责，
+   * 工具函数是 `utils/date.ts` 的 `toMillis` / `toIsoString`。
+   *
+   * 计划列表按 `createdAt` 排序（`StudyService.sortPlans`），
+   * 所以换算方向写错会**静默错序**而不是报错 —— 改动这块务必跑单测。
+   */
   createdAt: string;
 }
 
@@ -110,6 +120,13 @@ export interface StudyCheckin {
   id: string;
   planId: string;
   date: string;
+  /**
+   * 打卡备注。
+   *
+   * ⚠️ `validateStudyCheckin` 要求它**必须是字符串**（不能是 undefined / null），
+   * 而云端空备注存的是 `null`。映射层必须用 `normalizeStudyNote` 归一化，
+   * 否则整条打卡会被 `StudyCheckinRepository` 静默丢弃。
+   */
   note: string;
   memberId?: string;
 }

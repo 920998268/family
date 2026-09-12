@@ -383,10 +383,17 @@ export function validateStudyPlan(value: unknown): ValidationResult {
     errors.push('打卡频率不合法');
   }
   pushError(errors, numberError(plan.targetTimes, '目标次数', 1, 1000));
-  pushError(errors, optionalIdError(plan.memberId, '归属成员'));
-  if (typeof plan.createdAt !== 'string' || !plan.createdAt) {
-    errors.push('创建时间不合法');
-  }
+    pushError(errors, optionalIdError(plan.memberId, '归属成员'));
+    if (typeof plan.createdAt !== 'string' || !plan.createdAt) {
+      errors.push('创建时间不合法');
+    } else if (Number.isNaN(Date.parse(plan.createdAt))) {
+      // 必须**可解析**，不能只判非空：计划列表按 createdAt 排序
+      // （StudyService.sortPlans 用 localeCompare 降序），
+      // 一个不可解析的值会通过校验、却让排序静默错乱，很难发现。
+      // 映射层解析失败时返回空串（见 utils/date.ts 的 toIsoString），
+      // 会在这里被明确拦下，而不是污染排序。
+      errors.push('创建时间不合法');
+    }
 
   return { valid: errors.length === 0, errors };
 }
