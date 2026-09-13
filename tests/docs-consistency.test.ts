@@ -23,6 +23,7 @@ const M2B_CHECKLIST = 'docs/0.3.3-m2b-deploy-checklist.md';
 const DELETE_SYNC_DOC = 'docs/0.3.4-cross-device-delete-sync.md';
 const DELETE_SYNC_CHECKLIST = 'docs/0.3.4-cross-device-delete-sync-checklist.md';
 const RELEASE_034 = 'docs/0.3.4-release-notes.md';
+const M3_DOC = 'docs/0.3.5-m3-requirements-and-solution.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -347,6 +348,53 @@ describe('版本号三处一致', () => {
 
   it('当前版本有对应的版本说明文档', () => {
     expect(existsSync(join(ROOT, `docs/${pkg.version}-release-notes.md`))).toBe(true);
+  });
+});
+
+/**
+ * M3 方案文档。**暂不做路径守卫** —— 方案里提到的 schema 与云函数目录要到第 4 步才建，
+ * 现在加 `expectReferencedPathsExist` 会因文件不存在而失败（M2-B 也是这么处理的，
+ * 收口时再纳入）。这里只守「决策与关键风险被写下来了」。
+ */
+describe('M3 方案文档（食谱 + 出行上云）', () => {
+  const source = read(M3_DOC);
+
+  it('记录本轮的三项关键决策', () => {
+    expect(source).toContain('拆成独立集合');
+    expect(source).toContain('travel_items');
+    expect(source).toContain('meal` + `travel');
+    expect(source).toContain('0.3.5');
+  });
+
+  it('保留「并发勾选不互相覆盖」这条验收标准（拆明细集合的直接收益）', () => {
+    expect(source).toContain('同时勾选');
+  });
+
+  it('写明墓碑 domain 由 4 扩到 7，且漏改会静默不传播', () => {
+    expect(source).toContain('TOMBSTONE_DOMAINS');
+    expect(source).toContain('静默不传播');
+  });
+
+  it('写明 normalizeItems 重新生成 id 是必须先修的既有缺陷', () => {
+    expect(source).toContain('normalizeItems');
+    expect(source).toContain('computeItemDiff');
+  });
+
+  it('8 个实施步骤齐备', () => {
+    const rows = numberedRowsInTable(source, '## 7. 实施步骤', '| 步 | 内容 |');
+    expect(rows).toHaveLength(8);
+  });
+
+  it('复述「不要用批量上传」的警示', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+  });
+
+  it('路线图已把 M3-1 标为完成并指向方案文档', () => {
+    const backend = read(BACKEND_DOC);
+    const line = backend.split(/\r?\n/).find((row) => row.includes('M3-1')) as string;
+    expect(line, '路线图缺少 M3-1 行').toBeTruthy();
+    expect(line).toContain('[x]');
+    expect(line).toContain('0.3.5-m3-requirements-and-solution.md');
   });
 });
 

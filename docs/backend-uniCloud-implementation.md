@@ -181,7 +181,7 @@ familyRole: string    // owner | member
 
 ### 7.1 集合清单
 
-> 实施状态：✅ 已实现并已上传部署 ｜ 🟡 已实现待部署 ｜ ⬜ 未实现
+> 实施状态：✅ 已实现并已上传部署 ｜ 🟡 已实现待部署 ｜ 🚧 方案已定、实施中 ｜ ⬜ 未实现
 
 | 集合名 | 状态 | 说明 | 关键字段 |
 |---|---|---|---|
@@ -194,11 +194,11 @@ familyRole: string    // owner | member
 | `study_plans` | ✅ | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
 | `study_checkins` | ✅ | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
 | `checkin_tombstones` | ✅ | **删除日志（墓碑）**，跨设备删除同步用 | familyId, domain, clientId, date, deletedAt, createdByUid |
-| `meal_plans` | 家庭食谱 | familyId, date, mealType, dishes, note, createdAt |
-| `travels` | 出行计划 | familyId, title, startDate, endDate, status, note |
-| `travel_items` | 出行子项 | familyId, travelId, time, item, memberId, done |
-| `transactions` | 收支记录 | familyId, type(income/expense), category, amount, date, note, memberId, createdAt |
-| `sync_meta` | 同步元数据 | familyId, lastSyncAt, dataVersion |
+| `meal_plans` | 🚧 | 家庭食谱（M3） | familyId, clientId, date, slot, dishName, ingredients, cook, done, note, createdByUid, createdAt, updatedAt |
+| `travels` | 🚧 | 出行计划（M3） | familyId, clientId, title, startDate, endDate, destination, members, budget, status, note, createdByUid, createdAt, updatedAt |
+| `travel_items` | 🚧 | 出行行程明细（M3，主从） | familyId, clientId, travelId, order, time, activity, note, done, createdByUid, createdAt, updatedAt |
+| `transactions` | ⬜ | 收支记录（M4） | familyId, type(income/expense), category, amount, date, note, memberId, createdAt |
+| `sync_meta` | ⬜ | 同步元数据（预留，暂未使用） | familyId, lastSyncAt, dataVersion |
 
 > 对应关系：`family_members` ≈ 现有 `family` store 的成员档案；`diets/workouts` ≈ 现有打卡；`study_*` ≈ 学习；`meal_plans` ≈ 食谱；`travels/travel_items` ≈ 出行；`transactions` ≈ 账本。**前端 `src/types/models.ts` 的现有类型可在加 `familyId`/`clientId` 后复用**。
 >
@@ -209,6 +209,14 @@ familyRole: string    // owner | member
 > ⚠️ 本表的 `diets` / `workouts` 字段曾按早期设计稿写成 `content` / `type` / `duration` / `note`，
 > 与实际实现不符。**以本表当前内容为准**（M2-A 落地时已按 `validateDietPayload` /
 > `validateWorkoutPayload` 的实际落库字段校正），产品语义仍以 `product-design.md` §4.1 为准。
+>
+> 2026-09-13 校正（M3 第 1 步）：`meal_plans` / `travels` / `travel_items` /
+> `transactions` / `sync_meta` 五行此前**漏了「状态」列**（说明文字掉进了状态列），
+> 且 `meal_plans`（`mealType` / `dishes`）与 `travel_items`（`item` / `memberId`）
+> 的字段是早期设计稿 —— 已按 `MealPlan` / `TravelPlan` / `TravelItem`
+> 实际模型与 `0.3.5-m3-requirements-and-solution.md` §3.1 重新填写。
+> 前三个集合的字段 ↔ schema 纳入文档守卫的工作，留到 M3 第 4 步（schema 建好之后）——
+> 现在加会因 schema 尚不存在而失败。
 
 ### 7.2 统一字段约定
 ```ts
@@ -407,7 +415,8 @@ src/utils/network.ts          网络状态检测
 
 范围随 M2 范围歧义的决策已缩减（学习打卡已并入 M2-B 完成），只剩两类：
 
-- [ ] M3-1：需求确认与技术方案（对齐 M2-A/B 的文档体例）
+- [x] M3-1：需求确认与技术方案 → `0.3.5-m3-requirements-and-solution.md`（2026-09-13）
+      三项关键决策已定：**出行明细拆独立集合** / **`meal` + `travel` 两个云函数** / **版本号 0.3.5**
 - [ ] M3-2：`meal_plans` 集合 + schema + 索引
 - [ ] M3-3：`travels` / `travel_items` 集合 + schema + 索引
 - [ ] M3-4：对应云函数（纯逻辑 lib + 路由）
@@ -415,7 +424,11 @@ src/utils/network.ts          网络状态检测
 - [ ] M3-6：部署清单 + 真机验收
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。
-> M2-B 的 8 步流程已验证可套用。
+> 本期按 `0.3.5-m3-requirements-and-solution.md` §7 的 **8 步**实施（比本表更细，逐步对应）。
+>
+> ⚠️ 本期是**第一次**在墓碑机制已存在的前提下新增模块：`TOMBSTONE_DOMAINS` 需由
+> 4 个扩到 7 个（新增 `mealPlan` / `travelPlan` / `travelItem`），且硬编码在 6 处
+> （见方案 §3.4）—— **漏改任何一处，新模块的删除就静默不传播**。
 
 ### 之后：M4 / M5
 
