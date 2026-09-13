@@ -234,52 +234,67 @@ async function collectItemRefs(familyId, travelId) {
  *    因为每轮删除都有进展，客户端重试就能接着删完；而带着未删完的明细删掉计划，
  *    才会真正留下孤儿。若先写了墓碑，别的设备会删掉本地明细，而下次 pull 时
  *    云端还有 → 记录复活。
+ *
+ * ⚠️ **计划墓碑写在 `if (target)` 之外**：计划记录不存在也要写。
+ *    与 `removeItem` / `removeMeal` 的无条件补写口径一致，理由同样是重试：
+ *    「计划已删、写墓碑失败」时客户端会重试，重试时 `findPlan` 已经找不到记录了 ——
+ *    若此时早返回，这条墓碑**永远补不上**，别的设备的本地副本不会消失，
+ *    还有被再次推上去复活的风险。
+ *    计划不存在时不级联（服务端不会出现「有明细没计划」：`addItem` 强制校验计划归属，
+ *    删计划又必然级联删明细），所以那条路径只补墓碑、不碰明细。
+ *    本地明细是嵌在计划里的（`TravelPlan.items`），计划墓碑一到，
+ *    该计划的明细会随之消失，所以这条路径不需要明细墓碑。
  */
 async function removePlan(familyId, uid, event) {
-  const clientId = event && event.clientId
+  const evt = event || {}
+  const clientId = evt.clientId
   const target = await findPlan(familyId, clientId)
-  if (!target) return { code: 0, data: { removed: false, deletedItems: 0 } }
 
-  const itemRefs = await collectItemRefs(familyId, target.clientId)
+  let deletedItems = 0
 
-  const cascade = await deleteInBatches(
-    async () => {
-      const res = await db
-        .collection(ITEMS)
-        .where({ familyId, travelId: target.clientId })
-        .remove()
-      return (res && res.deleted) || 0
-    },
-    { maxRounds: MAX_CASCADE_ROUNDS }
-  )
+  if (target) {
+    const itemRefs = await collectItemRefs(familyId, target.clientId)
 
-  if (cascade.truncated) {
-    return { code: 500, msg: '该计划的行程明细较多，本次未清理完，请稍后重试' }
+    const cascade = await deleteInBatches(
+      async () => {
+        const res = await db
+          .collection(ITEMS)
+          .where({ familyId, travelId: target.clientId })
+          .remove()
+        return (res && res.deleted) || 0
+      },
+      { maxRounds: MAX_CASCADE_ROUNDS }
+    )
+
+    if (cascade.truncated) {
+      return { code: 500, msg: '该计划的行程明细较多，本次未清理完，请稍后重试' }
+    }
+
+    deletedItems = cascade.deleted
+
+    // 先给明细写墓碑，再删计划：两者都成功后整体才算完成。
+    // 顺序反了（计划先没）会失去「该删哪些明细」的依据，留下永久孤儿。
+    await recordTombstones({
+      familyId,
+      domain: 'travelItem',
+      entries: itemRefs,
+      uid,
+      deletedAt: Date.now()
+    })
+
+    await db.collection(PLANS).doc(target._id).remove()
   }
 
-  const now = Date.now()
-
-  // 先给明细写墓碑，再删计划：两者都成功后整体才算完成。
-  // 顺序反了（计划先没）会失去「该删哪些明细」的依据，留下永久孤儿。
-  await recordTombstones({
-    familyId,
-    domain: 'travelItem',
-    entries: itemRefs,
-    uid,
-    deletedAt: now
-  })
-
-  await db.collection(PLANS).doc(target._id).remove()
-
+  // ⚠️ 无条件写（记录不存在也写）：这条是重试补写的唯一机会，详见函数头注释
   await recordTombstones({
     familyId,
     domain: 'travelPlan',
-    entries: [{ clientId: target.clientId, date: '' }],
+    entries: [{ clientId, date: '' }],
     uid,
-    deletedAt: now
+    deletedAt: Date.now()
   })
 
-  return { code: 0, data: { removed: true, deletedItems: cascade.deleted } }
+  return { code: 0, data: { removed: !!target, deletedItems } }
 }
 
 // ---------- 行程明细 ----------

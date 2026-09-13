@@ -61,6 +61,27 @@ function updateFields(block: string): string {
   return block.slice(from, block.indexOf('})', from));
 }
 
+/**
+ * 取 `if (target) { ... }` 的整块（含标记）。
+ *
+ * 用大括号配对而不是正则：块里有嵌套的 `{}`（对象字面量、回调），正则会提前截断。
+ * 用途是断言「某些语句在守卫之外」—— 例如墓碑必须无条件写。
+ */
+function ifTargetBlock(source: string): string {
+  const start = source.indexOf('if (target) {');
+  if (start < 0) throw new Error('未找到 if (target) {');
+
+  let depth = 0;
+  for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error('if (target) 的大括号不配对');
+}
+
 describe('出行集合 schema（travels / travel_items）', () => {
   it('两个 schema 都存在且可解析', () => {
     for (const { name, schema } of SCHEMAS) {
@@ -344,7 +365,23 @@ describe('出行计划的级联删除（孤儿明细防线）', () => {
   });
 
   it('删除明细是幂等的（不存在也返回成功）', () => {
-    expect(indexSource).toMatch(/removed:\s*!!target/);
+    expect(functionBody('removeItem')).toContain('removed: !!target');
+  });
+
+  it('⚠️ 计划墓碑必须在 if (target) 之外（计划不存在也要写，便于重试补写）', () => {
+    // 与 `study-schema.test.ts` 同源口径（两处实现已统一）：
+    // 「计划已删、写墓碑失败」的重试会让 findPlan 找不到记录 ——
+    // 早返回的话这条墓碑永远补不上，别的设备副本不消失、还可能被再推上去复活。
+    const body = functionBody('removePlan');
+    const guarded = ifTargetBlock(body);
+
+    expect(body, '未写 travelPlan 墓碑').toContain("domain: 'travelPlan'");
+    expect(guarded, '计划墓碑不能塞进 if (target) 里：重试时就补不上了').not.toContain('travelPlan');
+    expect(body, '不允许「计划不存在就早返回」').not.toMatch(/removed:\s*false/);
+    expect(body, '计划不存在时应返回 removed: !!target').toContain('removed: !!target');
+    expect(guarded, '明细的级联删除必须留在 if (target) 里（计划不存在时无事可做）').toContain(
+      'collection(ITEMS)',
+    );
   });
 
   it('listTombstones 一次返回 travelPlan + travelItem 两类', () => {

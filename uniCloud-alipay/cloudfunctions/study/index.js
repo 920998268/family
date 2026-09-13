@@ -173,53 +173,66 @@ async function collectCheckinRefs(familyId, planId) {
 /**
  * 删除学习计划，**级联删除其全部打卡**，并为计划与被删打卡各写墓碑。
  *
- * ⚠️ 墓碑只在**全部删完之后**才写：`truncated`（没删完）时直接返回可重试的失败，
- *    一条墓碑都不写。
+ * ⚠️ 打卡墓碑只在**全部删完之后**才写：`truncated`（没删完）时直接返回可重试的失败，
+ *    一条墓碑都不写。（计划墓碑同样不写 —— 见下一条。）
  *    理由：此时云端仍留着没删完的打卡，若先写墓碑，别的设备会删掉本地打卡，
  *    而下次 pull 时云端还有 → 记录复活。等删完再写，行为干净且可重试。
+ *
+ * ⚠️ **计划墓碑写在 `if (target)` 之外**：计划记录不存在也要写。
+ *    与 `removeCheckin` / `removeMeal` 的无条件补写口径一致，理由同样是重试：
+ *    「计划已删、写墓碑失败」时客户端会重试，重试时 `findPlan` 已经找不到记录了 ——
+ *    若此时早返回，这条墓碑**永远补不上**，别的设备的本地副本不会消失，
+ *    还有被再次推上去复活的风险。
+ *    计划不存在时不级联（服务端不会出现「有打卡没计划」：`addCheckin` 强制校验计划归属，
+ *    删计划又必然级联删打卡），所以那条路径只补墓碑、不碰打卡。
  */
 async function removePlan(familyId, uid, event) {
-  const planId = event && event.clientId
-  const target = await findPlan(familyId, planId)
-  if (!target) return { code: 0, data: { removed: false, deletedCheckins: 0 } }
+  const evt = event || {}
+  const clientId = evt.clientId
+  const target = await findPlan(familyId, clientId)
 
-  const checkinRefs = await collectCheckinRefs(familyId, target.clientId)
+  let deletedCheckins = 0
 
-  const cascade = await deleteInBatches(async () => {
-    const res = await db
-      .collection(CHECKINS)
-      .where({ familyId, planId: target.clientId })
-      .remove()
-    return (res && res.deleted) || 0
-  })
+  if (target) {
+    const checkinRefs = await collectCheckinRefs(familyId, target.clientId)
 
-  if (cascade.truncated) {
-    return { code: 500, msg: '该计划的历史打卡较多，本次未清理完，请稍后重试' }
+    const cascade = await deleteInBatches(async () => {
+      const res = await db
+        .collection(CHECKINS)
+        .where({ familyId, planId: target.clientId })
+        .remove()
+      return (res && res.deleted) || 0
+    })
+
+    if (cascade.truncated) {
+      return { code: 500, msg: '该计划的历史打卡较多，本次未清理完，请稍后重试' }
+    }
+
+    deletedCheckins = cascade.deleted
+
+    // 先给打卡写墓碑，再删计划：两者都成功后整体才算完成。
+    // 顺序反了（计划先没）会失去「该删哪些打卡」的依据，留下永久孤儿。
+    await recordTombstones({
+      familyId,
+      domain: 'studyCheckin',
+      entries: checkinRefs,
+      uid,
+      deletedAt: Date.now(),
+    })
+
+    await db.collection(PLANS).doc(target._id).remove()
   }
 
-  const now = Date.now()
-
-  // 先给打卡写墓碑，再删计划：两者都成功后整体才算完成。
-  // 顺序反了（计划先没）会失去「该删哪些打卡」的依据，留下永久孤儿。
-  await recordTombstones({
-    familyId,
-    domain: 'studyCheckin',
-    entries: checkinRefs,
-    uid,
-    deletedAt: now,
-  })
-
-  await db.collection(PLANS).doc(target._id).remove()
-
+  // ⚠️ 无条件写（记录不存在也写）：这条是重试补写的唯一机会，详见函数头注释
   await recordTombstones({
     familyId,
     domain: 'studyPlan',
-    entries: [{ clientId: target.clientId, date: '' }],
+    entries: [{ clientId, date: '' }],
     uid,
-    deletedAt: now,
+    deletedAt: Date.now(),
   })
 
-  return { code: 0, data: { removed: true, deletedCheckins: cascade.deleted } }
+  return { code: 0, data: { removed: !!target, deletedCheckins } }
 }
 
 /** 增量拉取本家庭的学习墓碑（计划 + 打卡两类，一次返回） */

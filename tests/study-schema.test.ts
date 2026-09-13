@@ -20,6 +20,36 @@ const indexSource = readText(INDEX_FILE);
 /** 由云函数在服务端补齐、不由客户端传入的字段 */
 const SERVER_FIELDS = ['familyId', 'createdByUid', 'createdAt', 'updatedAt'];
 
+/** 取某个顶层函数的源码块（从 `async function name(` 到下一个顶层的 `}` 行） */
+function functionBody(name: string): string {
+  const at = indexSource.indexOf(`async function ${name}(`);
+  if (at < 0) throw new Error(`未找到函数 ${name}`);
+  const body = indexSource.slice(at);
+  return body.slice(0, body.indexOf('\n}\n'));
+}
+
+/**
+ * 取 `if (target) { ... }` 的整块（含标记）。
+ *
+ * 用大括号配对而不是正则：块里有嵌套的 `{}`（对象字面量、回调），正则会提前截断。
+ * 用途是断言「某些语句在守卫之外」—— 例如墓碑必须无条件写，
+ * 塞进 `if (target)` 里就会漏掉「记录已删、重试补写」这条路径。
+ */
+function ifTargetBlock(source: string): string {
+  const start = source.indexOf('if (target) {');
+  if (start < 0) throw new Error('未找到 if (target) {');
+
+  let depth = 0;
+  for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error('if (target) 的大括号不配对');
+}
+
 const SCHEMAS = [
   { name: 'study_plans', schema: plansSchema },
   { name: 'study_checkins', schema: checkinsSchema },
@@ -160,6 +190,28 @@ describe('级联删除（孤儿打卡防线）', () => {
   });
 
   it('删除打卡是幂等的（不存在也返回成功）', () => {
-    expect(indexSource).toMatch(/removed:\s*false/);
+    // 返回 404 会让离线队列把已删成功的记录当成失败而无限重试
+    const body = functionBody('removeCheckin');
+    expect(body, '删除打卡应返回 removed: !!target').toContain('removed: !!target');
+  });
+
+  it('⚠️ 计划墓碑必须在 if (target) 之外（计划不存在也要写，便于重试补写）', () => {
+    // 这条是 M3 第 4 步事后统一口径补上的守卫。
+    // 原实现是「计划不存在就早返回」，于是「计划已删、写墓碑失败」的重试
+    // 永远补不上那条墓碑 —— 别的设备本地副本不消失，还可能被再推上去复活。
+    const body = functionBody('removePlan');
+    const guarded = ifTargetBlock(body);
+
+    expect(body, '未写 studyPlan 墓碑').toContain("domain: 'studyPlan'");
+    expect(guarded, '计划墓碑不能塞进 if (target) 里：重试时就补不上了').not.toContain(
+      'studyPlan',
+    );
+    expect(body, '不允许「计划不存在就早返回」').not.toMatch(/removed:\s*false/);
+    expect(body, '计划不存在时应返回 removed: !!target（其余口径与删除打卡一致）').toContain(
+      'removed: !!target',
+    );
+    expect(guarded, '打卡的级联删除必须留在 if (target) 里（计划不存在时无事可做）').toContain(
+      'collection(CHECKINS)',
+    );
   });
 });
