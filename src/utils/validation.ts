@@ -526,6 +526,12 @@ export function validateTravelPlan(value: unknown): ValidationResult {
       if (typeof item.done !== 'boolean') {
         itemErrors.push('执行状态不合法');
       }
+      // `order` 可选：M3 之前写入的本地老数据没有这个字段（缺失时按数组下标理解）。
+      // ⚠️ 不能改成必填 —— `TravelRepository` 是「校验不通过即丢弃」，
+      // 必填会让全部历史出行计划在读取时被静默丢掉。
+      if (item.order !== undefined && (!Number.isFinite(item.order) || item.order < 0)) {
+        itemErrors.push('顺序不合法');
+      }
       if (itemErrors.length > 0) {
         errors.push(`第 ${index + 1} 项行程：${itemErrors.join('；')}`);
       }

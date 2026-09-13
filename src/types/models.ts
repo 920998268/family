@@ -146,6 +146,16 @@ export type TravelStatus = 'planned' | 'ongoing' | 'done' | 'cancelled';
 
 export interface TravelItem {
   id: string;
+  /**
+   * 展示顺序，0 起。
+   *
+   * **可选**：M3 之前写入的本地老数据没有这个字段，缺失时按数组下标理解
+   * （`src/utils/travel.ts` 的 `normalizeTravelItems` 会在写回时补全）。
+   *
+   * 为什么必须显式存：明细上云后会被拆进独立的 `travel_items` 集合，
+   * 「在数组里的位置」不再存在，顺序只能用字段表达 —— 否则两端看到的行程顺序可能不一致。
+   */
+  order?: number;
   time: string;
   activity: string;
   note: string;

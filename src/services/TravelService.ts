@@ -1,9 +1,16 @@
 import type { TravelItem, TravelPlan, TravelStatus } from '@/types/models';
 import { createId } from '@/utils/id';
+import { normalizeTravelItems, normalizeTravelMembers, type TravelItemInput } from '@/utils/travel';
 import { validateTravelPlan } from '@/utils/validation';
 import { TravelRepository } from '@/repositories/TravelRepository';
 
-export type TravelItemDraft = Omit<TravelItem, 'id'>;
+/**
+ * 明细草稿。可带已有 id（编辑既有明细行），也可不带（新增行）。
+ *
+ * 由 `src/utils/travel.ts` 定义并在此转出，保持既有引用路径不变
+ *（`src/stores/travel.ts` 等从这里 import）。
+ */
+export type TravelItemDraft = TravelItemInput;
 export type TravelPlanDraft = Omit<TravelPlan, 'id' | 'items'> & {
   items: TravelItemDraft[];
 };
@@ -11,14 +18,16 @@ export type TravelPlanPatch = Partial<
   Omit<TravelPlan, 'id' | 'items'> & { items: TravelItemDraft[] }
 >;
 
+/**
+ * 明细归一化。
+ *
+ * ⚠️ 改造要点（M3 第 2 步）：**保留草稿里已有的 id**，只为新行生成。
+ * 旧实现无条件给全部明细重新生成 id，导致任何一次计划编辑之后
+ * `toggleItem` 拿到的 id 立即失效 —— 纯本地场景看不出来，
+ * 但云端按明细记录读写完全依赖稳定 id。
+ */
 function normalizeItems(items: TravelItemDraft[]): TravelItem[] {
-  return items.map((item) => ({
-    id: createId('trip'),
-    time: item.time,
-    activity: item.activity,
-    note: item.note,
-    done: item.done,
-  }));
+  return normalizeTravelItems(items);
 }
 
 export class TravelService {
@@ -34,6 +43,7 @@ export class TravelService {
     const plan: TravelPlan = {
       ...draft,
       id: createId('travel'),
+      members: normalizeTravelMembers(draft.members),
       items: normalizeItems(draft.items),
     };
     const result = validateTravelPlan(plan);
@@ -59,6 +69,7 @@ export class TravelService {
       ...existing,
       ...patch,
       id,
+      members: patch.members ? normalizeTravelMembers(patch.members) : existing.members,
       items: patch.items ? normalizeItems(patch.items) : existing.items,
     };
     const result = validateTravelPlan(nextPlan);
