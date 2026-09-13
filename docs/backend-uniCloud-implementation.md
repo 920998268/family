@@ -428,6 +428,11 @@ src/utils/network.ts          网络状态检测
       `travel/lib.js` + `travel/index.js`。两个 lib 自包含，长度上限与前端
       `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。云函数部署待第 8 步。
 - [ ] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
+      —— **映射层、调用封装、三个远端仓储已完成**（方案 §7 第 5 步，2026-09-13）：
+      `src/utils/cloudMap.ts` 三组双向映射、`src/unicloud/index.ts` 的
+      `callMeal` / `callTravel`、`src/repositories/remote/` 下
+      `MealPlanRemoteRepo` / `TravelPlanRemoteRepo` / `TravelItemRemoteRepo`。
+      **store 接线（第 7 步）与同步服务扩展（第 6 步）待做**。
 - [ ] M3-6：部署清单 + 真机验收
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。

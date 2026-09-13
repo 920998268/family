@@ -20,6 +20,7 @@ import type {
   StudyCheckin,
   StudyPlan,
   Transaction,
+  TravelItem,
   TravelPlan,
   WorkoutEntry,
 } from '@/types/models';
@@ -461,6 +462,48 @@ export function validateMealPlan(value: unknown): ValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * 单条行程明细的校验。
+ *
+ * 为什么单独导出（M3 第 5 步抽出）：明细上云后是**独立集合**，
+ * `listItems(travelId)` 拉回来的是一条条明细，映射层必须逐条校验后才能写入本地缓存。
+ * 与计划内 `items` 共用同一份规则，避免「计划里的明细合法、单独拉的明细另一套标准」
+ * 这种漂移 —— 一旦漂移，同一批明细会因为读取路径不同而部分被静默丢弃。
+ */
+export function validateTravelItem(value: unknown): ValidationResult {
+  const errors: string[] = [];
+
+  if (!value || typeof value !== 'object') {
+    return { valid: false, errors: ['行程明细不能为空'] };
+  }
+
+  const item = value as Partial<TravelItem>;
+
+  if (typeof item.id !== 'string' || !item.id) {
+    errors.push('ID 缺失');
+  }
+  if (typeof item.activity !== 'string' || !item.activity.trim()) {
+    errors.push('活动不能为空');
+  }
+  if (typeof item.time !== 'string') {
+    errors.push('时间不合法');
+  }
+  if (typeof item.note !== 'string') {
+    errors.push('备注不合法');
+  }
+  if (typeof item.done !== 'boolean') {
+    errors.push('执行状态不合法');
+  }
+  // `order` 可选：M3 之前写入的本地老数据没有这个字段（缺失时按数组下标理解）。
+  // ⚠️ 不能改成必填 —— `TravelRepository` 是「校验不通过即丢弃」，
+  // 必填会让全部历史出行计划在读取时被静默丢掉。
+  if (item.order !== undefined && (!Number.isFinite(item.order) || item.order < 0)) {
+    errors.push('顺序不合法');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 export function validateTravelPlan(value: unknown): ValidationResult {
   const errors: string[] = [];
 
@@ -506,34 +549,14 @@ export function validateTravelPlan(value: unknown): ValidationResult {
     errors.push('行程明细不合法');
   } else {
     for (const [index, item] of plan.items.entries()) {
-      const itemErrors: string[] = [];
       if (!item || typeof item !== 'object') {
         errors.push(`第 ${index + 1} 项行程不合法`);
         continue;
       }
-      if (typeof item.id !== 'string' || !item.id) {
-        itemErrors.push('ID 缺失');
-      }
-      if (typeof item.activity !== 'string' || !item.activity.trim()) {
-        itemErrors.push('活动不能为空');
-      }
-      if (typeof item.time !== 'string') {
-        itemErrors.push('时间不合法');
-      }
-      if (typeof item.note !== 'string') {
-        itemErrors.push('备注不合法');
-      }
-      if (typeof item.done !== 'boolean') {
-        itemErrors.push('执行状态不合法');
-      }
-      // `order` 可选：M3 之前写入的本地老数据没有这个字段（缺失时按数组下标理解）。
-      // ⚠️ 不能改成必填 —— `TravelRepository` 是「校验不通过即丢弃」，
-      // 必填会让全部历史出行计划在读取时被静默丢掉。
-      if (item.order !== undefined && (!Number.isFinite(item.order) || item.order < 0)) {
-        itemErrors.push('顺序不合法');
-      }
-      if (itemErrors.length > 0) {
-        errors.push(`第 ${index + 1} 项行程：${itemErrors.join('；')}`);
+      // 复用单条明细的校验规则（见 validateTravelItem 注释）
+      const itemResult = validateTravelItem(item);
+      if (!itemResult.valid) {
+        errors.push(`第 ${index + 1} 项行程：${itemResult.errors.join('；')}`);
       }
     }
   }

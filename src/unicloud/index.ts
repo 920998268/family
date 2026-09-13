@@ -3,16 +3,31 @@
  * 统一管理云对象、云函数调用与登录态。
  */
 
-import type { DietEntry, FavoriteFood, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
+import type {
+  DietEntry,
+  FavoriteFood,
+  MealPlan,
+  StudyCheckin,
+  StudyPlan,
+  TravelItem,
+  TravelPlan,
+  WorkoutEntry,
+} from '@/types/models';
 import {
   mapCloudDiets,
   mapCloudFoods,
+  mapCloudMealPlans,
   mapCloudStudyCheckins,
   mapCloudStudyPlans,
+  mapCloudTravelItems,
+  mapCloudTravelPlans,
   mapCloudWorkouts,
   toCloudDiet,
+  toCloudMeal,
   toCloudStudyCheckin,
   toCloudStudyPlan,
+  toCloudTravelItem,
+  toCloudTravelPlan,
   toCloudWorkout,
 } from '@/utils/cloudMap';
 import { parseTombstones, type Tombstone } from '@/utils/tombstone';
@@ -511,4 +526,159 @@ export async function removeCloudStudyCheckin(
  */
 export async function listCloudStudyTombstones(since?: number): Promise<Tombstone[]> {
   return parseTombstones(await callStudy('listTombstones', { since: since ?? 0 }));
+}
+
+/**
+ * 调用 meal 云函数（食谱，M3）
+ *
+ * 一张表、一个云函数：食谱没有从属实体，不存在「子记录要校验父存在 /
+ * 删父要级联删子」的关系（判据见方案 §2.1），所以与 diet 同构。
+ *
+ * ⚠️ 必须走 getCloud()，裸 `uniCloud.callFunction` 会命中框架静态快照而必然失败。
+ */
+async function callMeal(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'meal',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `meal 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/** 拉取某一天的食谱记录（食谱的读取口径就是「某一天」，与本地按日期分区一致） */
+export async function listCloudMealPlans(date: string): Promise<MealPlan[]> {
+  return mapCloudMealPlans(await callMeal('list', { date }));
+}
+
+/** 新增食谱记录（以 plan.id 作为 clientId，服务端幂等） */
+export async function addCloudMealPlan(plan: MealPlan): Promise<CloudWriteResult> {
+  return callMeal('add', toCloudMeal(plan));
+}
+
+/** 更新食谱记录（以 plan.id 定位；`date` 由服务端从既有记录取，patch 里的会被忽略） */
+export async function updateCloudMealPlan(plan: MealPlan): Promise<void> {
+  return callMeal('update', toCloudMeal(plan));
+}
+
+/**
+ * 删除食谱记录（服务端幂等：记录不存在也返回成功）。
+ *
+ * `date` 是可选的**兜底信息**：云端优先用记录自身的日期写墓碑，
+ * 只有记录已不存在（重试场景）时才用它。语义同 `removeCloudDiet`。
+ */
+export async function removeCloudMealPlan(
+  clientId: string,
+  date?: string,
+): Promise<{ removed: boolean }> {
+  return callMeal('remove', date ? { clientId, date } : { clientId });
+}
+
+/** 增量拉取本家庭的食谱墓碑（语义同 `listCloudDietTombstones`） */
+export async function listCloudMealTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callMeal('listTombstones', { since: since ?? 0 }));
+}
+
+/**
+ * 调用 travel 云函数（出行计划 + 行程明细，M3）
+ *
+ * 两者在同一个云函数里，因为它们是**主从关系**（明细从属于计划：
+ * 明细要校验计划存在、删计划要级联删明细），判据与 `study` 完全一致。
+ *
+ * ⚠️ 必须走 getCloud()，裸 `uniCloud.callFunction` 会命中框架静态快照而必然失败。
+ */
+async function callTravel(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'travel',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `travel 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/** 拉取本家庭的全部出行计划（计划不分日期，全量拉取；`items` 恒为空，见映射层注释） */
+export async function listCloudTravelPlans(): Promise<TravelPlan[]> {
+  return mapCloudTravelPlans(await callTravel('listPlans'));
+}
+
+/** 新增出行计划（以 plan.id 作为 clientId；**不含明细**，明细逐条下发） */
+export async function addCloudTravelPlan(plan: TravelPlan): Promise<CloudWriteResult> {
+  return callTravel('addPlan', toCloudTravelPlan(plan));
+}
+
+/** 更新出行计划（同样以 plan.id 定位；**不含明细**） */
+export async function updateCloudTravelPlan(plan: TravelPlan): Promise<void> {
+  return callTravel('updatePlan', toCloudTravelPlan(plan));
+}
+
+/**
+ * 删除出行计划。
+ *
+ * ⚠️ 服务端会**级联删除**该计划的全部明细，所以返回里带 `deletedItems` 计数。
+ * 若云端明细过多、一次没删完，服务端会返回可重试的失败（计划不会被删），
+ * 重试即可接着删 —— 这正是不能用「本地直接删掉」来替代的地方。
+ */
+export async function removeCloudTravelPlan(
+  clientId: string,
+): Promise<{ removed: boolean; deletedItems: number }> {
+  return callTravel('removePlan', { clientId });
+}
+
+/**
+ * 拉取某个计划的全部明细。
+ *
+ * ⚠️ 这是明细的**权威口径**（按计划查，天然有界）。不要拿 `listCloudTravelPlans()`
+ * 里聚合的 `items` 做增删判定 —— 那个是「全家庭一次查、上限 500 条」的便捷聚合。
+ */
+export async function listCloudTravelItems(travelId: string): Promise<TravelItem[]> {
+  return mapCloudTravelItems(await callTravel('listItems', { travelId }));
+}
+
+/**
+ * 新增行程明细（以 item.id 作为 clientId）。
+ *
+ * 服务端会校验「计划存在且属于本家庭」——缺了它就能给不存在的计划塞明细（永久孤儿）。
+ * `fallbackOrder` 用于老数据（明细没有 `order` 字段时按下标兜底）。
+ */
+export async function addCloudTravelItem(
+  travelId: string,
+  item: TravelItem,
+  fallbackOrder = 0,
+): Promise<CloudWriteResult> {
+  return callTravel('addItem', toCloudTravelItem(travelId, item, fallbackOrder));
+}
+
+/** 更新行程明细（`travelId` 不参与更新：明细换计划会让两个按计划拉取的端点都看不到它） */
+export async function updateCloudTravelItem(
+  travelId: string,
+  item: TravelItem,
+  fallbackOrder = 0,
+): Promise<void> {
+  return callTravel('updateItem', toCloudTravelItem(travelId, item, fallbackOrder));
+}
+
+/**
+ * 勾选 / 取消勾选某条明细。
+ *
+ * ⚠️ **不传 `done`**：服务端是「翻转当前值」（`toggleItem` 自己算 `next`），
+ * 客户端传值也不会被采纳 —— 传了反而让人误以为目标状态由客户端决定。
+ * 返回服务端算出的最终值，供调用方回写本地，保证两端一致。
+ */
+export async function toggleCloudTravelItem(clientId: string): Promise<{ done: boolean }> {
+  return callTravel('toggleItem', { clientId });
+}
+
+/** 删除行程明细（服务端幂等：不存在也返回成功） */
+export async function removeCloudTravelItem(clientId: string): Promise<{ removed: boolean }> {
+  return callTravel('removeItem', { clientId });
+}
+
+/** 增量拉取本家庭的出行墓碑，**一次返回计划与明细两类**（主从同函数） */
+export async function listCloudTravelTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callTravel('listTombstones', { since: since ?? 0 }));
 }
