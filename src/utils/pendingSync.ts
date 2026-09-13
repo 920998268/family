@@ -13,8 +13,22 @@ export const MAX_SYNC_ATTEMPTS = 5;
  * ⚠️ 学习占了**两个** domain：计划与打卡是两个独立实体、各自有幂等键，
  * 出队/失败要分别记账。合成一个 domain 的话，用打卡的 clientId 去出队计划，
  * 或者反过来，会互相误清标记。
+ *
+ * ⚠️ 出行同样占**两个**：`travelPlan`（计划本体）与 `travelItem`（行程明细）。
+ * 明细在云端是独立集合 `travel_items`、有独立 `clientId`，勾选 / 增删都按记录级
+ * 下发；并进计划一起算的话，一个人改标题、另一个人勾明细就会互相覆盖。
+ *
+ * M3 第 6 步由 4 扩到 7。扩容是**全有或全无**的：云侧 `TOMBSTONE_DOMAINS`
+ * 少一个，那类删除就静默不传播（不报错、不告警）。
  */
-export type SyncDomain = 'diet' | 'workout' | 'studyPlan' | 'studyCheckin';
+export type SyncDomain =
+  | 'diet'
+  | 'workout'
+  | 'studyPlan'
+  | 'studyCheckin'
+  | 'mealPlan'
+  | 'travelPlan'
+  | 'travelItem';
 export type SyncOp = 'add' | 'update' | 'remove';
 
 /**
@@ -30,6 +44,9 @@ export const SYNC_DOMAINS: ReadonlySet<string> = new Set<SyncDomain>([
   'workout',
   'studyPlan',
   'studyCheckin',
+  'mealPlan',
+  'travelPlan',
+  'travelItem',
 ]);
 
 /**

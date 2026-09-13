@@ -5,6 +5,8 @@ import { DietRepository } from '@/repositories/DietRepository';
 import { WorkoutRepository } from '@/repositories/WorkoutRepository';
 import { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
 import { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
+import { MealPlanRepository } from '@/repositories/MealPlanRepository';
+import { TravelRepository } from '@/repositories/TravelRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
@@ -14,6 +16,7 @@ import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { readPendingSync } from '@/utils/pendingSync';
 import { readTombstoneCursor, type Tombstone } from '@/utils/tombstone';
 import type { DietEntry, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
+import { createInertMealTravelDeps } from './helpers/mealTravelDeps';
 
 const DATE = '2026-09-12';
 const T1 = 1_700_000_000_000;
@@ -113,6 +116,7 @@ function createHarness(tombstones: Tombstone[] = []) {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
+    ...createInertMealTravelDeps(storage, 'ts'),
     dietRemote,
     workoutRemote,
     studyPlanRemote,
@@ -355,6 +359,8 @@ function createDevice(cloud: FakeCloud, deviceId: string) {
     workoutRepository: new WorkoutRepository(storage),
     studyPlanRepository: new StudyPlanRepository(storage),
     studyCheckinRepository: new StudyCheckinRepository(storage),
+    mealPlanRepository: new MealPlanRepository(storage),
+    travelRepository: new TravelRepository(storage),
     dietRemote,
     workoutRemote: {
       listByDate: async () => [],
@@ -371,6 +377,26 @@ function createDevice(cloud: FakeCloud, deviceId: string) {
     studyCheckinRemote: {
       listByDate: async () => [],
       create: async () => ({ _id: 'x' }),
+      remove: async () => ({ removed: true }),
+    },
+    // 本用例只跑饮食双端链路；食谱 / 出行条目保持空实现即可
+    mealPlanRemote: {
+      listByDate: async () => [],
+      create: async () => ({ _id: 'x' }),
+      update: async () => undefined,
+      remove: async () => ({ removed: true }),
+    },
+    travelPlanRemote: {
+      list: async () => [],
+      create: async () => ({ _id: 'x' }),
+      update: async () => undefined,
+      remove: async () => ({ removed: true, deletedItems: 0 }),
+    },
+    travelItemRemote: {
+      listByPlan: async () => [],
+      create: async () => ({ _id: 'x' }),
+      update: async () => undefined,
+      toggle: async () => ({ done: true }),
       remove: async () => ({ removed: true }),
     },
     tombstoneRemote: cloud.tombstoneRemote(),

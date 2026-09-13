@@ -1,15 +1,29 @@
-import type { DietEntry, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
+import type {
+  DietEntry,
+  MealPlan,
+  StudyCheckin,
+  StudyPlan,
+  TravelItem,
+  TravelPlan,
+  WorkoutEntry,
+} from '@/types/models';
 import type { StorageAdapter } from '@/storage/StorageAdapter';
 import type { DietRepository } from '@/repositories/DietRepository';
 import type { WorkoutRepository } from '@/repositories/WorkoutRepository';
 import type { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
 import type { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
+import type { MealPlanRepository } from '@/repositories/MealPlanRepository';
+import type { TravelRepository } from '@/repositories/TravelRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import type { MealPlanRemoteRepo } from '@/repositories/remote/MealPlanRemoteRepo';
+import type { TravelPlanRemoteRepo } from '@/repositories/remote/TravelPlanRemoteRepo';
+import type { TravelItemRemoteRepo } from '@/repositories/remote/TravelItemRemoteRepo';
 import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 import { mergeCheckins } from '@/utils/checkinMerge';
+import { sortTravelItems } from '@/utils/travel';
 import {
   groupTombstonesByDomain,
   nextTombstoneCursor,
@@ -36,10 +50,22 @@ export interface CheckinSyncDeps {
   workoutRepository: WorkoutRepository;
   studyPlanRepository: StudyPlanRepository;
   studyCheckinRepository: StudyCheckinRepository;
+  /** 食谱：按日期分区存储，与饮食 / 运动同构 */
+  mealPlanRepository: MealPlanRepository;
+  /**
+   * 出行计划。
+   *
+   * ⚠️ 明细**没有独立的本地仓储**：它嵌在 `TravelPlan.items` 里，
+   * 所以 `travelItem` 的增删改都要先找到承载它的计划、再整份 `saveAll` 回写。
+   */
+  travelRepository: TravelRepository;
   dietRemote: DietRemoteRepo;
   workoutRemote: WorkoutRemoteRepo;
   studyPlanRemote: StudyPlanRemoteRepo;
   studyCheckinRemote: StudyCheckinRemoteRepo;
+  mealPlanRemote: MealPlanRemoteRepo;
+  travelPlanRemote: TravelPlanRemoteRepo;
+  travelItemRemote: TravelItemRemoteRepo;
   /** 墓碑（删除日志）远端读取，用于跨设备同步删除 */
   tombstoneRemote: TombstoneRemoteRepo;
   /** 便于测试固定时间；默认 `Date.now` */
@@ -66,7 +92,10 @@ export interface FlushSummary {
 type PushOutcome = 'ok' | 'skip';
 
 /**
- * 打卡数据同步服务（饮食 + 运动 + 学习计划 + 学习打卡）。
+ * 打卡数据同步服务。
+ *
+ * 覆盖 7 个 domain：饮食 / 运动 / 学习计划 / 学习打卡（M2b）+
+ * 食谱 / 出行计划 / 行程明细（M3 第 6 步）。
  *
  * 策略（对应方案文档 §5.4）：
  * - **写＝本地优先**：store 先写本地缓存让 UI 即时生效，再 `markDirty()` 登记待同步；
@@ -171,6 +200,13 @@ export class CheckinSyncService {
         return this.removeFromPartitioned(this.deps.studyCheckinRepository, clientId, hintDate);
       case 'studyPlan':
         return this.removeStudyPlanLocal(clientId);
+      case 'mealPlan':
+        // 食谱的本地存储同样按日期分区，直接复用分区删除（含 hintDate 兜底）
+        return this.removeFromPartitioned(this.deps.mealPlanRepository, clientId, hintDate);
+      case 'travelPlan':
+        return this.removeTravelPlanLocal(clientId);
+      case 'travelItem':
+        return this.removeTravelItemLocal(clientId);
       default:
         return false;
     }
@@ -229,6 +265,49 @@ export class CheckinSyncService {
   }
 
   /**
+   * 出行计划同样是全量单键存储。
+   *
+   * ⚠️ 明细嵌在计划里，删计划即连同它的 `items` 一起消失 ——
+   * 云端级联删明细时也会为每条明细写 `travelItem` 墓碑，
+   * 那些墓碑随后到达时本地已经找不到对应明细，`removeTravelItemLocal` 返回 false，
+   * 不会产生多余写操作，也不会报错。
+   */
+  private removeTravelPlanLocal(clientId: string): boolean {
+    const all = this.deps.travelRepository.getAll();
+    if (!all.some((plan) => plan.id === clientId)) {
+      return false;
+    }
+    this.deps.travelRepository.saveAll(all.filter((plan) => plan.id !== clientId));
+    return true;
+  }
+
+  /**
+   * 删除一条行程明细 —— 明细嵌在计划里，所以要**扫全部计划**找到承载它的那份，
+   * 只回写被改动的那份计划。
+   *
+   * 扫全部而不是按某份计划定位：墓碑里只有 `clientId`，云端 `travel_items`
+   * 虽是独立集合、带 `travelId`，但墓碑不带 `travelId`（明细 id 全局唯一，够用）。
+   * 家庭出行明细的量级（十几条）下这点扫描可以忽略。
+   */
+  private removeTravelItemLocal(clientId: string): boolean {
+    const plans = this.deps.travelRepository.getAll();
+    let removed = false;
+
+    const next = plans.map((plan) => {
+      if (!plan.items.some((item) => item.id === clientId)) {
+        return plan;
+      }
+      removed = true;
+      return { ...plan, items: plan.items.filter((item) => item.id !== clientId) };
+    });
+
+    if (removed) {
+      this.deps.travelRepository.saveAll(next);
+    }
+    return removed;
+  }
+
+  /**
    * 拉取某日饮食记录并与本地合并，合并结果回写本地缓存后返回。
    * 云端失败的异常**会向上抛出**，由调用方决定是否保留本地画面（本地已先渲染过）。
    *
@@ -276,6 +355,72 @@ export class CheckinSyncService {
     const remote = await this.deps.studyCheckinRemote.listByDate(date);
     const merged = mergeCheckins(local, remote, this.pendingIds('studyCheckin'));
     this.deps.studyCheckinRepository.saveByDate(date, merged);
+    return merged;
+  }
+
+  /** 拉取某日食谱并与本地合并（同饮食 / 运动：本地按日期分区） */
+  async pullMealPlans(date: string): Promise<MealPlan[]> {
+    await this.ensureTombstonesApplied();
+    const local = this.deps.mealPlanRepository.getByDate(date);
+    const remote = await this.deps.mealPlanRemote.listByDate(date);
+    const merged = mergeCheckins(local, remote, this.pendingIds('mealPlan'));
+    this.deps.mealPlanRepository.saveByDate(date, merged);
+    return merged;
+  }
+
+  /**
+   * 拉取**全部**出行计划并与本地合并。
+   *
+   * ⚠️ 与其它 pull 的**关键差别**：云端 `listPlans` 返回的 `items` 恒为空数组
+   * —— 它是「全家庭一次查、上限 500 条」的便捷聚合，明细多的家庭会被截断，
+   * 只服务于首屏渲染，**不是明细的权威口径**。
+   *
+   * 所以这里绝不能像其它领域那样「整条记录以云端为准」回写：那会把本地明细整体抹掉。
+   * 合并结果一律把**本地 items 原样贴回**；明细的增 / 删 / 改完全不经过这条路径，
+   * 它的权威口径是 `pullTravelItems(travelId)`（按计划查，天然有界）。
+   */
+  async pullTravelPlans(): Promise<TravelPlan[]> {
+    await this.ensureTombstonesApplied();
+
+    const local = this.deps.travelRepository.getAll();
+    // ⚠️ 必须在 ensureTombstonesApplied() 之后读：墓碑已经把「别处删掉的明细」
+    //    从本地计划里摘掉了，这里贴回的才是清理过的版本。
+    const localItems = new Map(local.map((plan) => [plan.id, plan.items]));
+
+    const remote = await this.deps.travelPlanRemote.list();
+    const merged = mergeCheckins(local, remote, this.pendingIds('travelPlan')).map((plan) => ({
+      ...plan,
+      // 云端来的恒为空；本地独有 / 待同步的计划则原样保留自己的明细
+      items: localItems.get(plan.id) ?? [],
+    }));
+
+    this.deps.travelRepository.saveAll(merged);
+    return merged;
+  }
+
+  /**
+   * 拉取某个计划的全部行程明细，合并进本地计划后回写。
+   *
+   * 返回合并后的明细列表。**计划不在本地时返回空数组**而不是抛错：
+   * 「另一台设备刚建的计划」与「它的明细」是两个独立的拉取动作，
+   * 明细先到的时序是正常的，不该让整个读取流程失败。
+   */
+  async pullTravelItems(travelId: string): Promise<TravelItem[]> {
+    await this.ensureTombstonesApplied();
+
+    const plans = this.deps.travelRepository.getAll();
+    const index = plans.findIndex((plan) => plan.id === travelId);
+    if (index === -1) {
+      return [];
+    }
+
+    const local = plans[index].items;
+    const remote = await this.deps.travelItemRemote.listByPlan(travelId);
+    // 云端返回顺序不保证稳定，用 order 还原（老数据缺 order 时按下标兜底）
+    const merged = sortTravelItems(mergeCheckins(local, remote, this.pendingIds('travelItem')));
+
+    plans[index] = { ...plans[index], items: merged };
+    this.deps.travelRepository.saveAll(plans);
     return merged;
   }
 
@@ -362,6 +507,12 @@ export class CheckinSyncService {
         return this.pushStudyPlan(item);
       case 'studyCheckin':
         return this.pushStudyCheckin(item);
+      case 'mealPlan':
+        return this.pushMealPlan(item);
+      case 'travelPlan':
+        return this.pushTravelPlan(item);
+      case 'travelItem':
+        return this.pushTravelItem(item);
       default:
         // 未知 domain（例如降级后读到更高版本写入的标记）：直接跳过，
         // 由调用方当作「本地无内容可推」放弃，避免死循环
@@ -476,6 +627,104 @@ export class CheckinSyncService {
     return 'ok';
   }
 
+  /**
+   * 推送食谱。与饮食 / 运动同构：`remove` 不需要本地还留着记录；
+   * `add` 命中 `duplicated`（首次 add 的响应丢了、其实已写入）时补一次 `update`，
+   * 否则用户在首次 add 之后做的编辑会永远停在云端旧版本。
+   */
+  private async pushMealPlan(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      // date 仅作墓碑兜底（记录已不存在时帮别的设备定位本地分区）
+      await this.deps.mealPlanRemote.remove(item.clientId, item.date);
+      return 'ok';
+    }
+
+    const plan = this.findMealPlan(item);
+    if (!plan) {
+      return 'skip';
+    }
+
+    if (item.op === 'update') {
+      await this.deps.mealPlanRemote.update(plan);
+      return 'ok';
+    }
+
+    const result = await this.deps.mealPlanRemote.create(plan);
+    if (result?.duplicated) {
+      await this.deps.mealPlanRemote.update(plan);
+    }
+    return 'ok';
+  }
+
+  /**
+   * 推送出行计划本体（**不含明细** —— `toCloudTravelPlan` 会把 `items` 丢掉，
+   * 明细由 `pushTravelItem` 逐条下发）。
+   *
+   * ⚠️ `remove` 的返回值不能忽略一个事实：服务端在「明细一次没删完」时会
+   * **拒绝删除计划**并返回可重试的失败（`TravelPlanRemoteRepo.remove` 会抛出）。
+   * 这里刻意不 catch —— 抛出去才会走失败重试，吞掉就等于
+   * 「计划没删成功但待同步标记被清掉」，两边永久不一致。
+   */
+  private async pushTravelPlan(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      await this.deps.travelPlanRemote.remove(item.clientId);
+      return 'ok';
+    }
+
+    const plan = this.findTravelPlan(item);
+    if (!plan) {
+      return 'skip';
+    }
+
+    if (item.op === 'update') {
+      await this.deps.travelPlanRemote.update(plan);
+      return 'ok';
+    }
+
+    const result = await this.deps.travelPlanRemote.create(plan);
+    if (result?.duplicated) {
+      await this.deps.travelPlanRemote.update(plan);
+    }
+    return 'ok';
+  }
+
+  /**
+   * 推送单条行程明细。
+   *
+   * ⚠️ 明细自己**不知道归属**：`travelId` 只存在于「计划 → 它的 items」这一层。
+   *    所以推送前必须先扫本地计划找到承载它的那一份；找不到就 `skip` ——
+   *    给不存在的计划塞明细会被云端的主从约束拒绝（留下永久孤儿），
+   *    而这条标记重试多少次都不会成功。
+   *
+   * ⚠️ `create` / `update` 都要带 `fallbackOrder`（明细在计划里的下标）：
+   *    老数据没有 `order` 字段，云端靠它兜底，否则所有明细的顺序会挤到 0。
+   */
+  private async pushTravelItem(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      await this.deps.travelItemRemote.remove(item.clientId);
+      return 'ok';
+    }
+
+    const found = this.findTravelItem(item);
+    if (!found) {
+      return 'skip';
+    }
+
+    const { travelId, entry, fallbackOrder } = found;
+
+    if (item.op === 'update') {
+      await this.deps.travelItemRemote.update(travelId, entry, fallbackOrder);
+      return 'ok';
+    }
+
+    const result = await this.deps.travelItemRemote.create(travelId, entry, fallbackOrder);
+    if (result?.duplicated) {
+      // 服务端 add 命中重复时**不会更新内容**，补一次 update 把内容对齐（规则同其它领域）
+      await this.deps.travelItemRemote.update(travelId, entry, fallbackOrder);
+    }
+    return 'ok';
+  }
+
   /** 计划是全量列表，直接按 id 找（没有日期分区，无需按日期兜底） */
   private findStudyPlan(item: PendingSyncItem): StudyPlan | undefined {
     return this.deps.studyPlanRepository
@@ -509,5 +758,38 @@ export class CheckinSyncService {
     return (
       inDate ?? this.deps.workoutRepository.getAll().find((entry) => entry.id === item.clientId)
     );
+  }
+
+  /** 按标记里记的日期找；找不到再全量兜底一次（记录可能被改到了别的日期） */
+  private findMealPlan(item: PendingSyncItem): MealPlan | undefined {
+    const inDate = this.deps.mealPlanRepository
+      .getByDate(item.date)
+      .find((plan) => plan.id === item.clientId);
+    return (
+      inDate ?? this.deps.mealPlanRepository.getAll().find((plan) => plan.id === item.clientId)
+    );
+  }
+
+  /** 计划是全量列表，直接按 id 找（没有日期分区，无需按日期兜底） */
+  private findTravelPlan(item: PendingSyncItem): TravelPlan | undefined {
+    return this.deps.travelRepository.getAll().find((plan) => plan.id === item.clientId);
+  }
+
+  /**
+   * 找承载某条明细的计划 —— 明细没有独立的本地仓储，必须扫全部计划的 `items`。
+   *
+   * 同时把明细在数组里的下标作为 `fallbackOrder` 返回：老数据缺 `order` 时
+   * 云端按它兜底排序，否则顺序会全部挤到 0。
+   */
+  private findTravelItem(
+    item: PendingSyncItem,
+  ): { travelId: string; entry: TravelItem; fallbackOrder: number } | undefined {
+    for (const plan of this.deps.travelRepository.getAll()) {
+      const index = plan.items.findIndex((entry) => entry.id === item.clientId);
+      if (index !== -1) {
+        return { travelId: plan.id, entry: plan.items[index], fallbackOrder: index };
+      }
+    }
+    return undefined;
   }
 }

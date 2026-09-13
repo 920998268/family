@@ -157,8 +157,16 @@ describe('返回给客户端的结构（toClientTombstone）', () => {
 });
 
 describe('领域白名单（isTombstoneDomain）', () => {
-  it('四个领域是全部合法值 —— 与前端 SyncDomain 必须一致', () => {
-    expect(lib.TOMBSTONE_DOMAINS).toEqual(['diet', 'workout', 'studyPlan', 'studyCheckin']);
+  it('七个领域是全部合法值 —— 与前端 SyncDomain 必须一致（M3 第 6 步：4 → 7）', () => {
+    expect(lib.TOMBSTONE_DOMAINS).toEqual([
+      'diet',
+      'workout',
+      'studyPlan',
+      'studyCheckin',
+      'mealPlan',
+      'travelPlan',
+      'travelItem',
+    ]);
     for (const domain of lib.TOMBSTONE_DOMAINS) {
       expect(lib.isTombstoneDomain(domain)).toBe(true);
     }
@@ -166,19 +174,38 @@ describe('领域白名单（isTombstoneDomain）', () => {
     expect(lib.isTombstoneDomain('')).toBe(false);
   });
 
-  it('⚠️ M3 的三个新 domain 必须「要么全不加、要么全加上」，不能只加一半', () => {
-    // 第 6 步会把 TOMBSTONE_DOMAINS 由 4 扩到 7（方案 §3.4）。
-    // 最坏的中间态是**只加了一部分**：buildTombstoneDocs 对未知 domain 直接返回 []
-    //（**不报错**），于是漏加的那类记录「本地删成功、云端无痕、别的设备永不同步」，
-    // 全程没有任何报错 —— 这正是 §3.4 警告的「静默不传播」。
-    // 这条断言允许「一个都没加」（第 6 步之前）与「三个都加了」（第 6 步之后），
-    // 只拦住危险的半成品状态。
-    const pending = ['mealPlan', 'travelPlan', 'travelItem'];
-    const supported = pending.filter((domain) => lib.isTombstoneDomain(domain));
+  /**
+   * 这条断言是**回归护栏**，不是常规用例。
+   *
+   * 第 6 步之前，白名单只有 4 个，而 `meal` / `travel` 两个云函数**已经在写**
+   * `mealPlan` / `travelPlan` / `travelItem` 墓碑，并且已经在用
+   * `listTombstones({ domains: ['mealPlan'] })` 读 —— `buildTombstoneDocs`
+   * 对未知 domain 返回 `[]`、`listTombstones` 又把 domains 过滤成空，
+   * 两条链路一起**静默失效**：删成功、墓碑不写、别的设备永不同步，全程无报错。
+   *
+   * 所以这里逐个断言、而不是只数个数：漏掉任何一个都会在 CI 里炸出来。
+   */
+  it('⚠️ M3 的三个新 domain 必须全部在册（漏一个就静默不传播）', () => {
+    const m3Domains = ['mealPlan', 'travelPlan', 'travelItem'] as const;
 
-    expect(
-      supported.length === 0 || supported.length === pending.length,
-      `TOMBSTONE_DOMAINS 只加了一部分：${supported.join(', ') || '无'}（其余会静默不传播）`,
-    ).toBe(true);
+    for (const domain of m3Domains) {
+      expect(
+        lib.isTombstoneDomain(domain),
+        `共享模块不认 ${domain} —— 该类删除会「删成功但墓碑静默丢失」`,
+      ).toBe(true);
+    }
+  });
+
+  it('新 domain 的墓碑能正常构造（不是只在白名单里挂了个名）', () => {
+    const docs = lib.buildTombstoneDocs({
+      familyId: FAMILY,
+      domain: 'travelItem',
+      entries: [{ clientId: 'i-1', date: '' }],
+      deletedAt: NOW,
+      uid: 'uid-1',
+    });
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0].domain).toBe('travelItem');
   });
 });

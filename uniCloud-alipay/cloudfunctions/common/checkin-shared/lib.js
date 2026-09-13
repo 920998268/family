@@ -7,7 +7,30 @@
 //    请勿把 db 调用挪进来，否则会丢掉测试覆盖。
 
 const TOMBSTONES = 'checkin_tombstones'
-const TOMBSTONE_DOMAINS = ['diet', 'workout', 'studyPlan', 'studyCheckin']
+
+/**
+ * 合法领域白名单（M3 第 6 步由 4 扩到 7）。
+ *
+ * ⚠️ 这份白名单是**双刃**的：它同时管着写入（`buildTombstoneDocs` 对未知 domain
+ *    返回 `[]`）与读取（`listTombstones` 用 `isTombstoneDomain` 过滤 `domains`）。
+ *    漏加一个 domain 不会报错，而是「删成功、墓碑不写、拉也拉不到」——
+ *    全程静默，别的设备永远不同步这次删除。见方案文档 §3.4。
+ *
+ * ⚠️ 与前端 `src/utils/pendingSync.ts` 的 `SYNC_DOMAINS` **必须逐字一致**，
+ *    由 `tests/tombstone-cloud.test.ts` 与 `tests/tombstone-shared.test.ts` 双向互锁。
+ *    新增 domain 必须三处同改：本数组、`SYNC_DOMAINS`、`SyncDomain` 类型。
+ *
+ * 顺序即「打卡三件套 → 学习两件套 → M3 食谱 / 出行」，纯粹为了可读性，无功能含义。
+ */
+const TOMBSTONE_DOMAINS = [
+  'diet',
+  'workout',
+  'studyPlan',
+  'studyCheckin',
+  'mealPlan',
+  'travelPlan',
+  'travelItem',
+]
 
 /** 墓碑保留窗口（天）：早于该窗口的墓碑不再返回给客户端 */
 const TOMBSTONE_MAX_DAYS = 180

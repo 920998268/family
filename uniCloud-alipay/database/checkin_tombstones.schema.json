@@ -17,7 +17,7 @@
     },
     "domain": {
       "bsonType": "string",
-      "title": "被删记录所属领域：diet / workout / studyPlan / studyCheckin",
+      "title": "被删记录所属领域：diet / workout / studyPlan / studyCheckin / mealPlan / travelPlan / travelItem（白名单见 checkin-shared/lib.js 的 TOMBSTONE_DOMAINS）",
       "maxLength": 20
     },
     "clientId": {

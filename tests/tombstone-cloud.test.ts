@@ -25,10 +25,35 @@ function functionBody(source: string, name: string): string {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
+/**
+ * 取 `if (target) { ... }` 的整块（含标记）。
+ *
+ * 用大括号配对而不是正则：块里有嵌套的 `{}`（对象字面量、回调），正则会提前截断。
+ * ⚠️ 也不能用 `indexOf` 比较先后 —— 把墓碑塞进 `if (target)` 的**末尾**，
+ * `indexOf` 依旧排在 `if (target) {` 之后，断言会假通过。必须真的把块切出来。
+ */
+function ifTargetBlock(source: string): string {
+  const start = source.indexOf('if (target) {');
+  if (start < 0) throw new Error('未找到 if (target) {');
+
+  let depth = 0;
+  for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  throw new Error('if (target) 的大括号不配对');
+}
+
 const CASES = [
   { fn: 'diet', file: 'diet/index.js', remove: 'removeDiet', domain: 'diet' },
   { fn: 'workout', file: 'workout/index.js', remove: 'removeWorkout', domain: 'workout' },
   { fn: 'study', file: 'study/index.js', remove: 'removeCheckin', domain: 'studyCheckin' },
+  // M3 第 6 步新增：食谱与行程明细。两者都是「先删记录、后写墓碑、无条件写」。
+  { fn: 'meal', file: 'meal/index.js', remove: 'removeMeal', domain: 'mealPlan' },
+  { fn: 'travel', file: 'travel/index.js', remove: 'removeItem', domain: 'travelItem' },
 ] as const;
 
 describe('三个云函数都接入了墓碑', () => {
@@ -117,9 +142,75 @@ describe('学习计划的级联删除墓碑', () => {
   });
 });
 
+describe('出行计划的级联删除墓碑', () => {
+  const source = read('travel/index.js');
+  const body = functionBody(source, 'removePlan');
+
+  it('为计划本身写墓碑（domain: travelPlan）', () => {
+    expect(body).toContain("domain: 'travelPlan'");
+  });
+
+  it('为其全部明细写墓碑（domain: travelItem）', () => {
+    expect(body).toContain("domain: 'travelItem'");
+    expect(body, '未收集被删明细的身份').toContain('collectItemRefs');
+  });
+
+  /**
+   * `where().remove()` 只返回删除条数、拿不到被删文档，而墓碑需要 clientId ——
+   * 所以必须在删除**之前**把明细身份查出来。
+   */
+  it('先收集明细身份、再执行删除（顺序不可颠倒）', () => {
+    const collectAt = body.indexOf('collectItemRefs');
+    const deleteAt = body.indexOf('deleteInBatches');
+
+    expect(collectAt, '未收集明细身份').toBeGreaterThanOrEqual(0);
+    expect(deleteAt).toBeGreaterThanOrEqual(0);
+    expect(collectAt, '删除之后再查就什么都没有了').toBeLessThan(deleteAt);
+  });
+
+  /** truncated（没删完）时一条墓碑都不写：云端仍留着明细，先写墓碑会造成「记录复活」 */
+  it('没删完（truncated）时直接返回重试，不写墓碑', () => {
+    const truncatedAt = body.indexOf('cascade.truncated');
+    const tombstoneAt = body.indexOf("domain: 'travelItem'");
+
+    expect(truncatedAt, '缺少 truncated 保护').toBeGreaterThanOrEqual(0);
+    expect(tombstoneAt).toBeGreaterThanOrEqual(0);
+    expect(truncatedAt, 'truncated 分支必须排在写明细墓碑之前').toBeLessThan(tombstoneAt);
+  });
+
+  /**
+   * 计划墓碑必须写在 `if (target)` **之外**（0.3.4 §3.2）。
+   *
+   * 「计划已删、写墓碑失败」时客户端会重试，重试时 `findPlan` 已经找不到记录了 ——
+   * 若墓碑写在 `if (target)` 里面，这条墓碑**永远补不上**，
+   * 别的设备的本地副本不会消失，还有被再次推上去复活的风险。
+   */
+  it('⚠️ 计划墓碑写在 if (target) 之外（否则重试补不上）', () => {
+    const guarded = ifTargetBlock(body);
+
+    // 明细墓碑与级联删除**必须**在守卫内（只有计划存在时才有明细可删）
+    expect(guarded, '明细墓碑应在 if (target) 内').toContain("domain: 'travelItem'");
+
+    // 计划墓碑**必须**在守卫外：塞进去的话，「计划已删、墓碑写失败 → 客户端重试」
+    // 这条唯一能补写的路径就永远走不到了。
+    expect(guarded, '⚠️ 计划墓碑被塞进了 if (target) 里 —— 重试永远补不上').not.toContain(
+      "domain: 'travelPlan'",
+    );
+    expect(body, '计划墓碑缺失').toContain("domain: 'travelPlan'");
+  });
+});
+
 describe('domain 两端一致', () => {
   it('云函数用到的 domain 都在前端 SyncDomain 白名单内', () => {
-    const used = ['diet', 'workout', 'studyPlan', 'studyCheckin'];
+    const used = [
+      'diet',
+      'workout',
+      'studyPlan',
+      'studyCheckin',
+      'mealPlan',
+      'travelPlan',
+      'travelItem',
+    ];
 
     for (const domain of used) {
       expect(SYNC_DOMAINS, `前端 SyncDomain 缺少 ${domain}`).toContain(domain);
@@ -128,10 +219,24 @@ describe('domain 两端一致', () => {
   });
 
   it('前端 SyncDomain 的每个值，云侧都有对应的写入方', () => {
-    const sources = CASES.map((item) => read(item.file)).join('\n') + read('study/index.js');
+    const sources = CASES.map((item) => read(item.file)).join('\n');
 
     for (const domain of SYNC_DOMAINS) {
       expect(sources, `没有任何云函数写 ${domain} 的墓碑`).toContain(`domain: '${domain}'`);
     }
+  });
+
+  /**
+   * ⚠️ 白名单是**全有或全无**的：`buildTombstoneDocs` 对未知 domain 返回 `[]`、
+   * `listTombstones` 又把 domains 过滤成空 —— 少一个 domain，那类删除就
+   * 「删成功、墓碑不写、也拉不到」，全程无报错。
+   *
+   * 两端数量必须相等，且逐值相等（不是只对个数）。
+   */
+  it('⚠️ 前端白名单与云侧白名单逐值相等（个数 + 顺序无关，集合相等）', () => {
+    const cloud = [...sharedLib.TOMBSTONE_DOMAINS].sort();
+    const front = [...SYNC_DOMAINS].sort();
+
+    expect(front, '前端与云侧 domain 白名单不一致 —— 差的那些会静默不传播').toEqual(cloud);
   });
 });

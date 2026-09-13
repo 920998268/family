@@ -432,7 +432,9 @@ src/utils/network.ts          网络状态检测
       `src/utils/cloudMap.ts` 三组双向映射、`src/unicloud/index.ts` 的
       `callMeal` / `callTravel`、`src/repositories/remote/` 下
       `MealPlanRemoteRepo` / `TravelPlanRemoteRepo` / `TravelItemRemoteRepo`。
-      **store 接线（第 7 步）与同步服务扩展（第 6 步）待做**。
+      **同步服务扩展已完成**（方案 §7 第 6 步，2026-09-13）：`domain` 白名单 4 → 7、
+      3 条 pull（`pullMealPlans` / `pullTravelPlans` / `pullTravelItems`）、
+      3 个 push 分支 + 墓碑删除 3 个新分支。**store 接线（第 7 步）待做**。
 - [ ] M3-6：部署清单 + 真机验收
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。
@@ -441,6 +443,9 @@ src/utils/network.ts          网络状态检测
 > ⚠️ 本期是**第一次**在墓碑机制已存在的前提下新增模块：`TOMBSTONE_DOMAINS` 需由
 > 4 个扩到 7 个（新增 `mealPlan` / `travelPlan` / `travelItem`），且硬编码在 6 处
 > （见方案 §3.4）—— **漏改任何一处，新模块的删除就静默不传播**。
+> 第 6 步实施时已实测到这个后果：`meal` / `travel` 两个云函数从第 4 步起就在写/读这三个
+> domain 的墓碑，而白名单一直只有 4 个，**读写两条链路一起静默失效且无任何报错**，
+> 直到第 6 步才发现并修掉。
 
 ### 之后：M4 / M5
 

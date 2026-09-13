@@ -25,6 +25,9 @@ import { createFavoriteFoodRemoteRepo } from '@/repositories/remote/FavoriteFood
 import { createWorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import { createStudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
 import { createStudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinRemoteRepo';
+import { createMealPlanRemoteRepo } from '@/repositories/remote/MealPlanRemoteRepo';
+import { createTravelPlanRemoteRepo } from '@/repositories/remote/TravelPlanRemoteRepo';
+import { createTravelItemRemoteRepo } from '@/repositories/remote/TravelItemRemoteRepo';
 import { createTombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 
 export function createProfileService(): ProfileService {
@@ -86,18 +89,23 @@ export function getCheckinSyncService(): CheckinSyncService {
   const adapter = getStorageAdapter();
   if (!checkinSyncService || checkinSyncAdapter !== adapter) {
     checkinSyncAdapter = adapter;
-      checkinSyncService = new CheckinSyncService({
-        storage: adapter,
-        dietRepository: new DietRepository(adapter),
-        workoutRepository: new WorkoutRepository(adapter),
-        studyPlanRepository: new StudyPlanRepository(adapter),
-        studyCheckinRepository: new StudyCheckinRepository(adapter),
-        dietRemote: createDietRemoteRepo(),
-        workoutRemote: createWorkoutRemoteRepo(),
-        studyPlanRemote: createStudyPlanRemoteRepo(),
-        studyCheckinRemote: createStudyCheckinRemoteRepo(),
-        tombstoneRemote: createTombstoneRemoteRepo(),
-      });
+    checkinSyncService = new CheckinSyncService({
+      storage: adapter,
+      dietRepository: new DietRepository(adapter),
+      workoutRepository: new WorkoutRepository(adapter),
+      studyPlanRepository: new StudyPlanRepository(adapter),
+      studyCheckinRepository: new StudyCheckinRepository(adapter),
+      mealPlanRepository: new MealPlanRepository(adapter),
+      travelRepository: new TravelRepository(adapter),
+      dietRemote: createDietRemoteRepo(),
+      workoutRemote: createWorkoutRemoteRepo(),
+      studyPlanRemote: createStudyPlanRemoteRepo(),
+      studyCheckinRemote: createStudyCheckinRemoteRepo(),
+      mealPlanRemote: createMealPlanRemoteRepo(),
+      travelPlanRemote: createTravelPlanRemoteRepo(),
+      travelItemRemote: createTravelItemRemoteRepo(),
+      tombstoneRemote: createTombstoneRemoteRepo(),
+    });
   }
   return checkinSyncService;
 }
