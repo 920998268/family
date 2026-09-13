@@ -194,9 +194,9 @@ familyRole: string    // owner | member
 | `study_plans` | ✅ | 学习计划 | familyId, clientId, title, subject, frequency, targetTimes, memberId, createdByUid, createdAt, updatedAt |
 | `study_checkins` | ✅ | 学习打卡 | familyId, clientId, planId, date, note, memberId, createdByUid, createdAt, updatedAt |
 | `checkin_tombstones` | ✅ | **删除日志（墓碑）**，跨设备删除同步用 | familyId, domain, clientId, date, deletedAt, createdByUid |
-| `meal_plans` | 🚧 | 家庭食谱（M3） | familyId, clientId, date, slot, dishName, ingredients, cook, done, note, createdByUid, createdAt, updatedAt |
-| `travels` | 🚧 | 出行计划（M3） | familyId, clientId, title, startDate, endDate, destination, members, budget, status, note, createdByUid, createdAt, updatedAt |
-| `travel_items` | 🚧 | 出行行程明细（M3，主从） | familyId, clientId, travelId, order, time, activity, note, done, createdByUid, createdAt, updatedAt |
+| `meal_plans` | ✅ | 家庭食谱（M3） | familyId, clientId, date, slot, dishName, ingredients, cook, done, note, createdByUid, createdAt, updatedAt |
+| `travels` | ✅ | 出行计划（M3） | familyId, clientId, title, startDate, endDate, destination, members, budget, status, note, createdByUid, createdAt, updatedAt |
+| `travel_items` | ✅ | 出行行程明细（M3，主从） | familyId, clientId, travelId, order, time, activity, note, done, createdByUid, createdAt, updatedAt |
 | `transactions` | ⬜ | 收支记录（M4） | familyId, type(income/expense), category, amount, date, note, memberId, createdAt |
 | `sync_meta` | ⬜ | 同步元数据（预留，暂未使用） | familyId, lastSyncAt, dataVersion |
 
@@ -394,7 +394,7 @@ src/utils/network.ts          网络状态检测
 
 ## 下一步（待办）
 
-> 最后更新：2026-09-13（0.3.4 跨设备删除同步发布后）
+> 最后更新：2026-09-14（M3 食谱 + 出行上云发布 0.3.5 后）
 
 ### M0 / M1 —— 已完成
 
@@ -411,22 +411,22 @@ src/utils/network.ts          网络状态检测
 - [x] M2-A：饮食 + 运动打卡上云（含扩展有氧、常用食物），25 项用例通过
 - [x] M2-B：学习打卡上云（计划 + 每日打卡），23 项用例通过
 
-### 🎯 当前：M3 计划模块（食谱 + 出行计划远程化）
+### M3 —— 已完成（2026-09-14 全部真机验收通过）
 
 范围随 M2 范围歧义的决策已缩减（学习打卡已并入 M2-B 完成），只剩两类：
 
 - [x] M3-1：需求确认与技术方案 → `0.3.5-m3-requirements-and-solution.md`（2026-09-13）
       三项关键决策已定：**出行明细拆独立集合** / **`meal` + `travel` 两个云函数** / **版本号 0.3.5**
-- [ ] M3-2：`meal_plans` 集合 + schema + 索引
+- [x] M3-2：`meal_plans` 集合 + schema + 索引
       —— **schema 已写完**（2026-09-13，方案 §7 第 4 步）：
-      `uniCloud-alipay/database/meal_plans.schema.json`；集合与 2 条索引待部署。
-- [ ] M3-3：`travels` / `travel_items` 集合 + schema + 索引
+      `uniCloud-alipay/database/meal_plans.schema.json`；集合 + 2 条索引已部署（2026-09-14）。
+- [x] M3-3：`travels` / `travel_items` 集合 + schema + 索引
       —— **schema 已写完**：`travels.schema.json` / `travel_items.schema.json`；
-      集合与 4 条索引待部署。
-- [ ] M3-4：对应云函数（纯逻辑 lib + 路由）
+      集合 + 4 条索引已部署（2026-09-14）。
+- [x] M3-4：对应云函数（纯逻辑 lib + 路由）
       —— **lib 与路由都已写完**（方案 §7 第 3、4 步）：`meal/lib.js` + `meal/index.js`、
       `travel/lib.js` + `travel/index.js`。两个 lib 自包含，长度上限与前端
-      `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。云函数部署待第 8 步。
+      `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。两个云函数已部署（2026-09-14）。
 - [x] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
       —— **映射层、调用封装、三个远端仓储已完成**（方案 §7 第 5 步，2026-09-13）：
       `src/utils/cloudMap.ts` 三组双向映射、`src/unicloud/index.ts` 的
@@ -439,11 +439,12 @@ src/utils/network.ts          网络状态检测
       接入云端（本地优先 + 待同步登记 + 后台拉取合并），出行明细按
       `computeItemDiff` **记录级**下发、勾选走服务端反转（失败 / 离线降级为排队），
       4 个 plan 页面补 `:maxlength` 与 `onShow` 补传。
-- [ ] M3-6：部署清单 + 真机验收
+- [x] M3-6：部署清单 + 真机验收
       —— **部署清单已产出**（方案 §7 第 8 步，2026-09-13）：
       `docs/0.3.5-m3-deploy-checklist.md`（9 项上传 + 38 条真机用例）、
       版本号三处统一到 **0.3.5**、发布说明 `docs/0.3.5-release-notes.md`。
-      ⬜ **云端部署与真机验收待执行**（9 项上传 + 38 条用例）。
+      **云端部署（9 项）与 38 条真机用例已于 2026-09-14 全部通过**，
+      随 **v0.3.5** 发布。至此 M3（食谱 + 出行上云）整体收口。
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。
 > 本期按 `0.3.5-m3-requirements-and-solution.md` §7 的 **8 步**实施（比本表更细，逐步对应）。

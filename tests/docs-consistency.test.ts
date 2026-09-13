@@ -530,9 +530,16 @@ describe('0.3.5 版本说明', () => {
     expect(source).toContain('后写者覆盖前写者');
   });
 
-  it('未完成的项明确标注为待执行（不能假装已验收）', () => {
-    expect(source).toContain('真机验收');
-    expect(source).toMatch(/待执行/);
+  it('真机验收结果已回填（不能停留在「待执行」）', () => {
+    // 「已知限制」第一条要写明验收结论，否则发版说明会一直停在「待验收」
+    const limitations = section(source, '## 四、已知限制');
+    expect(limitations, '需写明已验收').toContain('真机用例');
+    expect(limitations, '验收已完成，需写明结论').toContain('全部通过');
+    expect(limitations, '需写明验收日期').toMatch(/2026-09-14/);
+
+    // 发布记录里部署与验收都应为已完成，不该再有 ⬜ 占位
+    expect(source).not.toMatch(/⬜\s*待执行/);
+    expect(source).toMatch(/真机验收（38 条用例）\s*\|\s*✅/);
   });
 });
 
@@ -622,10 +629,31 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
     expect(line, 'M2-B 已真机验收，路线图需写明').toContain('真机验收通过');
   });
 
+  it('M3 在路线图中标记为已完成，且写明真机验收通过', () => {
+    const line = source.split(/\r?\n/).find((row) => row.includes('### M3')) as string;
+    expect(line, '路线图缺少 M3 章节标题').toBeTruthy();
+    expect(line, 'M3 已完成，章节标题需标明').toContain('已完成');
+    expect(line, 'M3 已真机验收，章节标题需写明').toContain('真机验收通过');
+
+    const m36 = source.split(/\r?\n/).find((row) => row.includes('M3-6')) as string;
+    expect(m36, '路线图缺少 M3-6 行').toBeTruthy();
+    expect(m36).toContain('[x]');
+  });
+
   it('已真机验收的集合在 §7.1 标记为 ✅（防止状态滞后）', () => {
-    // 这 5 个集合随 M2-A / M2-B 于 2026-09-12 全部真机验收通过。
-    // 状态列（第 2 个单元格）若为 🟡（已实现待部署）即说明文档没跟上实际部署。
-    const verified = ['diets', 'workouts', 'favorite_foods', 'study_plans', 'study_checkins'];
+    // 前 5 个集合随 M2-A / M2-B 于 2026-09-12 验收通过；
+    // 后 3 个随 M3 于 2026-09-14 验收通过。
+    // 状态列（第 2 个单元格）若为 🚧 / 🟡（已实现待部署）即说明文档没跟上实际部署。
+    const verified = [
+      'diets',
+      'workouts',
+      'favorite_foods',
+      'study_plans',
+      'study_checkins',
+      'meal_plans',
+      'travels',
+      'travel_items',
+    ];
     for (const collection of verified) {
       const line = source.split(/\r?\n/).find((row) => row.startsWith(`| \`${collection}\` `));
       expect(line, `§7.1 缺少集合 ${collection} 的行`).toBeTruthy();
