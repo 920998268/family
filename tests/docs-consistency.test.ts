@@ -24,6 +24,8 @@ const DELETE_SYNC_DOC = 'docs/0.3.4-cross-device-delete-sync.md';
 const DELETE_SYNC_CHECKLIST = 'docs/0.3.4-cross-device-delete-sync-checklist.md';
 const RELEASE_034 = 'docs/0.3.4-release-notes.md';
 const M3_DOC = 'docs/0.3.5-m3-requirements-and-solution.md';
+const M3_CHECKLIST = 'docs/0.3.5-m3-deploy-checklist.md';
+const RELEASE_035 = 'docs/0.3.5-release-notes.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -352,10 +354,8 @@ describe('版本号三处一致', () => {
 });
 
 /**
- * M3 方案文档。**暂不做路径守卫** —— 方案里提到的 3 个 DB Schema 要到第 4 步才建，
- * 现在加 `expectReferencedPathsExist` 会因文件不存在而失败（M2-B 也是这么处理的，
- * 收口时再纳入）。云函数目录已在第 3 步落地，其存在性与「lib 自包含」约束
- * 由 `tests/cloudfunctions.test.ts` 守卫。这里只守「决策与关键风险被写下来了」。
+ * M3 方案文档。路径守卫在第 8 步收口时补上 —— 之前 3 个 DB Schema 还没建，
+ * 提前加会因文件不存在而失败（M2-B 也是这么处理的）。
  */
 describe('M3 方案文档（食谱 + 出行上云）', () => {
   const source = read(M3_DOC);
@@ -396,6 +396,143 @@ describe('M3 方案文档（食谱 + 出行上云）', () => {
     expect(line, '路线图缺少 M3-1 行').toBeTruthy();
     expect(line).toContain('[x]');
     expect(line).toContain('0.3.5-m3-requirements-and-solution.md');
+  });
+
+  it('⚠️ 提到的仓库内路径都真实存在（第 8 步收口时补上）', () => {
+    expect(expectReferencedPathsExist(source, 'M3 方案文档')).toBeGreaterThan(3);
+  });
+
+  it('8 个步骤全部标记为已完成（收口后不应残留「待开始」）', () => {
+    const rows = numberedRowsInTable(source, '## 7. 实施步骤', '| 步 | 内容 |');
+
+    for (const row of rows) {
+      expect(row, `步骤行未标记完成：${row}`).toContain('已完成');
+    }
+  });
+
+  it('§9 落地记录已回填全部 8 个提交号（不再有「待回填」）', () => {
+    const rows = numberedRowsInTable(source, '## 9. 落地记录', '| 步 | 提交 |');
+
+    expect(rows).toHaveLength(8);
+    for (const row of rows) {
+      expect(row, `提交号未回填：${row}`).not.toContain('待回填');
+    }
+  });
+});
+
+/**
+ * M3 部署清单。守的是「本期最容易漏的一步」——
+ * `checkin-shared` 必须重传，否则新模块的删除墓碑读写**两条链路一起静默失效**。
+ * 这条结论与 M2-B 那期恰好相反（那期不需要重传），最容易被照旧习惯漏掉。
+ */
+describe('M3 部署清单', () => {
+  const source = read(M3_CHECKLIST);
+
+  it('列出 9 项上传，且每项都能对上仓库里的真实路径', () => {
+    for (const item of [
+      'meal_plans.schema.json',
+      'travels.schema.json',
+      'travel_items.schema.json',
+      'cloudfunctions/meal',
+      'cloudfunctions/travel',
+      'common/checkin-shared',
+      'cloudfunctions/study',
+      'checkin_tombstones.schema.json',
+    ]) {
+      expect(source, `清单缺少 ${item}`).toContain(item);
+    }
+    expect(source).toContain('6 条索引');
+  });
+
+  it('⚠️ 显式写明 checkin-shared 必须重传，以及漏传的后果', () => {
+    expect(source).toContain('checkin-shared');
+    expect(source).toContain('必须重传');
+    // 白名单是双刃的：写与读两条链路会一起失效
+    expect(source).toMatch(/buildTombstoneDocs[\s\S]{0,200}listTombstones/);
+    expect(source).toContain('静默');
+  });
+
+  it('⚠️ 写明 listTombstones 返回空数组「不能」说明白名单生效，并给出专项验证步骤', () => {
+    expect(source).toContain('墓碑通路专项验证');
+    expect(source).toContain('checkin_tombstones');
+  });
+
+  it('写明 study 云函数也要重传，以及不重传的具体后果', () => {
+    const section = source.slice(source.indexOf('### 2.4'), source.indexOf('### 2.5'));
+    expect(section).toContain('study');
+    expect(section).toContain('removePlan');
+    // 不重传不会出错，但少一次「重试补写墓碑」的机会
+    expect(section).toMatch(/墓碑/);
+  });
+
+  it('复述「不要用批量上传」的警示', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+    expect(source).toContain('Invalid uni-id config file');
+  });
+
+  it('索引表 6 条、familyId 必须放第一位、并说明 travel_items 为何不加唯一索引', () => {
+    expect(source).toContain('idx_family_client');
+    expect(source).toContain('idx_family_date');
+    expect(source).toContain('idx_family_start');
+    expect(source).toContain('idx_family_travel');
+    expect(source).toMatch(/familyId[\s\S]{0,40}必须放第一位/);
+    expect(source).toContain('唯一索引');
+  });
+
+  it('真机验收用例齐备，且含本期最核心的「并发勾选不互相覆盖」', () => {
+    expect(source).toContain('真机验收用例');
+    expect(source).toContain('同时勾选不互相覆盖');
+    expect(source).toContain('级联删除');
+    expect(source).toContain('历史数据不丢');
+    expect(source).toContain('回滚');
+  });
+
+  it('提到的仓库内路径都真实存在', () => {
+    expect(expectReferencedPathsExist(source, 'M3 部署清单')).toBeGreaterThan(3);
+  });
+});
+
+/**
+ * 0.3.5 发布说明。体例与 0.3.4 / 0.3.2 保持一致（章节名固定），
+ * 这样「版本说明该写什么」不依赖记忆。
+ */
+describe('0.3.5 版本说明', () => {
+  const source = read(RELEASE_035);
+
+  it('保留与上一版一致的章节体例', () => {
+    for (const heading of [
+      '## 版本概述',
+      '## 一、新增能力',
+      '## 二、Bug 修复',
+      '## 三、优化改进',
+      '## 四、已知限制',
+      '## 五、升级与发布说明',
+    ]) {
+      expect(source, `版本说明缺少章节：${heading}`).toContain(heading);
+    }
+  });
+
+  it('写明本期新增的集合与云函数', () => {
+    for (const name of ['meal_plans', 'travels', 'travel_items']) {
+      expect(source).toContain(name);
+    }
+    expect(source).toContain('`meal`');
+    expect(source).toContain('`travel`');
+  });
+
+  it('复述「checkin-shared 必须重传」这条部署要点', () => {
+    expect(source).toContain('checkin-shared');
+    expect(source).toContain('TOMBSTONE_DOMAINS');
+  });
+
+  it('把「明细记录级化」列为本期最有价值的一处改动', () => {
+    expect(source).toContain('整包覆盖');
+    expect(source).toContain('后写者覆盖前写者');
+  });
+
+  it('未完成的项明确标注为待执行（不能假装已验收）', () => {
+    expect(source).toContain('真机验收');
+    expect(source).toMatch(/待执行/);
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "fitness-diet-tracker",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "private": true,
   "description": "MVP fitness and diet tracking app built with uni-app, Vue 3, TypeScript, and Pinia.",
   "scripts": {

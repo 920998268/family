@@ -427,7 +427,7 @@ src/utils/network.ts          网络状态检测
       —— **lib 与路由都已写完**（方案 §7 第 3、4 步）：`meal/lib.js` + `meal/index.js`、
       `travel/lib.js` + `travel/index.js`。两个 lib 自包含，长度上限与前端
       `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。云函数部署待第 8 步。
-- [ ] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
+- [x] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
       —— **映射层、调用封装、三个远端仓储已完成**（方案 §7 第 5 步，2026-09-13）：
       `src/utils/cloudMap.ts` 三组双向映射、`src/unicloud/index.ts` 的
       `callMeal` / `callTravel`、`src/repositories/remote/` 下
@@ -440,6 +440,10 @@ src/utils/network.ts          网络状态检测
       `computeItemDiff` **记录级**下发、勾选走服务端反转（失败 / 离线降级为排队），
       4 个 plan 页面补 `:maxlength` 与 `onShow` 补传。
 - [ ] M3-6：部署清单 + 真机验收
+      —— **部署清单已产出**（方案 §7 第 8 步，2026-09-13）：
+      `docs/0.3.5-m3-deploy-checklist.md`（9 项上传 + 38 条真机用例）、
+      版本号三处统一到 **0.3.5**、发布说明 `docs/0.3.5-release-notes.md`。
+      ⬜ **云端部署与真机验收待执行**（9 项上传 + 38 条用例）。
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。
 > 本期按 `0.3.5-m3-requirements-and-solution.md` §7 的 **8 步**实施（比本表更细，逐步对应）。
