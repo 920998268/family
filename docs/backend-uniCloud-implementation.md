@@ -418,12 +418,15 @@ src/utils/network.ts          网络状态检测
 - [x] M3-1：需求确认与技术方案 → `0.3.5-m3-requirements-and-solution.md`（2026-09-13）
       三项关键决策已定：**出行明细拆独立集合** / **`meal` + `travel` 两个云函数** / **版本号 0.3.5**
 - [ ] M3-2：`meal_plans` 集合 + schema + 索引
+      —— **schema 已写完**（2026-09-13，方案 §7 第 4 步）：
+      `uniCloud-alipay/database/meal_plans.schema.json`；集合与 2 条索引待部署。
 - [ ] M3-3：`travels` / `travel_items` 集合 + schema + 索引
+      —— **schema 已写完**：`travels.schema.json` / `travel_items.schema.json`；
+      集合与 4 条索引待部署。
 - [ ] M3-4：对应云函数（纯逻辑 lib + 路由）
-      —— **纯逻辑 lib 已完成**（2026-09-13，方案 §7 第 3 步）：`meal/lib.js`（食谱一块）
-      与 `travel/lib.js`（计划 / 明细两块，含级联删除用的 `deleteInBatches`）；
-      两个 lib 均自包含，长度上限与前端 `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。
-      路由与 schema 待做（第 4 步）。
+      —— **lib 与路由都已写完**（方案 §7 第 3、4 步）：`meal/lib.js` + `meal/index.js`、
+      `travel/lib.js` + `travel/index.js`。两个 lib 自包含，长度上限与前端
+      `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。云函数部署待第 8 步。
 - [ ] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
 - [ ] M3-6：部署清单 + 真机验收
 

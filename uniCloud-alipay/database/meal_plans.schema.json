@@ -1,0 +1,79 @@
+{
+  "bsonType": "object",
+  "required": [
+    "familyId",
+    "clientId",
+    "date",
+    "slot",
+    "dishName",
+    "ingredients",
+    "cook",
+    "done",
+    "note"
+  ],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端记录 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "date": {
+      "bsonType": "string",
+      "title": "日期 YYYY-MM-DD（字符串，服务端不做时区换算）。前端本地存储按它分区",
+      "maxLength": 10
+    },
+    "slot": {
+      "bsonType": "string",
+      "title": "餐次：breakfast（早餐）/ lunch（午餐）/ dinner（晚餐）/ snack（加餐）"
+    },
+    "dishName": {
+      "bsonType": "string",
+      "title": "菜品名称（必填）",
+      "maxLength": 40
+    },
+    "ingredients": {
+      "bsonType": "string",
+      "title": "食材（可为空串；⚠️ 不可为 null —— 前端校验器要求字符串，落 null 会让整条记录被静默丢弃）",
+      "maxLength": 200
+    },
+    "cook": {
+      "bsonType": "string",
+      "title": "掌勺人（可为空串的自由文本，**不是** family_members 的 id；不可为 null）",
+      "maxLength": 20
+    },
+    "done": {
+      "bsonType": "bool",
+      "title": "是否已执行"
+    },
+    "note": {
+      "bsonType": "string",
+      "title": "备注（可为空串；不可为 null）",
+      "maxLength": 100
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间（**毫秒时间戳**；返回给前端时由云函数转成 ISO 字符串）"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}

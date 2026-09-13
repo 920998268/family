@@ -441,6 +441,22 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
       schema: 'uniCloud-alipay/database/study_checkins.schema.json',
       min: 9,
     },
+    // M3（第 4 步落地）。这三个集合尚未部署，所以不在下面「已真机验收」的名单里。
+    {
+      collection: 'meal_plans',
+      schema: 'uniCloud-alipay/database/meal_plans.schema.json',
+      min: 12,
+    },
+    {
+      collection: 'travels',
+      schema: 'uniCloud-alipay/database/travels.schema.json',
+      min: 13,
+    },
+    {
+      collection: 'travel_items',
+      schema: 'uniCloud-alipay/database/travel_items.schema.json',
+      min: 11,
+    },
   ];
 
   for (const item of cases) {

@@ -165,4 +165,20 @@ describe('领域白名单（isTombstoneDomain）', () => {
     expect(lib.isTombstoneDomain('study')).toBe(false);
     expect(lib.isTombstoneDomain('')).toBe(false);
   });
+
+  it('⚠️ M3 的三个新 domain 必须「要么全不加、要么全加上」，不能只加一半', () => {
+    // 第 6 步会把 TOMBSTONE_DOMAINS 由 4 扩到 7（方案 §3.4）。
+    // 最坏的中间态是**只加了一部分**：buildTombstoneDocs 对未知 domain 直接返回 []
+    //（**不报错**），于是漏加的那类记录「本地删成功、云端无痕、别的设备永不同步」，
+    // 全程没有任何报错 —— 这正是 §3.4 警告的「静默不传播」。
+    // 这条断言允许「一个都没加」（第 6 步之前）与「三个都加了」（第 6 步之后），
+    // 只拦住危险的半成品状态。
+    const pending = ['mealPlan', 'travelPlan', 'travelItem'];
+    const supported = pending.filter((domain) => lib.isTombstoneDomain(domain));
+
+    expect(
+      supported.length === 0 || supported.length === pending.length,
+      `TOMBSTONE_DOMAINS 只加了一部分：${supported.join(', ') || '无'}（其余会静默不传播）`,
+    ).toBe(true);
+  });
 });

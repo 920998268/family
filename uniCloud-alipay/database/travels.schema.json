@@ -1,0 +1,84 @@
+{
+  "bsonType": "object",
+  "required": [
+    "familyId",
+    "clientId",
+    "title",
+    "startDate",
+    "endDate",
+    "destination",
+    "members",
+    "budget",
+    "status",
+    "note"
+  ],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端计划 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "title": {
+      "bsonType": "string",
+      "title": "计划标题（必填）",
+      "maxLength": 40
+    },
+    "startDate": {
+      "bsonType": "string",
+      "title": "开始日期 YYYY-MM-DD（字符串，服务端不做时区换算；字典序即时间序）",
+      "maxLength": 10
+    },
+    "endDate": {
+      "bsonType": "string",
+      "title": "结束日期 YYYY-MM-DD，须 ≥ startDate",
+      "maxLength": 10
+    },
+    "destination": {
+      "bsonType": "string",
+      "title": "目的地（可为空串；⚠️ 不可为 null —— 前端校验器要求字符串，落 null 会让整条记录被静默丢弃）",
+      "maxLength": 40
+    },
+    "members": {
+      "bsonType": "array",
+      "title": "参与成员 id 列表（去重 + 剔除空值，保序，上限 50）。⚠️ 元素是否存在不校验：成员被移出家庭不该让计划变形，映射由展示层兜底"
+    },
+    "budget": {
+      "bsonType": ["int", "double"],
+      "title": "预算 0~100000000（声明两种数值类型以兼容驱动落库形式；云函数侧校验范围）"
+    },
+    "status": {
+      "bsonType": "string",
+      "title": "计划状态：planned（计划中）/ ongoing（进行中）/ done（已完成）/ cancelled（已取消）"
+    },
+    "note": {
+      "bsonType": "string",
+      "title": "备注（可为空串；不可为 null）",
+      "maxLength": 200
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间（**毫秒时间戳**）"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}

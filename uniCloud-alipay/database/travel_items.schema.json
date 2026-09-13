@@ -1,0 +1,73 @@
+{
+  "bsonType": "object",
+  "required": [
+    "familyId",
+    "clientId",
+    "travelId",
+    "order",
+    "time",
+    "activity",
+    "note",
+    "done"
+  ],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端明细 ID，幂等键（家庭内唯一；形如 trip-<uuid>，故跨计划也不会撞）",
+      "maxLength": 64
+    },
+    "travelId": {
+      "bsonType": "string",
+      "title": "所属出行计划的 clientId（主从约束，写库前由云函数校验属于本家庭；**不可修改**）",
+      "maxLength": 64
+    },
+    "order": {
+      "bsonType": ["int", "double"],
+      "title": "展示顺序 0 起。拆表后数组位置不再存在，顺序只能由本字段承载。**不加唯一索引**：允许两行同序，由前端稳定排序兜底"
+    },
+    "time": {
+      "bsonType": "string",
+      "title": "时间描述（可为空串，如「上午 9:00」；不可为 null）",
+      "maxLength": 20
+    },
+    "activity": {
+      "bsonType": "string",
+      "title": "活动（必填）",
+      "maxLength": 40
+    },
+    "note": {
+      "bsonType": "string",
+      "title": "备注（可为空串；不可为 null）",
+      "maxLength": 100
+    },
+    "done": {
+      "bsonType": "bool",
+      "title": "是否已完成"
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间（**毫秒时间戳**）"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}
