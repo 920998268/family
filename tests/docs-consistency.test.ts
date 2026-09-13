@@ -351,6 +351,18 @@ describe('版本号三处一致', () => {
   it('当前版本有对应的版本说明文档', () => {
     expect(existsSync(join(ROOT, `docs/${pkg.version}-release-notes.md`))).toBe(true);
   });
+
+  /**
+   * 发版时最容易漏的一步：底部的「版本 → 提交」对照表忘了加新版本那一行。
+   * 这张表是回退时「切哪个标签」的唯一索引，漏了就得翻 git 历史。
+   */
+  it('版本说明的标签对照表已包含当前版本，且提交号形如短哈希', () => {
+    const line = read(`docs/${pkg.version}-release-notes.md`)
+      .split(/\r?\n/)
+      .find((row) => row.startsWith(`> | v${pkg.version} |`));
+    expect(line, `标签对照表缺少 v${pkg.version} 行`).toBeTruthy();
+    expect(line as string, '标签对照表未填提交号').toMatch(/\|\s*`[0-9a-f]{7,40}`\s*\|/);
+  });
 });
 
 /**
