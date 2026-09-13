@@ -6,8 +6,10 @@ import { useFamilyStore } from '@/stores/family';
 import type { TravelStatus } from '@/types/models';
 import { TRAVEL_STATUSES } from '@/types/models';
 import type { TravelItemDraft, TravelPlanDraft } from '@/services/TravelService';
+import { TRAVEL_LIMITS } from '@/utils/limits';
 import { todayKey } from '@/utils/date';
 import { errorMessage } from '@/utils/error';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 import MemberMultiSelect from '@/components/MemberMultiSelect.vue';
 
 const travelStore = useTravelStore();
@@ -38,6 +40,8 @@ onLoad((options) => {
 onShow(() => {
   travelStore.load();
   familyStore.load();
+  // App 的 onShow 覆盖不到「页面之间跳转」，这里补一次待同步重发
+  flushPendingCheckins();
   if (editingId.value) {
     const plan = travelStore.plans.find((item) => item.id === editingId.value);
     if (plan) {
@@ -49,6 +53,12 @@ onShow(() => {
       form.members = [...plan.members];
       form.note = plan.note;
       items.value = plan.items.map((item) => ({
+        // ⚠️ **必须保留 id**（M3 第 7 步修）：
+        // 不保留的话，任何一次「打开编辑 → 保存」都会让全部明细被当成新行
+        // （`computeItemDiff` 匹配不到 → 旧行判为 removed、新行判为 added），
+        // 于是云端删一轮又建一轮，明细 id 全变、`travelItem` 墓碑乱飞。
+        // 纯本地场景看不出来，上云后是实打实的故障。
+        id: item.id,
         time: item.time,
         activity: item.activity,
         note: item.note,
@@ -141,12 +151,22 @@ function save(): void {
 
       <view class="field field-first">
         <text class="field-label">计划标题</text>
-        <input v-model="form.title" class="field-control" placeholder="例如：国庆全家出游" />
+        <input
+          v-model="form.title"
+          class="field-control"
+          placeholder="例如：国庆全家出游"
+          :maxlength="TRAVEL_LIMITS.title"
+        />
       </view>
 
       <view class="field">
         <text class="field-label">目的地</text>
-        <input v-model="form.destination" class="field-control" placeholder="例如：云南大理" />
+        <input
+          v-model="form.destination"
+          class="field-control"
+          placeholder="例如：云南大理"
+          :maxlength="TRAVEL_LIMITS.destination"
+        />
       </view>
 
       <view class="field">
@@ -203,24 +223,44 @@ function save(): void {
 
           <view class="field">
             <text class="field-label">活动内容</text>
-            <input v-model="item.activity" class="field-control" placeholder="例如：游览洱海" />
+            <input
+              v-model="item.activity"
+              class="field-control"
+              placeholder="例如：游览洱海"
+              :maxlength="TRAVEL_LIMITS.itemActivity"
+            />
           </view>
 
           <view class="field">
             <text class="field-label">时间（可选）</text>
-            <input v-model="item.time" class="field-control" placeholder="例如：上午 9:00" />
+            <input
+              v-model="item.time"
+              class="field-control"
+              placeholder="例如：上午 9:00"
+              :maxlength="TRAVEL_LIMITS.itemTime"
+            />
           </view>
 
           <view class="field">
             <text class="field-label">备注（可选）</text>
-            <input v-model="item.note" class="field-control" placeholder="例如：带好相机" />
+            <input
+              v-model="item.note"
+              class="field-control"
+              placeholder="例如：带好相机"
+              :maxlength="TRAVEL_LIMITS.itemNote"
+            />
           </view>
         </view>
       </view>
 
       <view class="field">
         <text class="field-label">备注（可选）</text>
-        <textarea v-model="form.note" class="field-control field-textarea" placeholder="关于本次出行的其他安排" />
+        <textarea
+          v-model="form.note"
+          class="field-control field-textarea"
+          placeholder="关于本次出行的其他安排"
+          :maxlength="TRAVEL_LIMITS.note"
+        />
       </view>
 
       <view class="form-actions">

@@ -157,11 +157,41 @@ describe('表单输入框必须挂上 maxlength（否则上限形同虚设）', 
     expect(map.get('form.subject'), '学习内容未设置 maxlength').toBe('STUDY_LIMITS.subject');
   });
 
+  it('食谱页面：菜品 / 食材 / 掌勺人 / 备注', () => {
+    const map = maxlengthByModel(readText('src/pages/plan/meal.vue'));
+
+    expect(map.get('form.dishName'), '菜品名称未设置 maxlength').toBe('MEAL_LIMITS.dishName');
+    expect(map.get('form.ingredients'), '食材未设置 maxlength').toBe('MEAL_LIMITS.ingredients');
+    expect(map.get('form.cook'), '掌勺人未设置 maxlength').toBe('MEAL_LIMITS.cook');
+    expect(map.get('form.note'), '食谱备注未设置 maxlength').toBe('MEAL_LIMITS.note');
+  });
+
+  it('出行表单：标题 / 目的地 / 备注 / 明细三字段', () => {
+    const map = maxlengthByModel(readText('src/pages/plan/travel-form.vue'));
+
+    expect(map.get('form.title'), '计划标题未设置 maxlength').toBe('TRAVEL_LIMITS.title');
+    expect(map.get('form.destination'), '目的地未设置 maxlength').toBe(
+      'TRAVEL_LIMITS.destination',
+    );
+    expect(map.get('form.note'), '出行备注未设置 maxlength').toBe('TRAVEL_LIMITS.note');
+    // 明细字段用 v-for 渲染，`v-model` 是 item.xxx —— 同样必须逐项挂上限
+    expect(map.get('item.activity'), '明细活动未设置 maxlength').toBe(
+      'TRAVEL_LIMITS.itemActivity',
+    );
+    expect(map.get('item.time'), '明细时间未设置 maxlength').toBe('TRAVEL_LIMITS.itemTime');
+    expect(map.get('item.note'), '明细备注未设置 maxlength').toBe('TRAVEL_LIMITS.itemNote');
+  });
+
   it('文本类输入框不留未设上限的漏网之鱼', () => {
     const targets: Array<[string, string[]]> = [
       ['src/components/DietForm.vue', ['form.foodName', 'form.quantity']],
       ['src/components/WorkoutForm.vue', ['exerciseName']],
       ['src/pages/checkin/study.vue', ['form.title', 'form.subject']],
+      ['src/pages/plan/meal.vue', ['form.dishName', 'form.ingredients', 'form.cook', 'form.note']],
+      [
+        'src/pages/plan/travel-form.vue',
+        ['form.title', 'form.destination', 'form.note', 'item.activity', 'item.time', 'item.note'],
+      ],
     ];
 
     for (const [file, models] of targets) {

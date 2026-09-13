@@ -5,8 +5,10 @@ import { useMealStore } from '@/stores/meal';
 import type { MealPlan, MealType } from '@/types/models';
 import { MEAL_TYPES } from '@/types/models';
 import type { MealPlanDraft } from '@/services/MealService';
+import { MEAL_LIMITS } from '@/utils/limits';
 import { formatDateKey, isValidDateKey, todayKey } from '@/utils/date';
 import { errorMessage } from '@/utils/error';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 
 const mealStore = useMealStore();
 
@@ -49,6 +51,8 @@ onShow(() => {
     date.value = current;
   }
   mealStore.load(date.value);
+  // App 的 onShow 覆盖不到「页面之间跳转」，这里补一次待同步重发
+  flushPendingCheckins();
 });
 
 function onDateChange(event: { detail: { value: string } }): void {
@@ -179,22 +183,42 @@ function removePlan(plan: MealPlan): void {
 
         <view class="field">
           <text class="field-label">菜品名称</text>
-          <input v-model="form.dishName" class="field-control" placeholder="例如：西红柿炒蛋" />
+          <input
+            v-model="form.dishName"
+            class="field-control"
+            placeholder="例如：西红柿炒蛋"
+            :maxlength="MEAL_LIMITS.dishName"
+          />
         </view>
 
         <view class="field">
           <text class="field-label">食材用料</text>
-          <input v-model="form.ingredients" class="field-control" placeholder="例如：西红柿2个、鸡蛋3个" />
+          <input
+            v-model="form.ingredients"
+            class="field-control"
+            placeholder="例如：西红柿2个、鸡蛋3个"
+            :maxlength="MEAL_LIMITS.ingredients"
+          />
         </view>
 
         <view class="field">
           <text class="field-label">掌勺人</text>
-          <input v-model="form.cook" class="field-control" placeholder="例如：妈妈" />
+          <input
+            v-model="form.cook"
+            class="field-control"
+            placeholder="例如：妈妈"
+            :maxlength="MEAL_LIMITS.cook"
+          />
         </view>
 
         <view class="field">
           <text class="field-label">备注（可选）</text>
-          <textarea v-model="form.note" class="field-control field-textarea" placeholder="例如：少盐" />
+          <textarea
+            v-model="form.note"
+            class="field-control field-textarea"
+            placeholder="例如：少盐"
+            :maxlength="MEAL_LIMITS.note"
+          />
         </view>
 
         <view class="form-actions">

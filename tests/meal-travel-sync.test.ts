@@ -633,6 +633,56 @@ describe('推送：出行计划与明细', () => {
   });
 });
 
+describe('直连翻转（toggleTravelItem）：成功返回权威值、失败降级排队', () => {
+  it('成功：返回服务端算出的 done，且**不**排任何标记', async () => {
+    const { sync, storage, travelItemRemote } = createHarness();
+    vi.mocked(travelItemRemote.toggle).mockResolvedValue({ done: true });
+
+    const result = await sync.toggleTravelItem('trip-1');
+
+    expect(result).toEqual({ synced: true, done: true });
+    expect(travelItemRemote.toggle).toHaveBeenCalledWith('trip-1');
+    /**
+     * 走了队列就等于退化成 last-write-wins（见 `toggleTravelItem` 的注释），
+     * 两端同时点同一条明细时可能覆盖掉对方的勾选 —— 所以这里必须为空。
+     */
+    expect(readPendingSync(storage)).toEqual([]);
+  });
+
+  /**
+   * 这条是**离线勾选不丢**的保证：直连失败（网络抖动 / 未入家庭）时，
+   * 必须把这次翻转降级成一条 `travelItem` update 标记，
+   * 由常规 `flush()` 在条件具备时补推。
+   */
+  it('⚠️ 失败：返回 synced:false 并排一条 travelItem update 兜底', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { sync, storage, travelItemRemote } = createHarness();
+    vi.mocked(travelItemRemote.toggle).mockRejectedValue(new Error('网络不可达'));
+
+    const result = await sync.toggleTravelItem('trip-1');
+
+    expect(result).toEqual({ synced: false });
+    expect(readPendingSync(storage)).toEqual([
+      expect.objectContaining({ domain: 'travelItem', clientId: 'trip-1', op: 'update' }),
+    ]);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  /**
+   * ⚠️ 响应缺 `done` 时不能硬写成 `false` —— 那会把用户刚勾上的明细静默改成未勾选。
+   * 正确的降级是「报连上了但不给权威值」，让调用方保留本地乐观值。
+   */
+  it('响应缺 done 时不硬凑一个 false', async () => {
+    const { sync, travelItemRemote } = createHarness();
+    vi.mocked(travelItemRemote.toggle).mockResolvedValue({} as { done: boolean });
+
+    const result = await sync.toggleTravelItem('trip-1');
+
+    expect(result.synced).toBe(true);
+    expect(result.done).toBeUndefined();
+  });
+});
+
 describe('⚠️ 七个 domain 全部接通（没有落进 default: skip）', () => {
   /**
    * 第 6 步的核心风险不是某一条链路写错，而是**漏接一条**：

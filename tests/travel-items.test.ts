@@ -400,6 +400,47 @@ describe('TravelService：本地写入的明细身份与顺序', () => {
     expect(updated.title).toBe('国庆出行');
   });
 
+  /**
+   * `setItemDone` 是**设值**而不是翻转 —— 它是为「服务端翻转后回写权威值」准备的：
+   * 云端 `toggleItem` 返回的才是最终状态，本地那次翻转只是乐观展示。
+   * 若误把它写成翻转，回写就会把状态再翻一次（勾选变未勾选）。
+   */
+  it('★ setItemDone 是设值、不是翻转（连设两次 true 结果仍是 true）', () => {
+    const { service } = createService();
+    const plan = addPlan(service);
+    const target = plan.items[0].id;
+
+    service.setItemDone(target, true);
+    const plan2 = service.setItemDone(target, true);
+
+    expect(plan2?.items[0].done).toBe(true);
+    // 其它明细不受影响
+    expect(plan2?.items[1].done).toBe(false);
+
+    const plan3 = service.setItemDone(target, false);
+    expect(plan3?.items[0].done).toBe(false);
+    expect(plan3?.items[1].done).toBe(false);
+  });
+
+  it('setItemDone 不影响明细 id 与顺序', () => {
+    const { service } = createService();
+    const plan = addPlan(service);
+    const before = plan.items.map((entry) => entry.id);
+
+    const after = service.setItemDone(before[1], true);
+
+    expect(after?.items.map((entry) => entry.id)).toEqual(before);
+    expect(after?.items.map((entry) => entry.order)).toEqual([0, 1]);
+  });
+
+  it('setItemDone 找不到该明细时返回 undefined 且不抛错（明细可能刚被别处删掉）', () => {
+    const { service } = createService();
+    addPlan(service);
+
+    expect(() => service.setItemDone('不存在的明细', true)).not.toThrow();
+    expect(service.setItemDone('不存在的明细', true)).toBeUndefined();
+  });
+
   it('传入的成员里混入脏值时归一化，不影响保存', () => {
     const { service } = createService();
     const plan = addPlan(service);

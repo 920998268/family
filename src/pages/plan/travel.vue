@@ -7,6 +7,7 @@ import type { TravelPlan, TravelStatus } from '@/types/models';
 import { travelDateRange, travelStatusLabel } from '@/utils/format';
 import { formatMoney } from '@/utils/format';
 import { errorMessage } from '@/utils/error';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 
 const travelStore = useTravelStore();
 const familyStore = useFamilyStore();
@@ -27,6 +28,8 @@ const historyPlans = computed(() =>
 onShow(() => {
   travelStore.load();
   familyStore.load();
+  // App 的 onShow 覆盖不到「页面之间跳转」，这里补一次待同步重发
+  flushPendingCheckins();
 });
 
 function goNew(): void {

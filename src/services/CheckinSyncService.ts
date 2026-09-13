@@ -116,6 +116,14 @@ export interface TombstoneSummary {
   cursor: number;
 }
 
+/** 明细勾选直连的结果（见 `toggleTravelItem`） */
+export interface ToggleTravelItemResult {
+  /** 服务端是否成功翻转；`false` 表示已降级为排队重发 */
+  synced: boolean;
+  /** 服务端算出的最终值。仅在 `synced: true` 时有意义 */
+  done?: boolean;
+}
+
 export class CheckinSyncService {
   private inFlight: Promise<FlushSummary> | null = null;
   private tombstoneInFlight: Promise<void> | null = null;
@@ -439,6 +447,39 @@ export class CheckinSyncService {
     });
     this.inFlight = run;
     return run;
+  }
+
+  /**
+   * 直连推送一次「行程明细勾选」（M3 第 7 步）。
+   *
+   * ⚠️ **为什么不走队列**：队列的 `SyncOp` 只有 `add / update / remove`，
+   * 表达不了「翻转」—— 而翻转恰恰是这个动作的全部意义：
+   * 两端同时点同一条明细时，服务端**串行翻转**后结果确定；
+   * 若改成「设值」，最终状态取决于谁后到，还可能把对方的勾选覆盖掉。
+   * 所以在线时直接调服务端的翻转接口。
+   *
+   * ⚠️ **失败时降级为排一条 `travelItem` update 标记**，而不是把错误丢掉：
+   * 网络抖动 / 未入家庭都会走到这里。降级后推上去的是「整条明细含 done」，
+   * 语义上退化成 last-write-wins，但**比「离线勾选直接被云端旧值覆盖回去」好得多**，
+   * 而且出队 / 重试复用了常规 `flush()` 那一套（含 5 次上限）。
+   *
+   * 调用方拿到 `synced: true` 时应当用 `done` 校正本地 ——
+   * 本地那次翻转只是乐观展示，权威值在服务端。
+   *
+   * ⚠️ 前置条件（已登录且已加入家庭）由调用方判断，同 `flush()` / `pullXxx()`。
+   */
+  async toggleTravelItem(itemId: string): Promise<ToggleTravelItemResult> {
+    try {
+      const result = await this.deps.travelItemRemote.toggle(itemId);
+      const done = result?.done;
+      // ⚠️ 别把「响应缺 done」硬写成 false —— 那会把用户刚勾上的明细静默改成未勾选。
+      // 拿不到布尔值就只报「连上了」，让调用方保留本地乐观值。
+      return { synced: true, done: typeof done === 'boolean' ? done : undefined };
+    } catch (error) {
+      console.warn('[同步] 明细勾选直连失败，降级为排队重发:', error);
+      this.markDirty('travelItem', 'update', { id: itemId, date: '' });
+      return { synced: false };
+    }
   }
 
   private now(): number {

@@ -432,9 +432,13 @@ src/utils/network.ts          网络状态检测
       `src/utils/cloudMap.ts` 三组双向映射、`src/unicloud/index.ts` 的
       `callMeal` / `callTravel`、`src/repositories/remote/` 下
       `MealPlanRemoteRepo` / `TravelPlanRemoteRepo` / `TravelItemRemoteRepo`。
-      **同步服务扩展已完成**（方案 §7 第 6 步，2026-09-13）：`domain` 白名单 4 → 7、
+      **同步服务扩展已完成**（方案 §7 第 6 步）：`domain` 白名单 4 → 7、
       3 条 pull（`pullMealPlans` / `pullTravelPlans` / `pullTravelItems`）、
-      3 个 push 分支 + 墓碑删除 3 个新分支。**store 接线（第 7 步）待做**。
+      3 个 push 分支 + 墓碑删除 3 个新分支。
+      **store 接线已完成**（方案 §7 第 7 步）：`stores/meal.ts` 与 `stores/travel.ts`
+      接入云端（本地优先 + 待同步登记 + 后台拉取合并），出行明细按
+      `computeItemDiff` **记录级**下发、勾选走服务端反转（失败 / 离线降级为排队），
+      4 个 plan 页面补 `:maxlength` 与 `onShow` 补传。
 - [ ] M3-6：部署清单 + 真机验收
 
 > 可直接复用 M2 建好的基建：鉴权 / 同步服务 / 映射层 / 离线标记 / 文档一致性守卫。

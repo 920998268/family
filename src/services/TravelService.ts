@@ -100,6 +100,34 @@ export class TravelService {
     return this.update(planId, { items });
   }
 
+  /**
+   * 记录级写入：把某条明细的 `done` 写成**指定值**（而不是翻转）。
+   *
+   * 用途是「服务端翻转后回写权威值」：云端 `toggleItem` 的语义是**服务端翻转**
+   * （两端同时点同一条明细时结果确定，而「设值」会取决于谁后到），
+   * 返回值才是最终状态。本地那次翻转只是乐观展示，
+   * 拿到权威值后必须用本方法校正 —— 否则本地会停在「翻了但服务端没翻」的状态，
+   * 要等下一次 pull 才被纠正。
+   *
+   * 找不到该明细时返回 `undefined` 并**静默不动** ——
+   * 明细可能刚被别的设备删掉，这不是错误。
+   */
+  setItemDone(itemId: string, done: boolean): TravelPlan | undefined {
+    const plans = this.repository.getAll();
+    const index = plans.findIndex((plan) => plan.items.some((item) => item.id === itemId));
+    if (index === -1) {
+      return undefined;
+    }
+
+    const plan = plans[index];
+    plans[index] = {
+      ...plan,
+      items: plan.items.map((item) => (item.id === itemId ? { ...item, done } : item)),
+    };
+    this.repository.saveAll(plans);
+    return plans[index];
+  }
+
   remove(id: string): void {
     const plans = this.repository.getAll();
     const nextPlans = plans.filter((plan) => plan.id !== id);
