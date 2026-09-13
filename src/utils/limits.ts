@@ -36,10 +36,8 @@ export const STUDY_LIMITS = {
 } as const;
 
 /**
- * 对应 `cloudfunctions/meal/lib.js` 的长度上限（M3）。
- *
- * ⚠️ 该 lib 要到 M3 第 3 步才落地，两端一致性守卫
- *（`tests/ui-limits.test.ts`）也在那时才接入 —— 现在加会因 lib 不存在而失败。
+ * 对应 `cloudfunctions/meal/lib.js` 的 DISH_NAME_MAX / INGREDIENTS_MAX /
+ * COOK_MAX / NOTE_MAX（M3 第 3 步落地，两端一致性守卫已在 `ui-limits.test.ts` 接入）。
  */
 export const MEAL_LIMITS = {
   dishName: 40,
@@ -48,7 +46,10 @@ export const MEAL_LIMITS = {
   note: 100,
 } as const;
 
-/** 对应 `cloudfunctions/travel/lib.js` 的长度上限（M3） */
+/**
+ * 对应 `cloudfunctions/travel/lib.js` 的 TITLE_MAX / DESTINATION_MAX / NOTE_MAX /
+ * ITEM_TIME_MAX / ITEM_ACTIVITY_MAX / ITEM_NOTE_MAX（M3 第 3 步落地）。
+ */
 export const TRAVEL_LIMITS = {
   title: 40,
   destination: 40,

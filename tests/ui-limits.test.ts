@@ -3,12 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { DIET_LIMITS, STUDY_LIMITS, WORKOUT_LIMITS } from '@/utils/limits';
+import { DIET_LIMITS, MEAL_LIMITS, STUDY_LIMITS, TRAVEL_LIMITS, WORKOUT_LIMITS } from '@/utils/limits';
 
 const require = createRequire(import.meta.url);
 const dietLib = require('../uniCloud-alipay/cloudfunctions/diet/lib');
 const workoutLib = require('../uniCloud-alipay/cloudfunctions/workout/lib');
 const studyLib = require('../uniCloud-alipay/cloudfunctions/study/lib');
+const mealLib = require('../uniCloud-alipay/cloudfunctions/meal/lib');
+const travelLib = require('../uniCloud-alipay/cloudfunctions/travel/lib');
 
 const ROOT = process.cwd();
 const readText = (relativePath: string) => readFileSync(join(ROOT, relativePath), 'utf8');
@@ -23,7 +25,7 @@ const readText = (relativePath: string) => readFileSync(join(ROOT, relativePath)
 /**
  * 读取云函数 lib 里的数值常量。
  *
- * `study` 的 lib 导出了这些常量，直接取即可；
+ * `study` / `meal` / `travel` 的 lib 导出了这些常量，直接取即可；
  * 但 `diet` / `workout` 的 lib **没有导出**常量，而它们**已经在云端部署过** ——
  * 为了一个测试去改已部署的云函数、逼用户重传，不划算。
  * 所以退化为从源码文本里读（正则只匹配 `const NAME = 数字` 这类简单声明；
@@ -45,6 +47,8 @@ function libConstant(moduleExports: Record<string, unknown>, file: string, name:
 const DIET_LIB = 'uniCloud-alipay/cloudfunctions/diet/lib.js';
 const WORKOUT_LIB = 'uniCloud-alipay/cloudfunctions/workout/lib.js';
 const STUDY_LIB = 'uniCloud-alipay/cloudfunctions/study/lib.js';
+const MEAL_LIB = 'uniCloud-alipay/cloudfunctions/meal/lib.js';
+const TRAVEL_LIB = 'uniCloud-alipay/cloudfunctions/travel/lib.js';
 
 /** 从 .vue 源码里抽出所有 input/textarea 标签，返回 v-model 名 → maxlength 表达式 */
 function maxlengthByModel(source: string): Map<string, string> {
@@ -78,6 +82,25 @@ describe('前端与云端的长度上限必须一致', () => {
     expect(STUDY_LIMITS.note).toBe(studyLib.NOTE_MAX);
   });
 
+  it('食谱（M3）：菜品 40 / 食材 200 / 掌勺人 20 / 备注 100', () => {
+    // 导出值 == 源码值（防止「改了常量却忘了导出」造成的守卫失效）
+    expect(mealLib.DISH_NAME_MAX).toBe(libConstant(mealLib, MEAL_LIB, 'DISH_NAME_MAX'));
+
+    expect(MEAL_LIMITS.dishName).toBe(mealLib.DISH_NAME_MAX);
+    expect(MEAL_LIMITS.ingredients).toBe(mealLib.INGREDIENTS_MAX);
+    expect(MEAL_LIMITS.cook).toBe(mealLib.COOK_MAX);
+    expect(MEAL_LIMITS.note).toBe(mealLib.NOTE_MAX);
+  });
+
+  it('出行（M3）：标题 40 / 目的地 40 / 备注 200 / 明细时间 20 / 明细活动 40 / 明细备注 100', () => {
+    expect(TRAVEL_LIMITS.title).toBe(travelLib.TITLE_MAX);
+    expect(TRAVEL_LIMITS.destination).toBe(travelLib.DESTINATION_MAX);
+    expect(TRAVEL_LIMITS.note).toBe(travelLib.NOTE_MAX);
+    expect(TRAVEL_LIMITS.itemTime).toBe(travelLib.ITEM_TIME_MAX);
+    expect(TRAVEL_LIMITS.itemActivity).toBe(travelLib.ITEM_ACTIVITY_MAX);
+    expect(TRAVEL_LIMITS.itemNote).toBe(travelLib.ITEM_NOTE_MAX);
+  });
+
   it('⚠️ 上限必须落在合理区间（防止被改成 0 或离谱的大数）', () => {
     for (const [label, value] of [
       ['食物名称', DIET_LIMITS.foodName],
@@ -86,10 +109,28 @@ describe('前端与云端的长度上限必须一致', () => {
       ['计划标题', STUDY_LIMITS.title],
       ['学习内容', STUDY_LIMITS.subject],
       ['打卡备注', STUDY_LIMITS.note],
+      ['菜品名称', MEAL_LIMITS.dishName],
+      ['食材', MEAL_LIMITS.ingredients],
+      ['掌勺人', MEAL_LIMITS.cook],
+      ['食谱备注', MEAL_LIMITS.note],
+      ['出行标题', TRAVEL_LIMITS.title],
+      ['目的地', TRAVEL_LIMITS.destination],
+      ['出行备注', TRAVEL_LIMITS.note],
+      ['明细时间', TRAVEL_LIMITS.itemTime],
+      ['明细活动', TRAVEL_LIMITS.itemActivity],
+      ['明细备注', TRAVEL_LIMITS.itemNote],
     ] as const) {
       expect(value, `${label} 上限应 ≥ 10`).toBeGreaterThanOrEqual(10);
       expect(value, `${label} 上限应 ≤ 200`).toBeLessThanOrEqual(200);
     }
+  });
+
+  it('客户端的 id 长度上限两端一致（超出即被云端拒绝，本地记录永久推不上去）', () => {
+    // id 由 `createId()` 生成（前缀 + uuid，约 41 字符），远低于 64；
+    // 但前端**没有任何 maxlength 能约束它**，所以这条守卫是唯一的把关点
+    expect(mealLib.CLIENT_ID_MAX).toBe(64);
+    expect(travelLib.CLIENT_ID_MAX).toBe(studyLib.CLIENT_ID_MAX);
+    expect(travelLib.CLIENT_ID_MAX).toBe(64);
   });
 });
 
@@ -147,5 +188,9 @@ describe('数值输入的边界由前端校验器保证（与云端数值上限�
     expect(libConstant(workoutLib, WORKOUT_LIB, 'CALORIES_MAX')).toBe(100000);
     // study 的 lib 有导出常量，顺带验证导出值 == 源码值（防止导出与实现漂移）
     expect(studyLib.TARGET_TIMES_MAX).toBe(libConstant(studyLib, STUDY_LIB, 'TARGET_TIMES_MAX'));
+    // 出行预算：前端 `validateTravelPlan` 用的是 numberError(..., 0, 100000000)
+    expect(travelLib.BUDGET_MIN).toBe(0);
+    expect(travelLib.BUDGET_MAX).toBe(100000000);
+    expect(travelLib.BUDGET_MAX).toBe(libConstant(travelLib, TRAVEL_LIB, 'BUDGET_MAX'));
   });
 });

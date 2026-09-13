@@ -1,0 +1,10 @@
+{
+  "name": "meal",
+  "version": "1.0.0",
+  "description": "食谱云函数：家庭食谱记录（按日期）",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}

@@ -1,10 +1,14 @@
 import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 // 云函数 lib.js 为 CommonJS 纯逻辑模块，用 createRequire 加载（避免无类型声明的 TS 报错）
 const require = createRequire(import.meta.url);
 const familyLib = require('../uniCloud-alipay/cloudfunctions/family/lib');
 const memberLib = require('../uniCloud-alipay/cloudfunctions/member/lib');
+
+const ROOT = process.cwd();
 
 describe('family 云函数纯逻辑', () => {
   it('generateInviteCode 生成 6 位邀请码且不含易混淆字符', () => {
@@ -79,5 +83,36 @@ describe('member 云函数纯逻辑', () => {
       targetWeight: 45,
     });
     expect(r.ok).toBe(true);
+  });
+});
+
+/**
+ * `lib.js` 的自包含约束。
+ *
+ * 每个云函数的 lib 都是「纯逻辑、零依赖」的一份独立拷贝（少量工具函数各自复制），
+ * 这样单元测试才能直接 `require` 它、不必拉起 uniCloud 运行时。
+ * 一旦有人在 lib 里 require 了别的模块，纯逻辑就不再可测、而且可能在云端
+ * 因为缺少依赖而加载失败 —— 所以用一条源码级守卫把它钉死。
+ *
+ * ⚠️ `index.js` 不受此约束（它本来就 require `checkin-shared` 与 `./lib`）。
+ */
+describe('云函数 lib.js 必须自包含（不 require 任何模块）', () => {
+  const LIBS = ['diet', 'workout', 'study', 'family', 'member', 'meal', 'travel'];
+
+  it('每个 lib.js 都存在', () => {
+    for (const name of LIBS) {
+      const file = join(ROOT, `uniCloud-alipay/cloudfunctions/${name}/lib.js`);
+      expect(existsSync(file), `${name}/lib.js 不存在`).toBe(true);
+    }
+  });
+
+  it('每个 lib.js 里都没有 require 调用', () => {
+    for (const name of LIBS) {
+      const source = readFileSync(
+        join(ROOT, `uniCloud-alipay/cloudfunctions/${name}/lib.js`),
+        'utf8',
+      );
+      expect(source.includes('require('), `${name}/lib.js 不应 require 任何模块`).toBe(false);
+    }
   });
 });

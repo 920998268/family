@@ -420,6 +420,10 @@ src/utils/network.ts          网络状态检测
 - [ ] M3-2：`meal_plans` 集合 + schema + 索引
 - [ ] M3-3：`travels` / `travel_items` 集合 + schema + 索引
 - [ ] M3-4：对应云函数（纯逻辑 lib + 路由）
+      —— **纯逻辑 lib 已完成**（2026-09-13，方案 §7 第 3 步）：`meal/lib.js`（食谱一块）
+      与 `travel/lib.js`（计划 / 明细两块，含级联删除用的 `deleteInBatches`）；
+      两个 lib 均自包含，长度上限与前端 `MEAL_LIMITS` / `TRAVEL_LIMITS` 逐项一致。
+      路由与 schema 待做（第 4 步）。
 - [ ] M3-5：前端映射层 + 调用封装 + store 接入 + 同步服务扩展
 - [ ] M3-6：部署清单 + 真机验收
 

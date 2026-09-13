@@ -1,0 +1,10 @@
+{
+  "name": "travel",
+  "version": "1.0.0",
+  "description": "出行计划云函数：出行计划与行程明细",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}
