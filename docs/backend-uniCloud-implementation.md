@@ -104,7 +104,7 @@
 > 且 M2-A 刚建好的基建（鉴权 / 同步服务 / 映射层 / 离线标记）可直接复用，边际成本低；
 > 若并入 M3 会使该阶段变成三个模块，规模过大。
 | **M3 计划模块** | 食谱、出行计划远程化（学习已并入 M2-B 完成） | 两类计划云端持久化 + 双端可见 |
-| **M4 账本与迁移** | 收支账本远程化；「本地数据导入云端」入口 | 旧本地数据可一键导入，账本云端化 |
+| **M4 账本与迁移** 🚧 | 收支账本远程化；「本地数据导入云端」入口（方案见 `0.4.0-m4-requirements-and-solution.md`） | 旧本地数据可一键导入，账本云端化 |
 | **M5 上线** | 体验版/正式版；request 合法域名；隐私政策/用户协议；备份与导出 | 可正式使用，符合平台审核要求 |
 
 > 建议每完成一个阶段就打一个版本标签并推送 GitHub（与现有 v0.2.0 / v0.1.0 分支惯例一致），便于回滚。
@@ -197,7 +197,7 @@ familyRole: string    // owner | member
 | `meal_plans` | ✅ | 家庭食谱（M3） | familyId, clientId, date, slot, dishName, ingredients, cook, done, note, createdByUid, createdAt, updatedAt |
 | `travels` | ✅ | 出行计划（M3） | familyId, clientId, title, startDate, endDate, destination, members, budget, status, note, createdByUid, createdAt, updatedAt |
 | `travel_items` | ✅ | 出行行程明细（M3，主从） | familyId, clientId, travelId, order, time, activity, note, done, createdByUid, createdAt, updatedAt |
-| `transactions` | ⬜ | 收支记录（M4） | familyId, type(income/expense), category, amount, date, note, memberId, createdAt |
+| `transactions` | 🚧 | 收支记录（M4） | familyId, clientId, type(income/expense), amount, category, date, memberId, note, createdByUid, createdAt, updatedAt |
 | `sync_meta` | ⬜ | 同步元数据（预留，暂未使用） | familyId, lastSyncAt, dataVersion |
 
 > 对应关系：`family_members` ≈ 现有 `family` store 的成员档案；`diets/workouts` ≈ 现有打卡；`study_*` ≈ 学习；`meal_plans` ≈ 食谱；`travels/travel_items` ≈ 出行；`transactions` ≈ 账本。**前端 `src/types/models.ts` 的现有类型可在加 `familyId`/`clientId` 后复用**。
@@ -215,6 +215,10 @@ familyRole: string    // owner | member
 > 且 `meal_plans`（`mealType` / `dishes`）与 `travel_items`（`item` / `memberId`）
 > 的字段是早期设计稿 —— 已按 `MealPlan` / `TravelPlan` / `TravelItem`
 > 实际模型与 `0.3.5-m3-requirements-and-solution.md` §3.1 重新填写。
+>
+> 2026-09-14 校正（M4 第 1 步）：上一条虽然补了 `transactions` 的**状态列**，
+> 但它的**字段**仍是早期设计稿（缺 `clientId` 幂等键、缺 `updatedAt`）——
+> 已按 `0.4.0-m4-requirements-and-solution.md` §3.1 重新填写，状态同步改为 🚧。
 > 前三个集合的字段 ↔ schema 纳入文档守卫的工作，留到 M3 第 4 步（schema 建好之后）——
 > 现在加会因 schema 尚不存在而失败。
 
@@ -456,9 +460,41 @@ src/utils/network.ts          网络状态检测
 > domain 的墓碑，而白名单一直只有 4 个，**读写两条链路一起静默失效且无任何报错**，
 > 直到第 6 步才发现并修掉。
 
-### 之后：M4 / M5
+### M4 —— 实施中（方案已确认，2026-09-14 立项）
 
-- [ ] M4：收支账本远程化 + **「本地数据导入云端」入口**（老数据迁移，M2 明确留到此处）
+方案见 **`docs/0.4.0-m4-requirements-and-solution.md`**。范围＝路线图 §4 的两项：
+
+- [x] M4-1：需求确认与技术方案（2026-09-14）→ 方案文档 `0.4.0-m4-requirements-and-solution.md`
+      三项关键决策已定：**新增独立云函数 `ledger`（单表）** / **老数据导入走新增的批量
+      action `importAll`（客户端分批 50 条）** / **版本号 0.4.0**；
+      另确认「编辑态禁用日期选择器」（`date` 是分区键与拉取维度，不让它变）。
+      本步同时校正了 §7.1 的 `transactions` 行。
+- [ ] M4-2：前端原语（`LEDGER_LIMITS`、`prepareImport` 归一、`splitImportBatches` 分批）+ 单测
+- [ ] M4-3：`ledger/lib.js` 纯逻辑（校验 / patch 合并 / 区间查询 / 批量结果结构）+ 单测
+- [ ] M4-4：`ledger/index.js` 路由 + `transactions` schema + 2 条索引 + 单测 + 变异验证
+- [ ] M4-5：前端映射层 + `unicloud` 封装 + `LedgerRemoteRepo` + 单测
+- [ ] M4-6：同步服务扩展（`domain` 7 → 8、区间 pull、push 分支、墓碑分支）+ 单测
+- [ ] M4-7：store 接线 + 记账页日期只读与备注 `:maxlength` + 导入入口 UI + 单测
+- [ ] M4-8：部署清单 + 文档收口 + 版本号 **0.4.0** + 真机验收
+
+> 本期有两个「**第一次**」，都容易照抄 M2 / M3 出错：
+> ① 第一个**批量写接口**（`importAll`）—— 此前所有写接口都是「一次一条」；
+> ② 第一个**跨全部 domain 的功能**（老数据导入要同时对接 8 个 domain 的云端写入）。
+>
+> ⚠️ 账本的拉取通路是**日期区间**（`pullTransactions(from, to)`），不是 M2 的单日、
+> 也不是 M3 的全量 —— 照抄任一个都会让账本页的**月汇总算出偏小的数字**
+> （汇总是对当前选中月份求和，不是对当天求和）。
+>
+> ⚠️ `TOMBSTONE_DOMAINS` 需由 7 扩到 8（新增 `transaction`），仍硬编码在 6 处，
+> `common/checkin-shared` **必须重传** —— 漏传则账本删除的墓碑读写两条链路一起静默失效
+> （M3 已实测过这个后果，见上）。
+>
+> ⚠️ 《「老数据不主动上云」的四处旧口径》在本期收口时需一并复核：
+> `0.3.2-m2a` 与 `0.3.3-m2b` 的方案文档、`0.3.4` 与 `0.3.5` 的版本说明里都写着
+> 「批量导入留到 M4」—— 本期做完后这些句子从「待办」变成「已完成」。
+
+### 之后：M5
+
 - [ ] M5：体验版/正式版上线（request 合法域名、隐私政策、备份导出）
 
 ### ✅ 已整改：跨设备删除不同步（0.3.4，真机验收通过）

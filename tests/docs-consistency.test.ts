@@ -26,6 +26,7 @@ const RELEASE_034 = 'docs/0.3.4-release-notes.md';
 const M3_DOC = 'docs/0.3.5-m3-requirements-and-solution.md';
 const M3_CHECKLIST = 'docs/0.3.5-m3-deploy-checklist.md';
 const RELEASE_035 = 'docs/0.3.5-release-notes.md';
+const M4_DOC = 'docs/0.4.0-m4-requirements-and-solution.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -429,6 +430,89 @@ describe('M3 方案文档（食谱 + 出行上云）', () => {
     for (const row of rows) {
       expect(row, `提交号未回填：${row}`).not.toContain('待回填');
     }
+  });
+});
+
+/**
+ * M4 方案文档。**暂不做路径守卫** —— 方案里提到的 `transactions.schema.json`、
+ * `ledger` 云函数目录、`LedgerRemoteRepo` 要到第 4~5 步才建，
+ * 现在加 `expectReferencedPathsExist` 会因文件不存在而失败（M2-B / M3 都是这么处理的，
+ * 收口时再纳入）。这里只守「决策、方向区分与关键风险被写下来了」。
+ */
+describe('M4 方案文档（账本上云 + 本地数据导入）', () => {
+  const source = read(M4_DOC);
+
+  it('记录本轮的三项关键决策', () => {
+    expect(source).toContain('新增独立云函数');
+    expect(source).toContain('importAll');
+    expect(source).toContain('0.4.0');
+  });
+
+  it('写明「导入」的方向区分（本期最容易被混淆的一点）', () => {
+    expect(source).toContain('本机 → 云');
+    expect(source).toContain('云 → 本机');
+    expect(source).toContain('上行');
+  });
+
+  it('写明导入必须幂等且必须报数（不允许「导入成功但少了一部分」）', () => {
+    expect(source).toContain('幂等');
+    expect(source).toContain('报数');
+    expect(source).toContain('本机实际能读出的条数');
+  });
+
+  it('写明拉取通路是日期区间，且只按单日会让月汇总算错', () => {
+    expect(source).toContain('pullTransactions(from, to)');
+    // 断言到**唯一的那句推理**为止：只写 `toContain('月汇总')` 会被 §4 差异点里
+    // 「照抄 pullMealPlans 会算出错的月汇总」兜住，把 §3.4 的推理改坏也不会失败
+    //（变异验证实测到过这个假通过）。
+    expect(source).toContain('月汇总会基于残缺数据算出');
+  });
+
+  it('写明墓碑 domain 由 7 扩到 8，且漏改会静默失效', () => {
+    // ⚠️ 必须**逐处**断言，不能只断言「出现过 7 → 8」：
+    //    文档里这句出现了两次（§3.4 的改动表 + §8 的部署清单），
+    //    只改坏其中一处时「存在一处正确」仍会通过 —— 变异验证实测到过这个假通过。
+    const counts = [...source.matchAll(/TOMBSTONE_DOMAINS`\s*(\d+)\s*→\s*(\d+)/g)].map(
+      (match) => `${match[1]} → ${match[2]}`,
+    );
+    expect(counts.length, '文档应至少写明一次 TOMBSTONE_DOMAINS 的数量变化').toBeGreaterThan(0);
+    expect(new Set(counts)).toEqual(new Set(['7 → 8']));
+
+    expect(source).toContain('新增 `transaction`');
+    expect(source).toContain('静默');
+  });
+
+  it('写明「编辑态改日期必然失败」是必须先处理的既有缺陷', () => {
+    expect(source).toContain('编辑态改日期必然失败');
+    expect(source).toContain('record.vue');
+  });
+
+  it('8 个实施步骤齐备', () => {
+    const rows = numberedRowsInTable(source, '## 7. 实施步骤', '| 步 | 内容 |');
+    expect(rows).toHaveLength(8);
+  });
+
+  it('复述「不要用批量上传」的警示', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+  });
+
+  it('路线图已把 M4-1 标为完成并指向方案文档', () => {
+    const backend = read(BACKEND_DOC);
+    const line = backend.split(/\r?\n/).find((row) => row.includes('M4-1')) as string;
+    expect(line, '路线图缺少 M4-1 行').toBeTruthy();
+    expect(line).toContain('[x]');
+    expect(line).toContain('0.4.0-m4-requirements-and-solution.md');
+  });
+
+  it('§7.1 的 transactions 行已校正为 🚧 且带上 clientId（不再是早期设计稿）', () => {
+    const backend = read(BACKEND_DOC);
+    const line = backend
+      .split(/\r?\n/)
+      .find((row) => row.startsWith('| `transactions`')) as string;
+    expect(line, '路线图 §7.1 缺少 transactions 行').toBeTruthy();
+    expect(line).toContain('🚧');
+    expect(line).toContain('clientId');
+    expect(line).toContain('updatedAt');
   });
 });
 
