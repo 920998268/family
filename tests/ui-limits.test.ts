@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { DIET_LIMITS, MEAL_LIMITS, STUDY_LIMITS, TRAVEL_LIMITS, WORKOUT_LIMITS } from '@/utils/limits';
+import {
+  DIET_LIMITS,
+  LEDGER_LIMITS,
+  MEAL_LIMITS,
+  STUDY_LIMITS,
+  TRAVEL_LIMITS,
+  WORKOUT_LIMITS,
+} from '@/utils/limits';
 
 const require = createRequire(import.meta.url);
 const dietLib = require('../uniCloud-alipay/cloudfunctions/diet/lib');
@@ -11,6 +18,7 @@ const workoutLib = require('../uniCloud-alipay/cloudfunctions/workout/lib');
 const studyLib = require('../uniCloud-alipay/cloudfunctions/study/lib');
 const mealLib = require('../uniCloud-alipay/cloudfunctions/meal/lib');
 const travelLib = require('../uniCloud-alipay/cloudfunctions/travel/lib');
+const ledgerLib = require('../uniCloud-alipay/cloudfunctions/ledger/lib');
 
 const ROOT = process.cwd();
 const readText = (relativePath: string) => readFileSync(join(ROOT, relativePath), 'utf8');
@@ -49,6 +57,7 @@ const WORKOUT_LIB = 'uniCloud-alipay/cloudfunctions/workout/lib.js';
 const STUDY_LIB = 'uniCloud-alipay/cloudfunctions/study/lib.js';
 const MEAL_LIB = 'uniCloud-alipay/cloudfunctions/meal/lib.js';
 const TRAVEL_LIB = 'uniCloud-alipay/cloudfunctions/travel/lib.js';
+const LEDGER_LIB = 'uniCloud-alipay/cloudfunctions/ledger/lib.js';
 
 /** 从 .vue 源码里抽出所有 input/textarea 标签，返回 v-model 名 → maxlength 表达式 */
 function maxlengthByModel(source: string): Map<string, string> {
@@ -119,10 +128,21 @@ describe('前端与云端的长度上限必须一致', () => {
       ['明细时间', TRAVEL_LIMITS.itemTime],
       ['明细活动', TRAVEL_LIMITS.itemActivity],
       ['明细备注', TRAVEL_LIMITS.itemNote],
+      ['账本分类', LEDGER_LIMITS.category],
+      ['账本备注', LEDGER_LIMITS.note],
     ] as const) {
       expect(value, `${label} 上限应 ≥ 10`).toBeGreaterThanOrEqual(10);
       expect(value, `${label} 上限应 ≤ 200`).toBeLessThanOrEqual(200);
     }
+  });
+
+  it('账本（M4）：分类 20 / 备注 100', () => {
+    // 导出值 == 源码值（防止「改了常量却忘了导出」造成的守卫失效）
+    expect(ledgerLib.CATEGORY_MAX).toBe(libConstant(ledgerLib, LEDGER_LIB, 'CATEGORY_MAX'));
+    expect(ledgerLib.NOTE_MAX).toBe(libConstant(ledgerLib, LEDGER_LIB, 'NOTE_MAX'));
+
+    expect(LEDGER_LIMITS.category).toBe(ledgerLib.CATEGORY_MAX);
+    expect(LEDGER_LIMITS.note).toBe(ledgerLib.NOTE_MAX);
   });
 
   it('客户端的 id 长度上限两端一致（超出即被云端拒绝，本地记录永久推不上去）', () => {
@@ -222,5 +242,10 @@ describe('数值输入的边界由前端校验器保证（与云端数值上限�
     expect(travelLib.BUDGET_MIN).toBe(0);
     expect(travelLib.BUDGET_MAX).toBe(100000000);
     expect(travelLib.BUDGET_MAX).toBe(libConstant(travelLib, TRAVEL_LIB, 'BUDGET_MAX'));
+
+    // 账本金额：前端 `validateTransaction` 用的是 numberError(amount, '金额', 0.01, 100000000)
+    expect(ledgerLib.AMOUNT_MIN).toBe(0.01);
+    expect(ledgerLib.AMOUNT_MAX).toBe(100000000);
+    expect(ledgerLib.AMOUNT_MAX).toBe(libConstant(ledgerLib, LEDGER_LIB, 'AMOUNT_MAX'));
   });
 });
