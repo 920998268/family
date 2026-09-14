@@ -18,8 +18,8 @@ export const MAX_SYNC_ATTEMPTS = 5;
  * 明细在云端是独立集合 `travel_items`、有独立 `clientId`，勾选 / 增删都按记录级
  * 下发；并进计划一起算的话，一个人改标题、另一个人勾明细就会互相覆盖。
  *
- * M3 第 6 步由 4 扩到 7。扩容是**全有或全无**的：云侧 `TOMBSTONE_DOMAINS`
- * 少一个，那类删除就静默不传播（不报错、不告警）。
+ * M3 第 6 步由 4 扩到 7、M4 第 6 步由 7 扩到 8。扩容是**全有或全无**的：
+ * 云侧 `TOMBSTONE_DOMAINS` 少一个，那类删除就静默不传播（不报错、不告警）。
  */
 export type SyncDomain =
   | 'diet'
@@ -28,7 +28,8 @@ export type SyncDomain =
   | 'studyCheckin'
   | 'mealPlan'
   | 'travelPlan'
-  | 'travelItem';
+  | 'travelItem'
+  | 'transaction';
 export type SyncOp = 'add' | 'update' | 'remove';
 
 /**
@@ -47,6 +48,7 @@ export const SYNC_DOMAINS: ReadonlySet<string> = new Set<SyncDomain>([
   'mealPlan',
   'travelPlan',
   'travelItem',
+  'transaction',
 ]);
 
 /**

@@ -3,6 +3,7 @@ import type {
   MealPlan,
   StudyCheckin,
   StudyPlan,
+  Transaction,
   TravelItem,
   TravelPlan,
   WorkoutEntry,
@@ -14,6 +15,7 @@ import type { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
 import type { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
 import type { MealPlanRepository } from '@/repositories/MealPlanRepository';
 import type { TravelRepository } from '@/repositories/TravelRepository';
+import type { LedgerRepository } from '@/repositories/LedgerRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
@@ -21,6 +23,7 @@ import type { StudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckinR
 import type { MealPlanRemoteRepo } from '@/repositories/remote/MealPlanRemoteRepo';
 import type { TravelPlanRemoteRepo } from '@/repositories/remote/TravelPlanRemoteRepo';
 import type { TravelItemRemoteRepo } from '@/repositories/remote/TravelItemRemoteRepo';
+import type { LedgerRemoteRepo } from '@/repositories/remote/LedgerRemoteRepo';
 import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 import { mergeCheckins } from '@/utils/checkinMerge';
 import { sortTravelItems } from '@/utils/travel';
@@ -59,6 +62,14 @@ export interface CheckinSyncDeps {
    * 所以 `travelItem` 的增删改都要先找到承载它的计划、再整份 `saveAll` 回写。
    */
   travelRepository: TravelRepository;
+  /**
+   * 账本（M4）。
+   *
+   * 与饮食 / 运动 / 食谱同构：本地**按日期分区存储**（`family.ledger.v1.<date>`），
+   * 所以无论是按 id 删除（`removeFromPartitioned`）还是按日期找记录，
+   * 都能直接复用那套通用助手，不需要像 travel 明细那样扫全部父记录。
+   */
+  ledgerRepository: LedgerRepository;
   dietRemote: DietRemoteRepo;
   workoutRemote: WorkoutRemoteRepo;
   studyPlanRemote: StudyPlanRemoteRepo;
@@ -66,6 +77,8 @@ export interface CheckinSyncDeps {
   mealPlanRemote: MealPlanRemoteRepo;
   travelPlanRemote: TravelPlanRemoteRepo;
   travelItemRemote: TravelItemRemoteRepo;
+  /** 账本远端：读是**日期区间**（见 `pullTransactions`），写与其它域同构 */
+  ledgerRemote: LedgerRemoteRepo;
   /** 墓碑（删除日志）远端读取，用于跨设备同步删除 */
   tombstoneRemote: TombstoneRemoteRepo;
   /** 便于测试固定时间；默认 `Date.now` */
@@ -94,8 +107,8 @@ type PushOutcome = 'ok' | 'skip';
 /**
  * 打卡数据同步服务。
  *
- * 覆盖 7 个 domain：饮食 / 运动 / 学习计划 / 学习打卡（M2b）+
- * 食谱 / 出行计划 / 行程明细（M3 第 6 步）。
+ * 覆盖 8 个 domain：饮食 / 运动 / 学习计划 / 学习打卡（M2b）+
+ * 食谱 / 出行计划 / 行程明细（M3 第 6 步）+ 账本（M4 第 6 步）。
  *
  * 策略（对应方案文档 §5.4）：
  * - **写＝本地优先**：store 先写本地缓存让 UI 即时生效，再 `markDirty()` 登记待同步；
@@ -215,6 +228,11 @@ export class CheckinSyncService {
         return this.removeTravelPlanLocal(clientId);
       case 'travelItem':
         return this.removeTravelItemLocal(clientId);
+      case 'transaction':
+        // 账本的本地存储同样按日期分区（`family.ledger.v1.<date>`），
+        // 接口（getAll / getByDate / saveByDate）与饮食 / 运动 / 食谱完全一致，
+        // 直接复用分区删除（含 hintDate 兜底），不需要新写一份
+        return this.removeFromPartitioned(this.deps.ledgerRepository, clientId, hintDate);
       default:
         return false;
     }
@@ -433,6 +451,56 @@ export class CheckinSyncService {
   }
 
   /**
+   * 拉取**日期区间**内的收支记录并与本地合并，回写本地缓存后返回。
+   *
+   * ⚠️ 与全部既有 pull 都不同的一种口径（M4 §3.4）：
+   *    - M2（diet / workout / studyCheckin / mealPlan）是「按单日」；
+   *    - M3（studyPlan / travelPlan）是「全量」；
+   *    - 账本必须是**区间**，因为 `ledger.vue` 的汇总卡（收入 / 支出 / 结余）
+   *      是对**当前选中月份**的全部记录求和（`summarize(filteredEntries)`）。
+   *      只拉当天会让月汇总基于残缺数据算出**明显偏小的数字**，
+   *      用户会直接怀疑「我的账是不是记错了」。
+   *
+   * `from` / `to` 两端都必填（云端 `validateTransactionQuery` 强制）：
+   * 只给一端就是一次无界查询，正是设计上明确否掉的那件事
+   * （账本没有「所有月份一屏看」的页面，全量拉只会把无界数据搬进每次进页面）。
+   *
+   * ⚠️ 回写**不能用 `saveByDate` 一次覆盖整段区间**：本地是按日期**分片**存储的，
+   *    区间横跨多个分区，必须逐桶写入。这里直接把 `merged` 按 `date` 分桶后
+   *    逐桶 `saveByDate` —— 只在 `merged` 里出现过的日期会被写。
+   *    区间内「本地有、合并后却没有」的日期不需要额外清理，因为：
+   *    ① `mergeCheckins` 从不丢弃本地独有记录（`tests/checkin-merge.test.ts` 有守卫）；
+   *    ② 本轮**先**应用墓碑、**后**读本地（`local` 在任何删除之后才取），
+   *       被墓碑删空的日期分区已经在 `removeFromPartitioned` 里 `saveByDate([])` 删掉了。
+   */
+  async pullTransactions(from: string, to: string): Promise<Transaction[]> {
+    await this.ensureTombstonesApplied();
+
+    const local = this.deps.ledgerRepository
+      .getAll()
+      .filter((entry) => entry.date >= from && entry.date <= to);
+    const remote = await this.deps.ledgerRemote.listRange(from, to);
+    const merged = mergeCheckins(local, remote, this.pendingIds('transaction'));
+
+    // 按 date 分桶回写：只触碰 merged 覆盖到的分区（区间外的日期一律不动）
+    const buckets = new Map<string, Transaction[]>();
+    for (const entry of merged) {
+      const bucket = buckets.get(entry.date);
+      if (bucket) {
+        bucket.push(entry);
+      } else {
+        buckets.set(entry.date, [entry]);
+      }
+    }
+
+    for (const [date, entries] of buckets) {
+      this.deps.ledgerRepository.saveByDate(date, entries);
+    }
+
+    return merged;
+  }
+
+  /**
    * 重发全部待同步标记。
    *
    * 并发调用共享同一次执行：`onShow` 与 App 回前台可能几乎同时触发，
@@ -554,6 +622,8 @@ export class CheckinSyncService {
         return this.pushTravelPlan(item);
       case 'travelItem':
         return this.pushTravelItem(item);
+      case 'transaction':
+        return this.pushTransaction(item);
       default:
         // 未知 domain（例如降级后读到更高版本写入的标记）：直接跳过，
         // 由调用方当作「本地无内容可推」放弃，避免死循环
@@ -766,6 +836,40 @@ export class CheckinSyncService {
     return 'ok';
   }
 
+  /**
+   * 推送一条收支记录（M4）。
+   *
+   * 与饮食 / 运动 / 食谱**完全同构**（都是「单表、按日期分区、无主从关系」）：
+   * - `remove` 不需要本地还留着这条记录；`date` 仅作墓碑兜底；
+   * - `add` 命中 `duplicated`（首次 add 的响应丢了、其实已写入）时补一次 `update`，
+   *   否则用户在首次 add 之后做的编辑会永远停在云端旧版本。
+   *
+   * ⚠️ 老数据导入（M4 的「数据认领」）也走这条通路：它复用各域的 `create()`
+   *    逐条下发，所以导入的失败重试语义与正常写入完全相同。
+   */
+  private async pushTransaction(item: PendingSyncItem): Promise<PushOutcome> {
+    if (item.op === 'remove') {
+      await this.deps.ledgerRemote.remove(item.clientId, item.date);
+      return 'ok';
+    }
+
+    const entry = this.findTransaction(item);
+    if (!entry) {
+      return 'skip';
+    }
+
+    if (item.op === 'update') {
+      await this.deps.ledgerRemote.update(entry);
+      return 'ok';
+    }
+
+    const result = await this.deps.ledgerRemote.create(entry);
+    if (result?.duplicated) {
+      await this.deps.ledgerRemote.update(entry);
+    }
+    return 'ok';
+  }
+
   /** 计划是全量列表，直接按 id 找（没有日期分区，无需按日期兜底） */
   private findStudyPlan(item: PendingSyncItem): StudyPlan | undefined {
     return this.deps.studyPlanRepository
@@ -832,5 +936,18 @@ export class CheckinSyncService {
       }
     }
     return undefined;
+  }
+
+  /**
+   * 按标记里记的日期找；找不到再全量兜底一次
+   *（记录可能被改到了别的日期 —— 账本编辑态日期只读，但历史数据不保证）。
+   */
+  private findTransaction(item: PendingSyncItem): Transaction | undefined {
+    const inDate = this.deps.ledgerRepository
+      .getByDate(item.date)
+      .find((entry) => entry.id === item.clientId);
+    return (
+      inDate ?? this.deps.ledgerRepository.getAll().find((entry) => entry.id === item.clientId)
+    );
   }
 }

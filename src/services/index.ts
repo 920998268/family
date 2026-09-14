@@ -28,6 +28,7 @@ import { createStudyCheckinRemoteRepo } from '@/repositories/remote/StudyCheckin
 import { createMealPlanRemoteRepo } from '@/repositories/remote/MealPlanRemoteRepo';
 import { createTravelPlanRemoteRepo } from '@/repositories/remote/TravelPlanRemoteRepo';
 import { createTravelItemRemoteRepo } from '@/repositories/remote/TravelItemRemoteRepo';
+import { createLedgerRemoteRepo } from '@/repositories/remote/LedgerRemoteRepo';
 import { createTombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteRepo';
 
 export function createProfileService(): ProfileService {
@@ -97,6 +98,7 @@ export function getCheckinSyncService(): CheckinSyncService {
       studyCheckinRepository: new StudyCheckinRepository(adapter),
       mealPlanRepository: new MealPlanRepository(adapter),
       travelRepository: new TravelRepository(adapter),
+      ledgerRepository: new LedgerRepository(adapter),
       dietRemote: createDietRemoteRepo(),
       workoutRemote: createWorkoutRemoteRepo(),
       studyPlanRemote: createStudyPlanRemoteRepo(),
@@ -104,6 +106,7 @@ export function getCheckinSyncService(): CheckinSyncService {
       mealPlanRemote: createMealPlanRemoteRepo(),
       travelPlanRemote: createTravelPlanRemoteRepo(),
       travelItemRemote: createTravelItemRemoteRepo(),
+      ledgerRemote: createLedgerRemoteRepo(),
       tombstoneRemote: createTombstoneRemoteRepo(),
     });
   }

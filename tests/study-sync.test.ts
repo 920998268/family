@@ -13,7 +13,7 @@ import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteR
 import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { MAX_SYNC_ATTEMPTS, readPendingSync } from '@/utils/pendingSync';
 import type { StudyCheckin, StudyPlan } from '@/types/models';
-import { createInertMealTravelDeps } from './helpers/mealTravelDeps';
+import { createInertSyncDeps } from './helpers/inertSyncDeps';
 
 const DATE = '2026-09-12';
 
@@ -80,7 +80,7 @@ function createHarness() {
   const tombstoneRemote: TombstoneRemoteRepo = {
     listAll: vi.fn().mockResolvedValue([]),
   };
-  const mealTravel = createInertMealTravelDeps(storage, 'ss');
+  const inert = createInertSyncDeps(storage, 'ss');
 
   let clock = 1000;
   const sync = new CheckinSyncService({
@@ -89,7 +89,7 @@ function createHarness() {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
     dietRemote,
     workoutRemote,
     studyPlanRemote,
@@ -102,7 +102,7 @@ function createHarness() {
     storage,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
     studyPlanRemote,
     studyCheckinRemote,
     sync,

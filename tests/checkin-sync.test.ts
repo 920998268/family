@@ -15,7 +15,7 @@ import type { TombstoneRemoteRepo } from '@/repositories/remote/TombstoneRemoteR
 import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { MAX_SYNC_ATTEMPTS, readPendingSync } from '@/utils/pendingSync';
 import type { DietEntry, WorkoutEntry } from '@/types/models';
-import { createInertMealTravelDeps } from './helpers/mealTravelDeps';
+import { createInertSyncDeps } from './helpers/inertSyncDeps';
 
 const DATE = '2026-09-12';
 
@@ -96,7 +96,7 @@ function createHarness() {
   const studyPlanRemote = createStudyPlanRemote();
   const studyCheckinRemote = createStudyCheckinRemote();
   const tombstoneRemote = createTombstoneRemote();
-  const mealTravel = createInertMealTravelDeps(storage, 'cs');
+  const inert = createInertSyncDeps(storage, 'cs');
 
   // 单调递增的时钟，便于断言 queuedAt 的代次变化
   let clock = 1000;
@@ -106,7 +106,7 @@ function createHarness() {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
     dietRemote,
     workoutRemote,
     studyPlanRemote,
@@ -121,7 +121,7 @@ function createHarness() {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
     dietRemote,
     workoutRemote,
     studyPlanRemote,

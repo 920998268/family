@@ -54,9 +54,11 @@ const CASES = [
   // M3 第 6 步新增：食谱与行程明细。两者都是「先删记录、后写墓碑、无条件写」。
   { fn: 'meal', file: 'meal/index.js', remove: 'removeMeal', domain: 'mealPlan' },
   { fn: 'travel', file: 'travel/index.js', remove: 'removeItem', domain: 'travelItem' },
+  // M4 第 6 步新增：账本（与 meal 同构：单表、按日期分区、先删后写墓碑）
+  { fn: 'ledger', file: 'ledger/index.js', remove: 'removeTransaction', domain: 'transaction' },
 ] as const;
 
-describe('三个云函数都接入了墓碑', () => {
+describe('五个云函数都接入了墓碑', () => {
   for (const item of CASES) {
     const source = read(item.file);
 
@@ -210,12 +212,36 @@ describe('domain 两端一致', () => {
       'mealPlan',
       'travelPlan',
       'travelItem',
+      'transaction',
     ];
 
     for (const domain of used) {
       expect(SYNC_DOMAINS, `前端 SyncDomain 缺少 ${domain}`).toContain(domain);
       expect(sharedLib.isTombstoneDomain(domain), `共享模块不认 ${domain}`).toBe(true);
     }
+  });
+
+  /**
+   * ⚠️ 这条是 M4 第 6 步新增**最该有**的一条：把「云函数源码里真实写出的 domain」
+   * 与「前端白名单」直接对齐。
+   *
+   * 为什么不能只用 `CASES` 对齐：`CASES` 里每个云函数只列了**一个** `remove` 函数
+   * （为的是验证「先删记录、后写墓碑、墓碑无条件写」那套顺序），
+   * 所以只覆盖 6 个 domain —— `studyPlan` / `travelPlan` 是由级联删除的
+   * `removePlan` 写的，另有专门的 describe 守着。用 `CASES` 对齐会误报。
+   *
+   * 这条断言的两个方向都有意义：
+   * - 白名单里有、源码里没写 → 那类删除永远不传播（漏加了写入方）；
+   * - 源码里写了、白名单里没有 → `buildTombstoneDocs` 静默返回 `[]`，
+   *   正是 M3 第 6 步踩过的那个坑。
+   */
+  it('⚠️ 云函数源码写出的 domain 集合，与前端白名单逐值相等', () => {
+    const sources = [...CASES.map((item) => read(item.file)), read('study/index.js'), read('travel/index.js')].join('\n');
+    const written = new Set(
+      [...sources.matchAll(/domain:\s*'([A-Za-z]+)'/g)].map((match) => match[1]),
+    );
+
+    expect([...written].sort()).toEqual([...SYNC_DOMAINS].sort());
   });
 
   it('前端 SyncDomain 的每个值，云侧都有对应的写入方', () => {

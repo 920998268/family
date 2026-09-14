@@ -5,8 +5,6 @@ import { DietRepository } from '@/repositories/DietRepository';
 import { WorkoutRepository } from '@/repositories/WorkoutRepository';
 import { StudyPlanRepository } from '@/repositories/StudyPlanRepository';
 import { StudyCheckinRepository } from '@/repositories/StudyCheckinRepository';
-import { MealPlanRepository } from '@/repositories/MealPlanRepository';
-import { TravelRepository } from '@/repositories/TravelRepository';
 import type { DietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
 import type { WorkoutRemoteRepo } from '@/repositories/remote/WorkoutRemoteRepo';
 import type { StudyPlanRemoteRepo } from '@/repositories/remote/StudyPlanRemoteRepo';
@@ -16,7 +14,7 @@ import { CheckinSyncService } from '@/services/CheckinSyncService';
 import { readPendingSync } from '@/utils/pendingSync';
 import { readTombstoneCursor, type Tombstone } from '@/utils/tombstone';
 import type { DietEntry, StudyCheckin, StudyPlan, WorkoutEntry } from '@/types/models';
-import { createInertMealTravelDeps } from './helpers/mealTravelDeps';
+import { createInertSyncDeps } from './helpers/inertSyncDeps';
 
 const DATE = '2026-09-12';
 const T1 = 1_700_000_000_000;
@@ -116,7 +114,7 @@ function createHarness(tombstones: Tombstone[] = []) {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...createInertMealTravelDeps(storage, 'ts'),
+    ...createInertSyncDeps(storage, 'ts'),
     dietRemote,
     workoutRemote,
     studyPlanRemote,
@@ -359,8 +357,7 @@ function createDevice(cloud: FakeCloud, deviceId: string) {
     workoutRepository: new WorkoutRepository(storage),
     studyPlanRepository: new StudyPlanRepository(storage),
     studyCheckinRepository: new StudyCheckinRepository(storage),
-    mealPlanRepository: new MealPlanRepository(storage),
-    travelRepository: new TravelRepository(storage),
+    // mealPlan / travel / ledger 三个仓储由下面的 inert 展开一并提供
     dietRemote,
     workoutRemote: {
       listByDate: async () => [],
@@ -379,26 +376,11 @@ function createDevice(cloud: FakeCloud, deviceId: string) {
       create: async () => ({ _id: 'x' }),
       remove: async () => ({ removed: true }),
     },
-    // 本用例只跑饮食双端链路；食谱 / 出行条目保持空实现即可
-    mealPlanRemote: {
-      listByDate: async () => [],
-      create: async () => ({ _id: 'x' }),
-      update: async () => undefined,
-      remove: async () => ({ removed: true }),
-    },
-    travelPlanRemote: {
-      list: async () => [],
-      create: async () => ({ _id: 'x' }),
-      update: async () => undefined,
-      remove: async () => ({ removed: true, deletedItems: 0 }),
-    },
-    travelItemRemote: {
-      listByPlan: async () => [],
-      create: async () => ({ _id: 'x' }),
-      update: async () => undefined,
-      toggle: async () => ({ done: true }),
-      remove: async () => ({ removed: true }),
-    },
+    // 本用例只跑饮食双端链路；食谱 / 出行 / 账本一律走惰性实现。
+    // ⚠️ 这里**必须**复用 helper 而不是再抄一遍内联空实现 ——
+    //    内联块是「每加一个域就要改一处」的地方，抄漏了编译器才会发现
+    //    （M4 第 6 步就是这样漏掉 ledger 两个字段，`npm test` 全绿但 type-check 报错）。
+    ...createInertSyncDeps(storage, `ts-${deviceId}`),
     tombstoneRemote: cloud.tombstoneRemote(),
     now: () => T1,
   });

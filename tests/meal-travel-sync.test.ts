@@ -22,7 +22,7 @@ import type {
   TravelPlan,
   WorkoutEntry,
 } from '@/types/models';
-import { createInertMealTravelDeps } from './helpers/mealTravelDeps';
+import { createInertSyncDeps } from './helpers/inertSyncDeps';
 
 const DATE = '2026-09-12';
 const NOW = 1_700_000_000_000;
@@ -114,7 +114,7 @@ function tombstone(overrides: Partial<Tombstone> = {}): Tombstone {
 /** 构造同步服务；食谱 / 出行的仓储与远端用共享的惰性实现，用例内按需改写 mock */
 function createHarness(tombstones: Tombstone[] = []) {
   const storage = new InMemoryStorageAdapter();
-  const mealTravel = createInertMealTravelDeps(storage, 'mts');
+  const inert = createInertSyncDeps(storage, 'mts');
 
   const dietRemote: DietRemoteRepo = {
     listByDate: vi.fn().mockResolvedValue([]),
@@ -157,7 +157,7 @@ function createHarness(tombstones: Tombstone[] = []) {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
     dietRemote,
     workoutRemote,
     studyPlanRemote,
@@ -173,7 +173,7 @@ function createHarness(tombstones: Tombstone[] = []) {
     workoutRepository,
     studyPlanRepository,
     studyCheckinRepository,
-    ...mealTravel,
+    ...inert,
   };
 }
 
@@ -730,7 +730,10 @@ describe('⚠️ 七个 domain 全部接通（没有落进 default: skip）', ()
   });
 
   it('白名单里的每个 domain 都真的有分支在接（数量守卫）', () => {
-    expect(SYNC_DOMAINS.size).toBe(7);
+    // ⚠️ M4 第 6 步由 7 扩到 8（新增 transaction）。
+    //    完整的「8 个 domain 各推一条、全部真实接通」的守卫在
+    //    `tests/ledger-sync.test.ts`；这里只钉住绝对数量，防止白名单悄悄漂移。
+    expect(SYNC_DOMAINS.size).toBe(8);
 
     const handled: SyncDomain[] = [
       'diet',
@@ -740,6 +743,7 @@ describe('⚠️ 七个 domain 全部接通（没有落进 default: skip）', ()
       'mealPlan',
       'travelPlan',
       'travelItem',
+      'transaction',
     ];
 
     for (const domain of handled) {

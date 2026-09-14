@@ -9,7 +9,7 @@
 const TOMBSTONES = 'checkin_tombstones'
 
 /**
- * 合法领域白名单（M3 第 6 步由 4 扩到 7）。
+ * 合法领域白名单（M3 第 6 步由 4 扩到 7，M4 第 6 步由 7 扩到 8）。
  *
  * ⚠️ 这份白名单是**双刃**的：它同时管着写入（`buildTombstoneDocs` 对未知 domain
  *    返回 `[]`）与读取（`listTombstones` 用 `isTombstoneDomain` 过滤 `domains`）。
@@ -20,7 +20,8 @@ const TOMBSTONES = 'checkin_tombstones'
  *    由 `tests/tombstone-cloud.test.ts` 与 `tests/tombstone-shared.test.ts` 双向互锁。
  *    新增 domain 必须三处同改：本数组、`SYNC_DOMAINS`、`SyncDomain` 类型。
  *
- * 顺序即「打卡三件套 → 学习两件套 → M3 食谱 / 出行」，纯粹为了可读性，无功能含义。
+ * 顺序即「打卡三件套 → 学习两件套 → M3 食谱 / 出行 → M4 账本」，
+ * 纯粹为了可读性，无功能含义。
  */
 const TOMBSTONE_DOMAINS = [
   'diet',
@@ -30,6 +31,7 @@ const TOMBSTONE_DOMAINS = [
   'mealPlan',
   'travelPlan',
   'travelItem',
+  'transaction',
 ]
 
 /** 墓碑保留窗口（天）：早于该窗口的墓碑不再返回给客户端 */

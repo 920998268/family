@@ -157,7 +157,7 @@ describe('返回给客户端的结构（toClientTombstone）', () => {
 });
 
 describe('领域白名单（isTombstoneDomain）', () => {
-  it('七个领域是全部合法值 —— 与前端 SyncDomain 必须一致（M3 第 6 步：4 → 7）', () => {
+  it('八个领域是全部合法值 —— 与前端 SyncDomain 必须一致（M3 第 6 步：4 → 7；M4 第 6 步：7 → 8）', () => {
     expect(lib.TOMBSTONE_DOMAINS).toEqual([
       'diet',
       'workout',
@@ -166,6 +166,7 @@ describe('领域白名单（isTombstoneDomain）', () => {
       'mealPlan',
       'travelPlan',
       'travelItem',
+      'transaction',
     ]);
     for (const domain of lib.TOMBSTONE_DOMAINS) {
       expect(lib.isTombstoneDomain(domain)).toBe(true);
