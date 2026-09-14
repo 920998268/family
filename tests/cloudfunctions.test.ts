@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
@@ -97,13 +97,27 @@ describe('member 云函数纯逻辑', () => {
  * ⚠️ `index.js` 不受此约束（它本来就 require `checkin-shared` 与 `./lib`）。
  */
 describe('云函数 lib.js 必须自包含（不 require 任何模块）', () => {
-  const LIBS = ['diet', 'workout', 'study', 'family', 'member', 'meal', 'travel'];
+  const LIBS = ['diet', 'workout', 'study', 'family', 'member', 'meal', 'travel', 'ledger'];
 
   it('每个 lib.js 都存在', () => {
     for (const name of LIBS) {
       const file = join(ROOT, `uniCloud-alipay/cloudfunctions/${name}/lib.js`);
       expect(existsSync(file), `${name}/lib.js 不存在`).toBe(true);
     }
+  });
+
+  it('⚠️ 磁盘上每个 lib.js 都已登记进 LIBS（新增云函数不许漏登记）', () => {
+    // 上面两条断言只覆盖 LIBS 里列出的名字 —— 新增一个云函数、写好 lib.js、
+    // 却忘了登记时，它的自包含性**完全没人守**，而且要等下一个人发现问题。
+    // 这里反向扫盘，把「漏登记」变成一条显性失败。
+    const base = join(ROOT, 'uniCloud-alipay/cloudfunctions');
+    const onDisk = readdirSync(base, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((name) => existsSync(join(base, name, 'lib.js')))
+      .sort();
+
+    expect(onDisk, '有 lib.js 但没登记进 LIBS').toEqual([...LIBS].sort());
   });
 
   it('每个 lib.js 里都没有 require 调用', () => {

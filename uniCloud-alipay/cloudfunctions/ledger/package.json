@@ -1,0 +1,10 @@
+{
+  "name": "ledger",
+  "version": "1.0.0",
+  "description": "账本云函数：家庭收支记录（按日期）",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../common/uni-id-common",
+    "checkin-shared": "file:../common/checkin-shared"
+  }
+}

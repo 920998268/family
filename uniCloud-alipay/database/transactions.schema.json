@@ -1,0 +1,71 @@
+{
+  "bsonType": "object",
+  "required": [
+    "familyId",
+    "clientId",
+    "date",
+    "type",
+    "amount",
+    "category",
+    "note"
+  ],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": {
+      "description": "主键（服务端生成）"
+    },
+    "familyId": {
+      "bsonType": "string",
+      "title": "所属家庭空间 ID（服务端从登录态推导，不接受客户端传入）"
+    },
+    "clientId": {
+      "bsonType": "string",
+      "title": "客户端记录 ID，幂等键（家庭内唯一）",
+      "maxLength": 64
+    },
+    "date": {
+      "bsonType": "string",
+      "title": "记账日期 YYYY-MM-DD（字符串，服务端不做时区换算；字典序即时间序）。前端本地存储按它分区",
+      "maxLength": 10
+    },
+    "type": {
+      "bsonType": "string",
+      "title": "收支类型：income（收入）/ expense（支出）"
+    },
+    "amount": {
+      "bsonType": ["int", "double"],
+      "title": "金额 0.01~100000000（声明两种数值类型以兼容驱动落库形式；云函数侧校验范围，与前端 numberError 的边界逐项一致）"
+    },
+    "category": {
+      "bsonType": "string",
+      "title": "分类（必填，非空）。⚠️ 服务端刻意**不做白名单枚举** —— 历史数据里可能出现当前分类常量表以外的值，加白名单会让这些记录导入失败",
+      "maxLength": 20
+    },
+    "memberId": {
+      "bsonType": ["string", "null"],
+      "title": "记账成员（family_members._id；不属于本家庭时服务端置 null）。⚠️ 不可落空串 —— 前端 optionalIdError 把空串判为非法，会让整条记录被静默丢弃"
+    },
+    "note": {
+      "bsonType": "string",
+      "title": "备注（可为空串；⚠️ 不可为 null —— 前端校验器要求字符串，落 null 会让整条记录被静默丢弃）",
+      "maxLength": 100
+    },
+    "createdByUid": {
+      "bsonType": "string",
+      "title": "创建者 uid（审计用）"
+    },
+    "createdAt": {
+      "bsonType": "timestamp",
+      "title": "创建时间（**毫秒时间戳**）"
+    },
+    "updatedAt": {
+      "bsonType": "timestamp",
+      "title": "更新时间"
+    }
+  }
+}
