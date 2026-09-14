@@ -20,6 +20,13 @@ export const STUDY_CHECKIN_KEY_PREFIX = `${STORAGE_PREFIX}.study.checkin.v1.`;
 export const MEAL_PLAN_KEY_PREFIX = `${STORAGE_PREFIX}.meal.v1.`;
 export const TRAVEL_PLANS_KEY = `${STORAGE_PREFIX}.travel.plans.v1`;
 export const TRANSACTION_KEY_PREFIX = `${STORAGE_PREFIX}.ledger.v1.`;
+/**
+ * 上一次「上传本机数据到云端」（M4 数据认领）的结果快照。
+ *
+ * 单独一个键而不是塞进 profile：它是**过程留档**（供页面展示「上次传了多少条」），
+ * 与个人信息无关，`clearAllData()` 清掉它也正合适。
+ */
+export const IMPORT_RECORD_KEY = `${STORAGE_PREFIX}.importRecord.v1`;
 
 export function dietKey(date: string): string {
   return `${DIET_KEY_PREFIX}${date}`;

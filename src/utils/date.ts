@@ -39,6 +39,37 @@ export function isValidDateKey(value: string): boolean {
   return parseDateKey(value) !== null;
 }
 
+const MONTH_KEY_PATTERN = /^(\d{4})-(\d{2})$/;
+
+/**
+ * `YYYY-MM` → 该月的日期区间 `{ from, to }`（含首尾），用于账本的**按月拉取**。
+ *
+ * 账本是全项目唯一按「区间」拉取的域（M2 按单日、M3 全量），因为汇总卡要对
+ * **当前选中月份**的全部记录求和。区间端点由本函数统一算出来，
+ * 而不是在页面里拼字符串 —— 月末是 28/29/30/31 不确定，
+ * 拼错了会**静默少拉几天**（月结余偏小，且没有任何报错指向这里）。
+ *
+ * ⚠️ 格式非法时**抛错**而不是返回一个兜底区间：兜底区间会让云端多拉一段无关数据，
+ *    调用方拿到的其实是一份「看起来正常但不对」的结果。真机下传入的永远是
+ *    `todayKey().slice(0, 7)` 这类良构值，抛错路径正常不会走到。
+ */
+export function monthRange(month: string): { from: string; to: string } {
+  const matched = MONTH_KEY_PATTERN.exec(month);
+  if (!matched) {
+    throw new Error(`月份格式不合法：${month}`);
+  }
+
+  const year = Number(matched[1]);
+  const monthIndex = Number(matched[2]);
+  if (monthIndex < 1 || monthIndex > 12) {
+    throw new Error(`月份格式不合法：${month}`);
+  }
+
+  // `new Date(y, m, 0)` 取「下个月的第 0 天」= 本月最后一天，闰年自动正确
+  const lastDay = new Date(year, monthIndex, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${pad2(lastDay)}` };
+}
+
 export function formatDateKey(value: string): string {
   const date = parseDateKey(value);
   if (!date) {

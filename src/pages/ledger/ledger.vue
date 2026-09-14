@@ -4,6 +4,7 @@ import { onShow } from '@dcloudio/uni-app';
 import { useLedgerStore } from '@/stores/ledger';
 import { useFamilyStore } from '@/stores/family';
 import { summarize } from '@/services/LedgerService';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 import { formatDateKey, todayKey } from '@/utils/date';
 import { formatMoney } from '@/utils/format';
 import type { Transaction } from '@/types/models';
@@ -17,6 +18,10 @@ const filter = ref<TypeFilter>('all');
 const activeMonth = ref(todayKey().slice(0, 7));
 
 const allEntries = computed(() => ledgerStore.entries);
+/**
+ * store 现在只装当前月份（`loadMonth`）—— 这里的月份过滤是**防御性**的：
+ * 它在「切换月份后旧响应到达」这类时序里兜底，不承担主要口径职责。
+ */
 const filteredEntries = computed(() => {
   let list = allEntries.value.filter((entry) =>
     entry.date.startsWith(activeMonth.value),
@@ -40,8 +45,17 @@ const grouped = computed(() => {
 });
 
 onShow(() => {
-  ledgerStore.loadAll();
+  /**
+   * 按月加载：本地先渲染，随后拉取**当月区间**。
+   *
+   * ⚠️ 不能用 `loadAll()`：它只读本地。上云之后别的设备记的账不会出现，
+   *    而本页的汇总卡是对当前选中月份求和的 —— 少拉一个月的数据，
+   *    「本月结余」直接算错，且界面上没有任何东西指向这里。
+   */
+  ledgerStore.loadMonth(activeMonth.value);
   familyStore.load();
+  // 页面之间跳转时 App 不会重新 onShow，积压的待同步要靠数据页自己补一次
+  flushPendingCheckins();
 });
 
 function setFilter(value: TypeFilter): void {

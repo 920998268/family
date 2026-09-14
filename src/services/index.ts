@@ -18,6 +18,7 @@ import { MealService } from './MealService';
 import { TravelService } from './TravelService';
 import { LedgerService } from './LedgerService';
 import { BackupService } from './BackupService';
+import { DataImportService, createImportSender } from './DataImportService';
 import { CheckinSyncService } from './CheckinSyncService';
 import { FavoriteFoodService } from './FavoriteFoodService';
 import { createDietRemoteRepo } from '@/repositories/remote/DietRemoteRepo';
@@ -68,6 +69,20 @@ export function createLedgerService(): LedgerService {
 
 export function createBackupService(): BackupService {
   return new BackupService(getStorageAdapter());
+}
+
+/**
+ * 老数据导入服务（M4 第 7 步）。
+ *
+ * 本机全量刻意复用 `BackupService.export()`：这样「能导入的」与「能备份的」
+ * 永远是同一份数据 —— 少一个 domain 就会表现为「备份里有、导入漏了」，
+ * 而那是用户最难自己发现的一类丢失。
+ */
+export function createDataImportService(): DataImportService {
+  return new DataImportService({
+    exportAll: () => createBackupService().export(),
+    createOne: createImportSender(),
+  });
 }
 
 /** 常用食物服务（纯云端，无本地缓存） */

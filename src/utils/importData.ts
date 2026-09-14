@@ -227,6 +227,24 @@ export function isDuplicatedResult(result: unknown): boolean {
 }
 
 /**
+ * 上一次「上传本机数据到云端」的结果快照（本机留档，供页面展示）。
+ *
+ * 为什么要有 `skippedDuplicates`：本机读取阶段就可能少数据 ——
+ * `parseStoredArray` 会把校验不通过的条目**既不返回也不报错**地滤掉。
+ * 把「拍计划时去重掉了几条」摊开写进快照，用户看到「备份里 300 条、上传 297 条」
+ * 时才有据可查，而不是以为丢数据。
+ */
+export interface CloudImportRecord {
+  /** ISO 时间字符串 */
+  finishedAt: string;
+  attempted: number;
+  created: number;
+  duplicated: number;
+  failed: number;
+  skippedDuplicates: number;
+}
+
+/**
  * 收敛并发上限。
  *
  * 规则（三条都要，缺一条就会出现「看着没问题、真机变慢或打爆」的模糊地带）：

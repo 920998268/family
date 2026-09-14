@@ -7,7 +7,9 @@ import type { TransactionType } from '@/types/models';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/types/models';
 import type { TransactionDraft } from '@/services/LedgerService';
 import { isValidDateKey, todayKey } from '@/utils/date';
+import { LEDGER_LIMITS } from '@/utils/limits';
 import { errorMessage } from '@/utils/error';
+import { flushPendingCheckins } from '@/services/checkinRuntime';
 import MemberSelect from '@/components/MemberSelect.vue';
 
 const ledgerStore = useLedgerStore();
@@ -16,6 +18,9 @@ const familyStore = useFamilyStore();
 const editingId = ref<string | null>(null);
 const date = ref(todayKey());
 const memberId = ref<string | undefined>(undefined);
+
+/** 编辑态：日期**只读**（见 `onDateChange` 与模板上的 picker） */
+const editing = computed(() => editingId.value !== null);
 
 const form = reactive({
   type: 'expense' as TransactionType,
@@ -44,6 +49,9 @@ onLoad((options) => {
 
 onShow(() => {
   familyStore.load();
+  // 页面之间跳转时 App 不会重新 onShow，积压的待同步要靠数据页自己补一次
+  // （与饮食 / 运动 / 学习 / 食谱 / 出行各页的约定一致）
+  flushPendingCheckins();
   if (editingId.value) {
     ledgerStore.loadAll();
     const entry = ledgerStore.entries.find((item) => item.id === editingId.value);
@@ -70,7 +78,23 @@ function onCategoryChange(event: { detail: { value: string | number } }): void {
   form.category = categories.value[index] ?? categories.value[0];
 }
 
+/**
+ * 编辑态**不允许改日期**（新增态可以）。
+ *
+ * ⚠️ 这不是体验取舍，是数据正确性问题：`date` 同时是**本地存储的分区键**
+ *    与**云端按区间拉取的维度**。改日期后 `date.value` 会指向新日期，
+ *    而记录还躺在旧分区里 —— `LedgerService.update` 按 `getByDate(新日期)`
+ *    找不到这条 → 抛「未找到要编辑的收支记录」，删除同理。
+ *    纯本地时代就已经这样（保存失败），上云之后更危险：
+ *    `date` 一旦与本机分区不一致，该记录会在**按区间拉取时凭空消失**。
+ *
+ * 置为只读是最省的做法：用户的实际诉求是「这条记错日期了」，
+ * 删掉重记一次即可；要真正支持「移动」得引入删旧 + 建新 + 墓碑一整套语义。
+ */
 function onDateChange(event: { detail: { value: string } }): void {
+  if (editing.value) {
+    return;
+  }
   date.value = event.detail.value;
 }
 
@@ -182,13 +206,16 @@ function save(): void {
       </view>
 
       <view class="field">
-        <text class="field-label">日期</text>
-        <picker mode="date" :value="date" @change="onDateChange">
+        <text class="field-label">日期{{ editing ? '（不可修改）' : '' }}</text>
+        <picker mode="date" :value="date" :disabled="editing" @change="onDateChange">
           <view class="picker-value">
             <text>{{ date }}</text>
             <text class="picker-arrow">›</text>
           </view>
         </picker>
+        <text v-if="editing" class="field-hint">
+          日期是记录的分区与同步维度。记错日期请删掉重记一笔。
+        </text>
       </view>
 
       <view class="field">
@@ -198,7 +225,12 @@ function save(): void {
 
       <view class="field">
         <text class="field-label">备注（可选）</text>
-        <input v-model="form.note" class="field-control" placeholder="例如：超市买菜" />
+        <input
+          v-model="form.note"
+          class="field-control"
+          placeholder="例如：超市买菜"
+          :maxlength="LEDGER_LIMITS.note"
+        />
       </view>
 
       <view class="form-actions">
@@ -209,3 +241,11 @@ function save(): void {
     </view>
   </view>
 </template>
+
+<style scoped lang="scss">
+.field-hint {
+  margin-top: 8rpx;
+  color: $uni-text-color-grey;
+  font-size: 24rpx;
+}
+</style>
