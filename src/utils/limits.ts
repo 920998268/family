@@ -58,3 +58,17 @@ export const TRAVEL_LIMITS = {
   itemActivity: 40,
   itemNote: 100,
 } as const;
+
+/**
+ * 对应 `cloudfunctions/ledger/lib.js` 的 NOTE_MAX / CATEGORY_MAX（M4 第 2 步落地，
+ * 两端一致性守卫在 M4 第 3 步随 lib 一起接入 `ui-limits.test.ts`）。
+ *
+ * ⚠️ 这两个上限**只用于表单 `:maxlength` 与云端入参校验**，
+ *    **不要**写进 `validateTransaction` —— 本机仓储是「校验不通过即丢弃」，
+ *    给校验器加上限会让**历史里备注超长的整条记录在读取时静默消失**
+ *    （M3 在 `TravelItem.order` 上踩过的同款坑）。
+ */
+export const LEDGER_LIMITS = {
+  note: 100,
+  category: 20,
+} as const;
