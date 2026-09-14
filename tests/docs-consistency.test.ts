@@ -444,8 +444,15 @@ describe('M4 方案文档（账本上云 + 本地数据导入）', () => {
 
   it('记录本轮的三项关键决策', () => {
     expect(source).toContain('新增独立云函数');
-    expect(source).toContain('importAll');
+    expect(source).toContain('限并发');
     expect(source).toContain('0.4.0');
+  });
+
+  it('写明「导入复用既有写接口」是实施期对原方案的修正（避免后人照旧稿实现）', () => {
+    expect(source).toContain('否决');
+    expect(source).toContain('走完全同一条服务端代码路径');
+    // 原方案的批量接口名不该再作为「要做的设计」出现
+    expect(source).not.toContain('导入走新增的批量 action');
   });
 
   it('写明「导入」的方向区分（本期最容易被混淆的一点）', () => {
