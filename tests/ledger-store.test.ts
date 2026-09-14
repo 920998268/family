@@ -331,6 +331,30 @@ describe('源码级守卫', () => {
     expect(source).toMatch(/onShow\(\(\) => \{[\s\S]{0,400}?flushPendingCheckins\(\)/);
   });
 
+  /**
+   * 真机反馈的回归守卫：「本月结余」与收入 / 支出卡片在部分机型上贴在一起
+   * （看起来像结余卡压住了下面那一行）。
+   *
+   * 根因是这两块在模板里是**相邻兄弟节点**，而 `.section` 只是块级容器
+   * （全局样式里没有 flex / gap）→ 默认间距为 0。所以必须由本页给出间距，
+   * 且要用 `margin` 而不是 flex `gap` —— 后者在旧 WebView 上不生效，
+   * 会精确复现「只有部分机型重叠」。
+   */
+  it('⚠️ 结余卡与收入 / 支出卡之间有间距（且不依赖 flex gap）', () => {
+    const source = read('src/pages/ledger/ledger.vue');
+
+    // 取出本页 scoped 样式块
+    const style = source.slice(source.indexOf('<style scoped'), source.lastIndexOf('</style>'));
+    expect(style, '页面没有 scoped 样式块').toBeTruthy();
+
+    // `.stat-card` 规则里必须有 margin-bottom
+    expect(style, '结余卡与收支卡之间没有间距，真机上会贴在一起').toMatch(
+      /\.stat-card\s*\{[^}]*margin-bottom:\s*\d+rpx/,
+    );
+    // 且不能改成 flex gap（旧 WebView 不支持 → 又是「部分机型」才出的问题）
+    expect(style, '间距不能依赖 flex gap').not.toMatch(/gap:\s*\d+rpx[^}]*\.stat-card/);
+  });
+
   it('⚠️ 编辑态日期只读（改日期会让保存 / 删除命中「找不到记录」）', () => {
     const source = read('src/pages/ledger/record.vue');
 

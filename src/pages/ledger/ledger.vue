@@ -164,6 +164,23 @@ function editEntry(entry: Transaction): void {
   margin-top: 24rpx;
 }
 
+/**
+ * ⚠️「本月结余」卡片与下面两张收入 / 支出卡片之间**必须**留出间距。
+ *
+ * 这两块在模板里是**相邻的兄弟节点**，而 `.section` 只是个块级容器
+ *（全局样式里只有 `margin-top`，没有 flex / gap），所以默认间距是 **0** ——
+ * 两张白底圆角卡片会直接贴在一起；余额数字较长或系统字体放大时，
+ * 看起来就像结余卡片压住了收入 / 支出那一行（部分机型更明显）。
+ *
+ * 这里刻意用 `margin-bottom` 而**不是**给容器加 `display: flex; gap`：
+ * flex 的 `gap` 在旧 WebView（iOS < 14.1 / Android WebView < 84）上不生效，
+ * 而那恰好会表现为「只有部分机型重叠」—— 正是本次要修的现象。
+ * margin 是所有 WebView 都支持的最低成本方案。
+ */
+.stat-card {
+  margin-bottom: 24rpx;
+}
+
 .txn-date {
   padding: 18rpx 4rpx 6rpx;
   color: $uni-text-color-grey;

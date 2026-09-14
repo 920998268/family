@@ -322,7 +322,10 @@ async function uploadToCloud(): Promise<void> {
   margin-top: 20rpx;
   padding: 20rpx 24rpx;
   border-radius: 16rpx;
-  background-color: $uni-bg-color-grey;
+  /* ⚠️ 变量必须取自 src/uni.scss 里真实定义的那 9 个 ——
+     uni-app 内置变量名（如 $uni-bg-color-grey）在本项目**不存在**，
+     写了不会报错到运行期，而是**构建直接失败**。 */
+  background-color: $uni-border-color;
 }
 
 .import-record-title {
