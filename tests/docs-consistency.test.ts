@@ -522,15 +522,15 @@ describe('M4 方案文档（账本上云 + 本地数据导入）', () => {
     expect(line).toContain('0.4.0-m4-requirements-and-solution.md');
   });
 
-  it('§7.1 的 transactions 行已校正为 🟡（已实现待部署）且带上 clientId（不再是早期设计稿）', () => {
+  it('§7.1 的 transactions 行已标记为 ✅（已部署验收）且带上 clientId（不再是早期设计稿）', () => {
     const backend = read(BACKEND_DOC);
     const line = backend
       .split(/\r?\n/)
       .find((row) => row.startsWith('| `transactions`')) as string;
     expect(line, '路线图 §7.1 缺少 transactions 行').toBeTruthy();
-    // M4 第 8 步收口后：schema 与云函数都已写完，但尚未上传部署 → 🟡
-    // （部署 + 真机验收通过后应改为 ✅，届时这条断言与 §7.1 一起更新）
-    expect(line).toContain('🟡');
+    // M4 收尾：云端部署 5 项 + 43 条真机用例全部通过 → ✅
+    // （状态列的三个中间态：🚧 方案已定 / 🟡 已实现待部署 / ✅ 已部署验收）
+    expect(line).toContain('✅');
     expect(line).toContain('clientId');
     expect(line).toContain('updatedAt');
   });
@@ -556,15 +556,23 @@ describe('M4 方案文档（账本上云 + 本地数据导入）', () => {
     expect(deploySection).toContain('没有既有云函数需要重传');
   });
 
-  it('§9 落地记录已回填全部 8 个提交号（不再有「待回填」）', () => {
+  it('§9 落地记录已回填全部 8 个提交号（不再有「待回填」/ 占位）', () => {
     const rows = numberedRowsInTable(source, '## 9. 落地记录', '| 步 | 提交 |');
 
     expect(rows).toHaveLength(8);
     for (const row of rows) {
       expect(row, `提交号未回填：${row}`).not.toContain('待回填');
     }
-    // 第 8 步的提交号只能在发布提交产生后回填，此处标注「本收尾提交」是既有约定
-    expect(rows[7]).toContain('本收尾提交');
+
+    // ⚠️ 每一行的第 2 格都必须是**真实的短哈希**。
+    // 只断言「不含『待回填』」不够 —— 写成「（本收尾提交）」这类占位同样能混过去，
+    // 而这一列是「哪一步对应哪个提交」的唯一索引，停在占位上就得翻 git 历史。
+    rows.forEach((row, index) => {
+      const cell = row.split('|')[2]?.trim() ?? '';
+      expect(cell, `第 ${index + 1} 步的提交列不是短哈希：${cell}`).toMatch(
+        /^`[0-9a-f]{7,40}`$/,
+      );
+    });
   });
 });
 
@@ -852,6 +860,19 @@ describe('0.4.0 版本说明', () => {
     expect(source).toMatch(/真机验收（43 条用例）\s*\|\s*(⬜|✅)/);
   });
 
+  it('真机验收结果已回填（不能停留在「待执行」）', () => {
+    // 「已知限制」第一条要写明验收结论，否则发版说明会一直停在「待验收」
+    const limitations = section(source, '## 四、已知限制');
+    expect(limitations, '需写明已验收').toContain('真机用例');
+    expect(limitations, '验收已完成，需写明结论').toContain('全部通过');
+    expect(limitations, '需写明验收日期').toMatch(/2026-09-14/);
+
+    // 发布记录里部署与验收都应为已完成，不该再有 ⬜ 占位
+    expect(source).not.toMatch(/⬜\s*待执行/);
+    expect(source).toMatch(/真机验收（43 条用例）\s*\|\s*✅/);
+    expect(source).toMatch(/云端部署（5 项）\s*\|\s*✅/);
+  });
+
   it('版本说明提到的仓库内路径都真实存在', () => {
     expect(expectReferencedPathsExist(source, '0.4.0 版本说明')).toBeGreaterThan(2);
   });
@@ -960,23 +981,19 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
     expect(m36).toContain('[x]');
   });
 
-  it('M4 在路线图中标记为「实施已收口」，且如实标注部署与验收待执行', () => {
+  it('M4 在路线图中标记为已完成，且写明真机验收通过', () => {
     const line = source.split(/\r?\n/).find((row) => row.includes('### M4')) as string;
     expect(line, '路线图缺少 M4 章节标题').toBeTruthy();
-    expect(line).toContain('实施已收口');
-    // ⚠️ 云端部署与真机验收**未执行**，标题里必须如实标注，不能提前写「已完成」
-    expect(line).toContain('待执行');
+    // M4 收尾后：部署与验收都过了，标题必须翻到「已完成 + 真机验收通过」
+    // （这正是发版收尾最容易漏的一处 —— 状态列/标题没跟着翻）
+    expect(line).toContain('已完成');
+    expect(line).toContain('真机验收通过');
 
-    for (const step of ['M4-2', 'M4-3', 'M4-4', 'M4-5', 'M4-6', 'M4-7']) {
+    for (const step of ['M4-2', 'M4-3', 'M4-4', 'M4-5', 'M4-6', 'M4-7', 'M4-8']) {
       const stepLine = source.split(/\r?\n/).find((row) => row.includes(step)) as string;
       expect(stepLine, `路线图缺少 ${step} 行`).toBeTruthy();
       expect(stepLine, `${step} 应已勾选`).toContain('[x]');
     }
-
-    // M4-8 保持未勾选：清单与收口做完了，但真机验收没做 —— 这就是真实状态。
-    // 验收通过后应改为 [x] 并把 M4 章节标题与 §7.1 的 transactions 一起翻到 ✅。
-    const m48 = source.split(/\r?\n/).find((row) => row.includes('M4-8')) as string;
-    expect(m48).toContain('[ ]');
   });
 
   it('M4 章节写明「本期没有既有云函数需要重传」（与 M3 必须重传 study 相反）', () => {
@@ -987,7 +1004,8 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
 
   it('已真机验收的集合在 §7.1 标记为 ✅（防止状态滞后）', () => {
     // 前 5 个集合随 M2-A / M2-B 于 2026-09-12 验收通过；
-    // 后 3 个随 M3 于 2026-09-14 验收通过。
+    // 中间 3 个随 M3 于 2026-09-14 验收通过；
+    // 最后一个随 M4 于 2026-09-14 验收通过。
     // 状态列（第 2 个单元格）若为 🚧 / 🟡（已实现待部署）即说明文档没跟上实际部署。
     const verified = [
       'diets',
@@ -998,6 +1016,7 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
       'meal_plans',
       'travels',
       'travel_items',
+      'transactions',
     ];
     for (const collection of verified) {
       const line = source.split(/\r?\n/).find((row) => row.startsWith(`| \`${collection}\` `));
