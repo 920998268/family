@@ -104,7 +104,7 @@
 > 且 M2-A 刚建好的基建（鉴权 / 同步服务 / 映射层 / 离线标记）可直接复用，边际成本低；
 > 若并入 M3 会使该阶段变成三个模块，规模过大。
 | **M3 计划模块** | 食谱、出行计划远程化（学习已并入 M2-B 完成） | 两类计划云端持久化 + 双端可见 |
-| **M4 账本与迁移** 🚧 | 收支账本远程化；「本地数据导入云端」入口（方案见 `0.4.0-m4-requirements-and-solution.md`） | 旧本地数据可一键导入，账本云端化 |
+| **M4 账本与迁移** 🚧 | 收支账本远程化；「本地数据导入云端」入口（方案见 `0.4.0-m4-requirements-and-solution.md`，实施已收口、**待部署验收**） | 旧本地数据可一键导入，账本云端化 |
 | **M5 上线** | 体验版/正式版；request 合法域名；隐私政策/用户协议；备份与导出 | 可正式使用，符合平台审核要求 |
 
 > 建议每完成一个阶段就打一个版本标签并推送 GitHub（与现有 v0.2.0 / v0.1.0 分支惯例一致），便于回滚。
@@ -197,7 +197,7 @@ familyRole: string    // owner | member
 | `meal_plans` | ✅ | 家庭食谱（M3） | familyId, clientId, date, slot, dishName, ingredients, cook, done, note, createdByUid, createdAt, updatedAt |
 | `travels` | ✅ | 出行计划（M3） | familyId, clientId, title, startDate, endDate, destination, members, budget, status, note, createdByUid, createdAt, updatedAt |
 | `travel_items` | ✅ | 出行行程明细（M3，主从） | familyId, clientId, travelId, order, time, activity, note, done, createdByUid, createdAt, updatedAt |
-| `transactions` | 🚧 | 收支记录（M4） | familyId, clientId, type(income/expense), amount, category, date, memberId, note, createdByUid, createdAt, updatedAt |
+| `transactions` | 🟡 | 收支记录（M4，已实现待部署） | familyId, clientId, type(income/expense), amount, category, date, memberId, note, createdByUid, createdAt, updatedAt |
 | `sync_meta` | ⬜ | 同步元数据（预留，暂未使用） | familyId, lastSyncAt, dataVersion |
 
 > 对应关系：`family_members` ≈ 现有 `family` store 的成员档案；`diets/workouts` ≈ 现有打卡；`study_*` ≈ 学习；`meal_plans` ≈ 食谱；`travels/travel_items` ≈ 出行；`transactions` ≈ 账本。**前端 `src/types/models.ts` 的现有类型可在加 `familyId`/`clientId` 后复用**。
@@ -221,6 +221,12 @@ familyRole: string    // owner | member
 > 已按 `0.4.0-m4-requirements-and-solution.md` §3.1 重新填写，状态同步改为 🚧。
 > 前三个集合的字段 ↔ schema 纳入文档守卫的工作，留到 M3 第 4 步（schema 建好之后）——
 > 现在加会因 schema 尚不存在而失败。
+>
+> 2026-09-14 收口（M4 第 8 步）：`transactions` 的 schema 与云函数均已写完
+> （`uniCloud-alipay/database/transactions.schema.json` / `uniCloud-alipay/cloudfunctions/ledger`），
+> 状态由 🚧 改为 **🟡 已实现待部署**。**云端部署（5 项）与 43 条真机用例待执行**，
+> 见 `docs/0.4.0-m4-deploy-checklist.md`；验收通过后应改为 ✅。
+> 同时把它的**字段 ↔ schema** 纳入了文档守卫（`tests/docs-consistency.test.ts`）。
 
 ### 7.2 统一字段约定
 ```ts
@@ -460,9 +466,11 @@ src/utils/network.ts          网络状态检测
 > domain 的墓碑，而白名单一直只有 4 个，**读写两条链路一起静默失效且无任何报错**，
 > 直到第 6 步才发现并修掉。
 
-### M4 —— 实施中（方案已确认，2026-09-14 立项）
+### M4 —— 实施已收口（2026-09-14；**云端部署与真机验收待执行**）
 
-方案见 **`docs/0.4.0-m4-requirements-and-solution.md`**。范围＝路线图 §4 的两项：
+方案见 **`docs/0.4.0-m4-requirements-and-solution.md`**，部署与验收见
+**`docs/0.4.0-m4-deploy-checklist.md`**（5 项上传 + 43 条真机用例），
+版本说明 `docs/0.4.0-release-notes.md`。范围＝路线图 §4 的两项：
 
 - [x] M4-1：需求确认与技术方案（2026-09-14）→ 方案文档 `0.4.0-m4-requirements-and-solution.md`
       三项关键决策已定：**新增独立云函数 `ledger`（单表）** / **老数据导入复用各域既有的
@@ -470,13 +478,24 @@ src/utils/network.ts          网络状态检测
       **版本号 0.4.0**；
       另确认「编辑态禁用日期选择器」（`date` 是分区键与拉取维度，不让它变）。
       本步同时校正了 §7.1 的 `transactions` 行。
-- [ ] M4-2：前端原语（`LEDGER_LIMITS`、`prepareImport` 归一、`splitImportBatches` 分批）+ 单测
-- [ ] M4-3：`ledger/lib.js` 纯逻辑（校验 / patch 合并 / 区间查询 / 批量结果结构）+ 单测
-- [ ] M4-4：`ledger/index.js` 路由 + `transactions` schema + 2 条索引 + 单测 + 变异验证
-- [ ] M4-5：前端映射层 + `unicloud` 封装 + `LedgerRemoteRepo` + 单测
-- [ ] M4-6：同步服务扩展（`domain` 7 → 8、区间 pull、push 分支、墓碑分支）+ 单测
-- [ ] M4-7：store 接线 + 记账页日期只读与备注 `:maxlength` + 导入入口 UI + 单测
+- [x] M4-2：前端原语（`LEDGER_LIMITS`、`buildImportPlan` 归一与依赖排序、
+      `runImportPlan` 限并发下发）+ 单测
+- [x] M4-3：`uniCloud-alipay/cloudfunctions/ledger/lib.js` 纯逻辑（校验 / patch 合并 /
+      区间查询 / toClient）+ 单测
+- [x] M4-4：`ledger/index.js` 路由（5 个 action）+ `transactions` schema + 2 条索引
+      + 单测 + 变异验证（9 组全部被捕获）
+- [x] M4-5：前端映射层 + `unicloud` 封装 + `LedgerRemoteRepo` + 单测（含 action 接线守卫）
+- [x] M4-6：同步服务扩展（**`domain` 7 → 8**、日期区间 pull、push 分支、墓碑分支）
+      + 单测（含八 domain 全接通守卫）+ 变异验证（12 组全部被捕获）
+- [x] M4-7：store 接线（`stores/ledger.ts`）+ 记账页日期只读与备注 `:maxlength`
+      + 导入入口 UI（复用备份页）+ 单测 + 变异验证（26 组全部被捕获）
 - [ ] M4-8：部署清单 + 文档收口 + 版本号 **0.4.0** + 真机验收
+      —— **部署清单已产出**：
+      `docs/0.4.0-m4-deploy-checklist.md`（**5 项**上传 + **43 条**真机用例）、
+      版本号三处统一到 **0.4.0**、发布说明 `docs/0.4.0-release-notes.md`。
+      ⬜ **云端部署与真机验收待执行**（5 项上传 + 43 条用例）。
+      同步骤的修复提交：账本页结余卡与收支卡在部分机型贴在一起（改 `margin`）、
+      以及 `build:mp-weixin` 因未定义的 SCSS 变量一直失败。
 
 > 本期有一个「**第一次**」，容易照抄 M2 / M3 出错：
 > 第一个**跨全部 domain 的功能**（老数据导入要同时对接 8 个 domain 的云端写入）。
@@ -485,6 +504,7 @@ src/utils/network.ts          网络状态检测
 > 导入要跨 6 个云函数，只加一个不解决问题、给 6 个都加又要重传 5 个已部署的云函数；
 > 改为复用各域既有的 `create()`，导入与正常写入走**完全同一条服务端代码路径**，
 > `ledger` 的 action 集合因此与 `meal` 完全同构。
+> 这也带来一个部署上的好处：本期**没有既有云函数需要重传**。
 >
 > ⚠️ 账本的拉取通路是**日期区间**（`pullTransactions(from, to)`），不是 M2 的单日、
 > 也不是 M3 的全量 —— 照抄任一个都会让账本页的**月汇总算出偏小的数字**
@@ -494,9 +514,10 @@ src/utils/network.ts          网络状态检测
 > `common/checkin-shared` **必须重传** —— 漏传则账本删除的墓碑读写两条链路一起静默失效
 > （M3 已实测过这个后果，见上）。
 >
-> ⚠️ 《「老数据不主动上云」的四处旧口径》在本期收口时需一并复核：
+> ⚠️ 《「老数据不主动上云」的四处旧口径》随本期收口一并复核：
 > `0.3.2-m2a` 与 `0.3.3-m2b` 的方案文档、`0.3.4` 与 `0.3.5` 的版本说明里都写着
-> 「批量导入留到 M4」—— 本期做完后这些句子从「待办」变成「已完成」。
+> 「批量导入留到 M4」—— 本期已兑现，这四处表述到此全部落地
+> （旧文档保持原样作为历史记录，兑现情况见 `docs/0.4.0-release-notes.md` §一.3）。
 
 ### 之后：M5
 

@@ -27,6 +27,8 @@ const M3_DOC = 'docs/0.3.5-m3-requirements-and-solution.md';
 const M3_CHECKLIST = 'docs/0.3.5-m3-deploy-checklist.md';
 const RELEASE_035 = 'docs/0.3.5-release-notes.md';
 const M4_DOC = 'docs/0.4.0-m4-requirements-and-solution.md';
+const M4_CHECKLIST = 'docs/0.4.0-m4-deploy-checklist.md';
+const RELEASE_040 = 'docs/0.4.0-release-notes.md';
 const BACKEND_DOC = 'docs/backend-uniCloud-implementation.md';
 
 /** 取某个二级标题下的正文（到下一个二级标题为止） */
@@ -356,13 +358,22 @@ describe('版本号三处一致', () => {
   /**
    * 发版时最容易漏的一步：底部的「版本 → 提交」对照表忘了加新版本那一行。
    * 这张表是回退时「切哪个标签」的唯一索引，漏了就得翻 git 历史。
+   *
+   * ⚠️ 允许两种状态：① 已发布 —— 填短哈希；② **收尾提交里版本号已升、
+   * 但发布提交尚未产生**（一次提交不可能自引用自己的哈希）—— 明确写
+   * 「随发布提交回填」占位。两者之外的写法（空单元格 / TODO / 什么都不写）一律失败，
+   * 所以「忘了加这一行」仍然会被抓住；只是不再强迫收尾提交那次必须凭空写出哈希。
    */
   it('版本说明的标签对照表已包含当前版本，且提交号形如短哈希', () => {
     const line = read(`docs/${pkg.version}-release-notes.md`)
       .split(/\r?\n/)
       .find((row) => row.startsWith(`> | v${pkg.version} |`));
     expect(line, `标签对照表缺少 v${pkg.version} 行`).toBeTruthy();
-    expect(line as string, '标签对照表未填提交号').toMatch(/\|\s*`[0-9a-f]{7,40}`\s*\|/);
+
+    const row = line as string;
+    const hasHash = /\|\s*`[0-9a-f]{7,40}`\s*\|/.test(row);
+    const isPending = row.includes('随发布提交回填');
+    expect(hasHash || isPending, '标签对照表未填提交号（也未标注「随发布提交回填」）').toBe(true);
   });
 });
 
@@ -511,15 +522,49 @@ describe('M4 方案文档（账本上云 + 本地数据导入）', () => {
     expect(line).toContain('0.4.0-m4-requirements-and-solution.md');
   });
 
-  it('§7.1 的 transactions 行已校正为 🚧 且带上 clientId（不再是早期设计稿）', () => {
+  it('§7.1 的 transactions 行已校正为 🟡（已实现待部署）且带上 clientId（不再是早期设计稿）', () => {
     const backend = read(BACKEND_DOC);
     const line = backend
       .split(/\r?\n/)
       .find((row) => row.startsWith('| `transactions`')) as string;
     expect(line, '路线图 §7.1 缺少 transactions 行').toBeTruthy();
-    expect(line).toContain('🚧');
+    // M4 第 8 步收口后：schema 与云函数都已写完，但尚未上传部署 → 🟡
+    // （部署 + 真机验收通过后应改为 ✅，届时这条断言与 §7.1 一起更新）
+    expect(line).toContain('🟡');
     expect(line).toContain('clientId');
     expect(line).toContain('updatedAt');
+  });
+
+  it('⚠️ 提到的仓库内路径都真实存在（第 8 步收口时已补上）', () => {
+    expect(expectReferencedPathsExist(source, 'M4 方案文档')).toBeGreaterThan(3);
+  });
+
+  it('8 个步骤全部标记为已完成（收口后不应残留「待开始」）', () => {
+    const rows = numberedRowsInTable(source, '## 7. 实施步骤', '| 步 | 内容 |');
+
+    expect(rows).toHaveLength(8);
+    for (const row of rows) {
+      expect(row, `步骤行未标记完成：${row}`).toContain('已完成');
+    }
+  });
+
+  it('§8 指向部署清单文档，并写明本期共 5 项上传', () => {
+    const deploySection = section(source, '## 8. 部署清单');
+    expect(deploySection).toContain('0.4.0-m4-deploy-checklist.md');
+    expect(deploySection).toContain('5 项');
+    // 与 M3 相反：本期**没有**既有云函数需要重传，最容易照旧习惯多传一遍
+    expect(deploySection).toContain('没有既有云函数需要重传');
+  });
+
+  it('§9 落地记录已回填全部 8 个提交号（不再有「待回填」）', () => {
+    const rows = numberedRowsInTable(source, '## 9. 落地记录', '| 步 | 提交 |');
+
+    expect(rows).toHaveLength(8);
+    for (const row of rows) {
+      expect(row, `提交号未回填：${row}`).not.toContain('待回填');
+    }
+    // 第 8 步的提交号只能在发布提交产生后回填，此处标注「本收尾提交」是既有约定
+    expect(rows[7]).toContain('本收尾提交');
   });
 });
 
@@ -646,6 +691,172 @@ describe('0.3.5 版本说明', () => {
   });
 });
 
+/**
+ * M4 部署清单。守的是「本期最容易漏的一步」与「最容易照旧习惯多传的一步」——
+ * 前者是 `checkin-shared` 必须重传（与 M3 同），后者是**本期没有既有云函数需要重传**
+ *（M3 必须重传 `study`，照旧习惯会白传一遍）。
+ *
+ * 另外守一条 M3 清单里没有的：重传公共模块时白名单必须是 **8 个值的完整集合** ——
+ * `TOMBSTONE_DOMAINS` 是**替换**语义，写成「只剩 `transaction`」会把老模块
+ *（饮食 / 运动 / 学习 / 食谱 / 出行）的删除传播**一起**弄坏，且同样零报错。
+ */
+describe('M4 部署清单（账本上云 + 本地数据导入）', () => {
+  const source = read(M4_CHECKLIST);
+
+  it('列出 5 项上传，且每项都能对上仓库里的真实路径', () => {
+    for (const item of [
+      'uniCloud-alipay/database/transactions.schema.json',
+      'uniCloud-alipay/cloudfunctions/ledger',
+      'uniCloud-alipay/cloudfunctions/common/checkin-shared',
+      'uniCloud-alipay/database/checkin_tombstones.schema.json',
+    ]) {
+      expect(source, `清单缺少 ${item}`).toContain(item);
+    }
+    expect(source).toContain('本期需要上传 5 项');
+    expect(source).toContain('2 条索引');
+  });
+
+  it('⚠️ 显式写明 checkin-shared 必须重传，以及漏传的后果（双刃白名单）', () => {
+    expect(source).toContain('checkin-shared');
+    expect(source).toContain('必须重传');
+    // 白名单是双刃的：写与读两条链路会一起失效
+    expect(source).toMatch(/buildTombstoneDocs[\s\S]{0,200}listTombstones/);
+    expect(source).toContain('静默');
+  });
+
+  it('⚠️ 要求确认白名单是 8 个值的**完整集合**（写漏会把老模块一起弄坏）', () => {
+    // 这是 M4 清单新增的一条，M3 清单里没有：`TOMBSTONE_DOMAINS` 是替换语义，
+    // 只写 `transaction` 会让 diet/workout/study/mealPlan/travelPlan/travelItem
+    // 六个 domain 的删除传播一起失效。
+    expect(source).toContain('完整集合');
+    expect(source).toMatch(/老模块[\s\S]{0,120}(删除|传播)/);
+    // 必须真的给出一条老模块的回归验证动作
+    expect(source).toMatch(/删一条饮食打卡/);
+  });
+
+  it('⚠️ 写明 listTombstones 返回空数组「不能」说明白名单生效，并给出专项验证步骤', () => {
+    expect(source).toContain('墓碑通路专项验证');
+    expect(source).toContain('checkin_tombstones');
+    expect(source).toContain(`domain: 'transaction'`);
+  });
+
+  it('写明「本期没有既有云函数需要重传」（与 M3 必须重传 study 相反）', () => {
+    expect(source).toContain('既有云函数需要重传');
+    // 与 M3 的对照必须写出来，否则容易被照旧习惯多传一遍
+    expect(source).toMatch(/与 M3 的差别/);
+    expect(source).toContain('study');
+  });
+
+  it('复述「不要用批量上传」的警示', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+    expect(source).toContain('Invalid uni-id config file');
+  });
+
+  it('索引 2 条、familyId 必须放第一位、并标明其中一条是唯一索引', () => {
+    expect(source).toContain('idx_family_client');
+    expect(source).toContain('idx_family_date');
+    expect(source).toMatch(/familyId[\s\S]{0,40}必须放第一位/);
+    expect(source).toContain('唯一');
+    // 建唯一索引前表里不能有重复值这个前提也要写上
+    expect(source).toContain('重复');
+  });
+
+  it('真机验收用例齐备，且含本期两个重点：老数据导入 与 卡片布局回归', () => {
+    expect(source).toContain('真机验收用例');
+    expect(source).toContain('老数据导入');
+    expect(source).toContain('历史数据不丢');
+    expect(source).toContain('回滚');
+
+    // 本次修复的回归项
+    expect(source).toContain('卡片不重合');
+    // ⚠️ 间距必须用 margin 而不是 flex gap —— 旧 WebView 不支持 gap，
+    // 用 gap 会在「部分机型」原样复现这个 bug
+    expect(source).toMatch(/`margin`[\s\S]{0,40}`gap`|`gap`[\s\S]{0,40}`margin`/);
+  });
+
+  it('导入的验收要点写全（拦未登录 / 幂等 / 不排待同步标记 / 报数）', () => {
+    expect(source).toContain('已在云端');
+    expect(source).toContain('pendingSync');
+    expect(source).toMatch(/幂等/);
+    expect(source).toContain('上传到云端');
+  });
+
+  it('提到的仓库内路径都真实存在', () => {
+    expect(expectReferencedPathsExist(source, 'M4 部署清单')).toBeGreaterThan(3);
+  });
+});
+
+/**
+ * 0.4.0 发布说明。体例与 0.3.4 / 0.3.5 保持一致（章节名固定），
+ * 这样「版本说明该写什么」不依赖记忆。
+ */
+describe('0.4.0 版本说明', () => {
+  const source = read(RELEASE_040);
+
+  it('保留与上一版一致的章节体例', () => {
+    for (const heading of [
+      '## 版本概述',
+      '## 一、新增能力',
+      '## 二、Bug 修复',
+      '## 三、优化改进',
+      '## 四、已知限制',
+      '## 五、升级与发布说明',
+    ]) {
+      expect(source, `版本说明缺少章节：${heading}`).toContain(heading);
+    }
+  });
+
+  it('写明本期新增的集合与云函数', () => {
+    expect(source).toContain('transactions');
+    expect(source).toContain('`ledger`');
+  });
+
+  it('复述「checkin-shared 必须重传」这条部署要点', () => {
+    expect(source).toContain('checkin-shared');
+    expect(source).toContain('TOMBSTONE_DOMAINS');
+    expect(source).toContain('必须重传');
+  });
+
+  it('写明本期**没有**既有云函数需要重传（与 M3 相反）', () => {
+    expect(source).toContain('既有云函数需要重传');
+    expect(source).toContain('study');
+  });
+
+  it('把「老数据导入」列为本期最大的改动，并写明五条性质', () => {
+    for (const keyword of ['幂等', '逐条独立', '不排待同步标记', '报数不静默', '可重入']) {
+      expect(source, `版本说明缺少导入性质：${keyword}`).toContain(keyword);
+    }
+    // 方向区分（本机 → 云 / 云 → 本机）是最容易混淆的一点
+    expect(source).toContain('本机 → 云');
+  });
+
+  it('如实记录本次修复的两个缺陷（卡片重合 / SCSS 变量导致构建失败）', () => {
+    expect(source).toContain('结余');
+    expect(source).toContain('margin');
+    expect(source).toContain('gap');
+    // ⚠️ 「npm test + type-check 全绿 ≠ 能发版」这条教训必须写下来
+    expect(source).toContain('uni-bg-color-grey');
+    expect(source).toMatch(/不编译\s*SCSS/);
+  });
+
+  it('复述「不要用批量上传」的警示', () => {
+    expect(source).toContain('上传所有云函数、公共模块及 actions');
+    expect(source).toContain('Invalid uni-id config file');
+  });
+
+  it('部署与验收状态明确（未执行时必须显式标注待执行，不得含糊）', () => {
+    // ⚠️ 这是一条**状态型**断言，不是「待办型」：它接受「待执行」与「已完成」
+    // 两种合法状态，所以真机验收通过后**不需要回来翻转**它
+    // （0.3.5 第 8 步写的「未完成项必须标为待执行」在验收后必然失败，那是一类要翻转的守卫）。
+    expect(source).toMatch(/云端部署（5 项）\s*\|\s*(⬜|✅)/);
+    expect(source).toMatch(/真机验收（43 条用例）\s*\|\s*(⬜|✅)/);
+  });
+
+  it('版本说明提到的仓库内路径都真实存在', () => {
+    expect(expectReferencedPathsExist(source, '0.4.0 版本说明')).toBeGreaterThan(2);
+  });
+});
+
 describe('后端实施文档的集合清单与实际 schema 一致', () => {
   const source = read(BACKEND_DOC);
 
@@ -704,6 +915,12 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
       schema: 'uniCloud-alipay/database/travel_items.schema.json',
       min: 11,
     },
+    // M4（第 4 步落地）。该集合尚未部署，所以也不在「已真机验收」的名单里。
+    {
+      collection: 'transactions',
+      schema: 'uniCloud-alipay/database/transactions.schema.json',
+      min: 11,
+    },
   ];
 
   for (const item of cases) {
@@ -741,6 +958,31 @@ describe('后端实施文档的集合清单与实际 schema 一致', () => {
     const m36 = source.split(/\r?\n/).find((row) => row.includes('M3-6')) as string;
     expect(m36, '路线图缺少 M3-6 行').toBeTruthy();
     expect(m36).toContain('[x]');
+  });
+
+  it('M4 在路线图中标记为「实施已收口」，且如实标注部署与验收待执行', () => {
+    const line = source.split(/\r?\n/).find((row) => row.includes('### M4')) as string;
+    expect(line, '路线图缺少 M4 章节标题').toBeTruthy();
+    expect(line).toContain('实施已收口');
+    // ⚠️ 云端部署与真机验收**未执行**，标题里必须如实标注，不能提前写「已完成」
+    expect(line).toContain('待执行');
+
+    for (const step of ['M4-2', 'M4-3', 'M4-4', 'M4-5', 'M4-6', 'M4-7']) {
+      const stepLine = source.split(/\r?\n/).find((row) => row.includes(step)) as string;
+      expect(stepLine, `路线图缺少 ${step} 行`).toBeTruthy();
+      expect(stepLine, `${step} 应已勾选`).toContain('[x]');
+    }
+
+    // M4-8 保持未勾选：清单与收口做完了，但真机验收没做 —— 这就是真实状态。
+    // 验收通过后应改为 [x] 并把 M4 章节标题与 §7.1 的 transactions 一起翻到 ✅。
+    const m48 = source.split(/\r?\n/).find((row) => row.includes('M4-8')) as string;
+    expect(m48).toContain('[ ]');
+  });
+
+  it('M4 章节写明「本期没有既有云函数需要重传」（与 M3 必须重传 study 相反）', () => {
+    const m4Section = source.slice(source.indexOf('### M4'), source.indexOf('### 之后：M5'));
+    expect(m4Section).toContain('没有既有云函数需要重传');
+    expect(m4Section).toContain('0.4.0-m4-deploy-checklist.md');
   });
 
   it('已真机验收的集合在 §7.1 标记为 ✅（防止状态滞后）', () => {
