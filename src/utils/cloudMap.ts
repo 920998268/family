@@ -6,13 +6,21 @@ import type {
   StudyCheckin,
   StudyFrequency,
   StudyPlan,
+  Transaction,
+  TransactionType,
   TravelItem,
   TravelPlan,
   TravelStatus,
   WorkoutEntry,
   WorkoutSet,
 } from '@/types/models';
-import { isMealType, isStudyFrequency, isTravelStatus, isWorkoutCategory } from '@/utils/storageKeys';
+import {
+  isMealType,
+  isStudyFrequency,
+  isTransactionType,
+  isTravelStatus,
+  isWorkoutCategory,
+} from '@/utils/storageKeys';
 import { normalizeWorkoutCategory } from '@/utils/workout';
 import { toIsoString } from '@/utils/date';
 import { normalizeStudyNote } from '@/utils/study';
@@ -23,6 +31,7 @@ import {
   validateMealPlan,
   validateStudyCheckin,
   validateStudyPlan,
+  validateTransaction,
   validateTravelItem,
   validateTravelPlan,
   validateWorkoutEntry,
@@ -135,6 +144,26 @@ export type CloudTravelItemPayload = {
   activity: string;
   note: string;
   done: boolean;
+};
+
+/**
+ * 上行：前端收支记录 → `ledger` 云函数入参（M4）。
+ *
+ * ⚠️ 同样必须用 `type` 而不是 `interface`，原因见 `CloudDietPayload` 注释。
+ *
+ * ⚠️ `memberId` 是 `string | null`，**不是** `string`：它是 id 型可选字段，
+ *    上行必须显式写 `null`（`callFunction` 走 JSON，`undefined` 键会被丢掉），
+ *    而前端 `optionalIdError` 把**空串**判为非法 —— 落空串会让整条记录被
+ *    本机仓储静默丢弃。这是本项目最隐蔽的一类丢数据。
+ */
+export type CloudTransactionPayload = {
+  clientId: string;
+  date: string;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  memberId: string | null;
+  note: string;
 };
 
 /** 可选数值：`undefined` / `null` / 空串一律上行为 null（显式清空） */
@@ -347,6 +376,32 @@ export function toCloudTravelItem(
     activity: asString(item.activity),
     note: asString(item.note),
     done: item.done === true,
+  };
+}
+
+/**
+ * 前端收支记录 → `ledger` 云函数入参（M4）。
+ *
+ * `amount` 上传前收敛成有限数（不成立时按 0）：0 不在云端的合法区间（≥ 0.01）内，
+ * 会被 `validateTransactionPayload` **明确报错**，而不是静默塞一个看似合法的值。
+ * 本地能存出来、云端只可能是「数据被人工改过」，这种情况要吵出来，不要糊过去。
+ * （与 `toCloudTravelPlan` 的 `budget` 同口径：`Number.isFinite ? v : 0`。）
+ *
+ * `type` 原样透传：本机校验器已经保证它是 `income | expense`，
+ * 这里再兜底一次只会在两端各自维护一份兜底规则（与 `toCloudMeal` 的 `slot` 同口径）。
+ *
+ * ⚠️ 不上行 `createdAt` / `updatedAt`：由服务端 `Date.now()` 决定
+ *（同 `toCloudMeal`，客户端时钟偏差会污染服务端排序）。
+ */
+export function toCloudTransaction(entry: Transaction): CloudTransactionPayload {
+  return {
+    clientId: entry.id,
+    date: entry.date,
+    type: entry.type,
+    amount: Number.isFinite(entry.amount) ? entry.amount : 0,
+    category: asString(entry.category),
+    memberId: upId(entry.memberId),
+    note: asString(entry.note),
   };
 }
 
@@ -586,4 +641,42 @@ export function mapCloudTravelPlans(rows: unknown): TravelPlan[] {
 /** 云端行程明细列表 → 前端数组（`listItems(travelId)` 的权威通路） */
 export function mapCloudTravelItems(rows: unknown): TravelItem[] {
   return mapRows(rows, fromCloudTravelItem, (v) => validateTravelItem(v).valid, 'travel_items');
+}
+
+// ---------- M4：账本（下行） ----------
+
+/**
+ * 云端收支记录 → 前端 `Transaction`。
+ *
+ * 服务端 `toClientTransaction` 已经把 `note` 收敛成字符串、非法 `type` 兜底成
+ * `expense`、越界金额兜底到边界值；这里再做一次同口径收敛，是因为映射层也吃
+ * **裸库文档**（任何一处落 `null` 都会被 `validateTransaction` 判非法）。
+ *
+ * ⚠️ 金额兜底与云端**刻意不同**：这里落 `0`，而云端落 `0.01`。
+ *    两边分工不同 ——
+ *    - 云端是跨设备的权威副本，它的产物必须**总是良构**（宁可兜到边界值也不让记录消失）；
+ *    - 映射层只做**类型收敛 + 校验**，它的兜底值必须是该字段的**合法值**
+ *      （`fromCloudTravelPlan` 的 `budget ?? 0`、`fromCloudTravelItem` 的 `order ?? 0`
+ *      都满足这一点：0 对它们是合法值）。金额没有「安全的合法兜底」——
+ *      任何正数都是凭空造一笔钱，所以落 0 交给 `mapRows` 显性丢弃并打 warn。
+ *    → 规则：**映射层不许凭空造出合法数据**，造不出来就让它不合法地被丢掉（有日志）。
+ */
+export function fromCloudTransaction(row: unknown): Transaction {
+  const doc = (row || {}) as Record<string, unknown>;
+
+  return {
+    id: asString(doc.id) || asString(doc.clientId) || asString(doc._id),
+    type: isTransactionType(doc.type) ? doc.type : 'expense',
+    amount: downNumber(doc.amount) ?? 0,
+    category: asString(doc.category),
+    date: asString(doc.date),
+    // id 型可选字段：缺省落 `undefined`（**不是**空串 —— `optionalIdError` 判空串非法）
+    memberId: asString(doc.memberId) || undefined,
+    note: asString(doc.note),
+  };
+}
+
+/** 云端收支记录列表 → 前端数组（按日期区间拉取的通路，见 §3.4） */
+export function mapCloudTransactions(rows: unknown): Transaction[] {
+  return mapRows(rows, fromCloudTransaction, (v) => validateTransaction(v).valid, 'transactions');
 }

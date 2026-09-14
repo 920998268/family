@@ -9,6 +9,7 @@ import type {
   MealPlan,
   StudyCheckin,
   StudyPlan,
+  Transaction,
   TravelItem,
   TravelPlan,
   WorkoutEntry,
@@ -19,6 +20,7 @@ import {
   mapCloudMealPlans,
   mapCloudStudyCheckins,
   mapCloudStudyPlans,
+  mapCloudTransactions,
   mapCloudTravelItems,
   mapCloudTravelPlans,
   mapCloudWorkouts,
@@ -26,6 +28,7 @@ import {
   toCloudMeal,
   toCloudStudyCheckin,
   toCloudStudyPlan,
+  toCloudTransaction,
   toCloudTravelItem,
   toCloudTravelPlan,
   toCloudWorkout,
@@ -681,4 +684,68 @@ export async function removeCloudTravelItem(clientId: string): Promise<{ removed
 /** 增量拉取本家庭的出行墓碑，**一次返回计划与明细两类**（主从同函数） */
 export async function listCloudTravelTombstones(since?: number): Promise<Tombstone[]> {
   return parseTombstones(await callTravel('listTombstones', { since: since ?? 0 }));
+}
+
+/**
+ * 调用 ledger 云函数（收支账本，M4）
+ *
+ * 一张表、一个云函数：账本没有从属实体，不存在「子记录要校验父存在 /
+ * 删父要级联删子」的关系（判据见方案 §2.1），所以与 diet / meal 同构。
+ *
+ * ⚠️ action 集合与 meal 完全一致，**没有批量导入接口**：老数据导入复用 `add`，
+ *    由客户端限并发逐条下发（§2.1 决策 3）—— 所以这里也不该出现 import* 方法。
+ *
+ * ⚠️ 必须走 getCloud()，裸 `uniCloud.callFunction` 会命中框架静态快照而必然失败。
+ */
+async function callLedger(action: string, payload: Record<string, unknown> = {}): Promise<any> {
+  const res = await getCloud().callFunction({
+    name: 'ledger',
+    data: { action, ...payload },
+  });
+  const result = res.result;
+  if (result?.code !== 0) {
+    throw new Error(cloudErrorText(result, `ledger 云函数 [${action}] 调用失败`));
+  }
+  return result.data;
+}
+
+/**
+ * 拉取**日期区间**内的收支记录。
+ *
+ * ⚠️ `from` / `to` **两个都要传**（云端 `validateTransactionQuery` 强制）：
+ *    账本的读取口径是「某个月」—— `ledger.vue` 的汇总卡（收入 / 支出 / 结余）
+ *    是对**当前选中月份**的全部记录求和，只拉当天会让月汇总基于残缺数据
+ *    算出明显偏小的数字（用户会直接怀疑「我的账是不是记错了」）。
+ *    只给一端就是无界查询，正是设计上明确否掉的那件事（见 §3.4）。
+ */
+export async function listCloudTransactions(from: string, to: string): Promise<Transaction[]> {
+  return mapCloudTransactions(await callLedger('list', { from, to }));
+}
+
+/** 新增收支记录（以 entry.id 作为 clientId，服务端幂等） */
+export async function addCloudTransaction(entry: Transaction): Promise<CloudWriteResult> {
+  return callLedger('add', toCloudTransaction(entry));
+}
+
+/** 更新收支记录（以 entry.id 定位；`date` 由服务端从既有记录取，patch 里的会被忽略） */
+export async function updateCloudTransaction(entry: Transaction): Promise<void> {
+  return callLedger('update', toCloudTransaction(entry));
+}
+
+/**
+ * 删除收支记录（服务端幂等：记录不存在也返回成功）。
+ *
+ * `date` 是可选的**兜底信息**：云端优先用记录自身的日期写墓碑，
+ * 只有记录已不存在（重试场景）时才用它。语义同 `removeCloudDiet`。
+ */
+export async function removeCloudTransaction(
+  clientId: string,
+  date?: string,
+): Promise<{ removed: boolean }> {
+  return callLedger('remove', date ? { clientId, date } : { clientId });
+}
+
+/** 增量拉取本家庭的账本墓碑（语义同 `listCloudDietTombstones`） */
+export async function listCloudTransactionTombstones(since?: number): Promise<Tombstone[]> {
+  return parseTombstones(await callLedger('listTombstones', { since: since ?? 0 }));
 }
